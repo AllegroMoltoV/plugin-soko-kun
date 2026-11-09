@@ -302,7 +302,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'What is stored',
           paragraphs: [
-            'When you sign in to submit a plugin, the service stores your GitHub user ID and login name, and the GitHub access token needed to check your repository permissions. The token is stored encrypted and is used only to check permissions on the repositories you submit.',
+            'When you sign in to submit a plugin, the service stores your GitHub user ID and login name, and the GitHub access token needed to check your repository permissions, together with the refresh token used to renew it. The tokens are stored encrypted and are used only to check permissions on the repositories you submit.',
             'To limit abuse, the service stores a one-way hash of your IP address for a short time. Browsing the catalog does not require cookies, except one that remembers your language choice.',
           ],
         },
@@ -596,7 +596,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '保存する情報',
           paragraphs: [
-            'プラグインを登録するためにサインインすると、このプラットフォームは GitHub のユーザー ID とログイン名と、リポジトリの権限の確認に使う GitHub のアクセストークンを保存します。このプラットフォームはトークンを暗号化して保存し、登録したリポジトリの権限の確認にだけ使います。',
+            'プラグインを登録するためにサインインすると、このプラットフォームは GitHub のユーザー ID とログイン名と、リポジトリの権限の確認に使う GitHub のアクセストークンと、その更新に使うリフレッシュトークンを保存します。このプラットフォームはトークンを暗号化して保存し、登録したリポジトリの権限の確認にだけ使います。',
             'このプラットフォームは乱用を防ぐため、IP アドレスを一方向のハッシュにして短期間保存します。カタログの閲覧では、選んだ言語を覚える cookie のほかは使いません。',
           ],
         },
@@ -875,7 +875,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '保存的信息',
           paragraphs: [
-            '为提交插件而登录时，本服务会保存您的 GitHub 用户 ID 和登录名，以及用于确认仓库权限的 GitHub 访问令牌。令牌加密保存，仅用于确认您所提交仓库的权限。',
+            '为提交插件而登录时，本服务会保存您的 GitHub 用户 ID 和登录名，以及用于确认仓库权限的 GitHub 访问令牌和用于更新该令牌的刷新令牌。令牌加密保存，仅用于确认您所提交仓库的权限。',
             '为防止滥用，本服务会将 IP 地址进行单向哈希后短期保存。浏览目录时，除记住语言选择的 cookie 外不使用其他 cookie。',
           ],
         },
@@ -1148,7 +1148,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '保存的資訊',
           paragraphs: [
-            '為提交外掛而登入時，本服務會保存您的 GitHub 使用者 ID 與登入名稱，以及用於確認儲存庫權限的 GitHub 存取權杖。權杖加密保存，僅用於確認您所提交儲存庫的權限。',
+            '為提交外掛而登入時，本服務會保存您的 GitHub 使用者 ID 與登入名稱，以及用於確認儲存庫權限的 GitHub 存取權杖與用於更新該權杖的重新整理權杖。權杖加密保存，僅用於確認您所提交儲存庫的權限。',
             '為防止濫用，本服務會將 IP 位址進行單向雜湊後短期保存。瀏覽目錄時，除記住語言選擇的 cookie 外不使用其他 cookie。',
           ],
         },
@@ -1433,7 +1433,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '저장하는 정보',
           paragraphs: [
-            '플러그인 등록을 위해 로그인하면 GitHub 사용자 ID와 로그인 이름, 저장소 권한 확인에 쓰는 GitHub 액세스 토큰을 저장합니다. 토큰은 암호화하여 저장하며, 등록한 저장소의 권한 확인에만 사용합니다.',
+            '플러그인 등록을 위해 로그인하면 GitHub 사용자 ID와 로그인 이름, 저장소 권한 확인에 쓰는 GitHub 액세스 토큰과 그 갱신에 쓰는 리프레시 토큰을 저장합니다. 토큰은 암호화하여 저장하며, 등록한 저장소의 권한 확인에만 사용합니다.',
             '남용을 막기 위해 IP 주소를 단방향 해시로 바꾸어 짧은 기간 저장합니다. 카탈로그 열람에서는 선택한 언어를 기억하는 쿠키 외에는 사용하지 않습니다.',
           ],
         },
@@ -1729,7 +1729,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'O que é armazenado',
           paragraphs: [
-            'Ao entrar para enviar um plugin, o serviço armazena seu ID de usuário e nome de login do GitHub, além do token de acesso do GitHub necessário para verificar as permissões do repositório. O token é armazenado criptografado e usado apenas para verificar permissões nos repositórios que você envia.',
+            'Ao entrar para enviar um plugin, o serviço armazena seu ID de usuário e nome de login do GitHub, além do token de acesso do GitHub necessário para verificar as permissões do repositório e do token de atualização usado para renová-lo. Os tokens são armazenados criptografados e usados apenas para verificar permissões nos repositórios que você envia.',
             'Para limitar abusos, o serviço armazena por pouco tempo um hash irreversível do seu endereço IP. Navegar pelo catálogo não usa cookies, exceto um que lembra o idioma escolhido.',
           ],
         },
@@ -2028,7 +2028,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Qué se guarda',
           paragraphs: [
-            'Al iniciar sesión para enviar un plugin, el servicio guarda tu ID de usuario y nombre de inicio de sesión de GitHub, y el token de acceso de GitHub necesario para revisar los permisos del repositorio. El token se guarda cifrado y solo se usa para revisar permisos en los repositorios que envías.',
+            'Al iniciar sesión para enviar un plugin, el servicio guarda tu ID de usuario y nombre de inicio de sesión de GitHub, y el token de acceso de GitHub necesario para revisar los permisos del repositorio, junto con el token de actualización usado para renovarlo. Los tokens se guardan cifrados y solo se usan para revisar permisos en los repositorios que envías.',
             'Para limitar abusos, el servicio guarda por poco tiempo un hash irreversible de tu dirección IP. Navegar por el catálogo no usa cookies, salvo una que recuerda el idioma elegido.',
           ],
         },

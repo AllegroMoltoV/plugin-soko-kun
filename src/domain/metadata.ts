@@ -1,4 +1,4 @@
-// GitHub の情報から、表示と検索に使う値を推定する。推定できない場合は不明のままにする。
+// GitHub の情報から、表示と検索に使う値を推定する。対応 OS は推定できなければ null、カテゴリは other にする。
 export const CATEGORIES = [
   'audio-filter',
   'video-filter',

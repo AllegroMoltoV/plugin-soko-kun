@@ -17,7 +17,7 @@ export interface PluginForStatus {
 export type ScanLookup = (digest: string, scanner: Scanner) => ScanResult | undefined;
 
 export interface StatusPolicy {
-  // VirusTotal に未登録のハッシュの扱い。依頼者の判断待ちのため、既定では検査済みとみなさない。
+  // VirusTotal に未登録のハッシュの扱い。ADR 0006 により、既定では検査済みとみなさない。
   virustotalNotFound: 'unverified' | 'clean';
 }
 

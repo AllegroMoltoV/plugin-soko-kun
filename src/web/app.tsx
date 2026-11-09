@@ -176,7 +176,10 @@ app.get('/plugins/:owner/:repo', async (c) => {
   const sameCategory = related.filter((v) => v.category === view.category && !sameAuthor.includes(v)).slice(0, 5);
   const response = c.html(
     <Layout
-      meta={meta(c, lang, view.repo, view.summary ?? t.notice, { currentCategory: view.category })}
+      // 掲載中以外のプラグインでは、外部データの概要を検索エンジン向けの説明にも出さない。
+      meta={meta(c, lang, view.repo, (view.status === 'listed' ? view.summary : null) ?? t.notice, {
+        currentCategory: view.category,
+      })}
       side={
         <>
           <SideRelated t={t} lang={lang} sameAuthor={sameAuthor} sameCategory={sameCategory} collapsible={false} />
