@@ -49,6 +49,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Example requests: "Find a pitch shift plugin that works on Windows", "Register the OBS plugin in this GitHub repository".',
           ],
         },
+        {
+          heading: 'Supporting development',
+          paragraphs: [
+            'Plugin Soko-kun is free to use. If you would like to help with its running costs and development, you can sponsor the developer on GitHub Sponsors: https://github.com/sponsors/AllegroMoltoV',
+            'Sponsoring is optional. It has no effect on how plugins are listed or checked.',
+          ],
+        },
       ],
     },
     policy: {
@@ -331,6 +338,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '検索と詳細取得については、GitHub サインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインしてください (Claude Code では /mcp を実行)。なおこのプラットフォーム自体が GitHub リポジトリへの書き込み権限を取得することはありません。',
             '話しかけ方の例:「Windows で動くピッチシフトのプラグインを探して」「この GitHub リポジトリの OBS プラグインを登録して」',
+          ],
+        },
+        {
+          heading: '開発の支援',
+          paragraphs: [
+            '配信プラグイン倉庫くんは無料で使えます。運営費と開発を支援していただける場合は、GitHub Sponsors で開発者を支援できます: https://github.com/sponsors/AllegroMoltoV',
+            '支援は任意です。支援の有無は、プラグインの掲載と検査に影響しません。',
           ],
         },
       ],
@@ -621,6 +635,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '示例：“帮我找一个能在 Windows 上使用的变调插件”“把这个 GitHub 仓库的 OBS 插件登记上去”',
           ],
         },
+        {
+          heading: '支持开发',
+          paragraphs: [
+            '配信プラグイン倉庫くん可以免费使用。如果您愿意支持运营费用和开发，可以通过 GitHub Sponsors 赞助开发者：https://github.com/sponsors/AllegroMoltoV',
+            '赞助完全自愿，不会影响插件的收录和检查。',
+          ],
+        },
       ],
     },
     policy: {
@@ -885,6 +906,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '範例：「幫我找一個能在 Windows 上使用的變調外掛」「把這個 GitHub 儲存庫的 OBS 外掛登記上去」',
           ],
         },
+        {
+          heading: '支持開發',
+          paragraphs: [
+            '配信プラグイン倉庫くん可以免費使用。如果您願意支持營運費用和開發，可以透過 GitHub Sponsors 贊助開發者：https://github.com/sponsors/AllegroMoltoV',
+            '贊助完全自願，不會影響外掛的收錄和檢查。',
+          ],
+        },
       ],
     },
     policy: {
@@ -1147,6 +1175,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '검색과 상세 조회는 GitHub 로그인 없이 사용할 수 있습니다. 저장소를 등록할 때는 MCP 클라이언트에서 GitHub로 로그인합니다(Claude Code에서는 /mcp 실행). 이 플랫폼 자체가 GitHub 저장소에 대한 쓰기 권한을 얻는 일은 없습니다.',
             '예: "Windows에서 동작하는 피치 시프트 플러그인을 찾아 줘", "이 GitHub 저장소의 OBS 플러그인을 등록해 줘"',
+          ],
+        },
+        {
+          heading: '개발 후원',
+          paragraphs: [
+            '配信プラグイン倉庫くん은 무료로 사용할 수 있습니다. 운영비와 개발을 후원하고 싶다면 GitHub Sponsors에서 개발자를 후원할 수 있습니다: https://github.com/sponsors/AllegroMoltoV',
+            '후원은 선택 사항입니다. 후원 여부는 플러그인의 게재와 검사에 영향을 주지 않습니다.',
           ],
         },
       ],
@@ -1426,6 +1461,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Buscar e ver detalhes funciona sem login no GitHub. Para enviar um repositório, entre com o GitHub pelo cliente MCP (no Claude Code, execute /mcp). Esta plataforma em si nunca recebe acesso de escrita aos seus repositórios do GitHub.',
             'Exemplos: "Encontre um plugin de pitch shift que funcione no Windows", "Registre o plugin do OBS deste repositório do GitHub".',
+          ],
+        },
+        {
+          heading: 'Apoiar o desenvolvimento',
+          paragraphs: [
+            'O Plugin Soko-kun é gratuito. Se quiser ajudar com os custos de operação e o desenvolvimento, você pode patrocinar o desenvolvedor no GitHub Sponsors: https://github.com/sponsors/AllegroMoltoV',
+            'O patrocínio é opcional e não afeta a listagem nem a verificação dos plugins.',
           ],
         },
       ],
@@ -1716,6 +1758,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Buscar y ver detalles funciona sin iniciar sesión en GitHub. Para enviar un repositorio, inicia sesión con GitHub desde el cliente MCP (en Claude Code, ejecuta /mcp). Esta plataforma en sí nunca obtiene acceso de escritura a tus repositorios de GitHub.',
             'Ejemplos: "Busca un plugin de pitch shift que funcione en Windows", "Registra el plugin de OBS de este repositorio de GitHub".',
+          ],
+        },
+        {
+          heading: 'Apoyar el desarrollo',
+          paragraphs: [
+            'Plugin Soko-kun es gratuito. Si quieres ayudar con los costos de operación y el desarrollo, puedes patrocinar al desarrollador en GitHub Sponsors: https://github.com/sponsors/AllegroMoltoV',
+            'El patrocinio es opcional y no afecta la publicación ni la verificación de los plugins.',
           ],
         },
       ],

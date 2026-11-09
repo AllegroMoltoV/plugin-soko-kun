@@ -123,6 +123,7 @@ export interface Dict {
     terms: string;
     privacy: string;
     source: string;
+    sponsor: string;
   };
   translationNote: string;
   englishVersion: string;
@@ -250,6 +251,7 @@ const en: Dict = {
     privacy: 'Privacy policy',
     terms: 'Terms of use',
     source: 'Source code on GitHub',
+    sponsor: 'Support development',
   },
   translationNote: 'This page is the authoritative version.',
   englishVersion: 'English version',
@@ -377,6 +379,7 @@ const ja: Dict = {
     privacy: 'プライバシーポリシー',
     terms: '利用規約',
     source: 'GitHub のソースコード',
+    sponsor: '開発を支援する',
   },
   translationNote: 'この翻訳は参考訳なので、正確な内容は英語版で確認してください。',
   englishVersion: '英語版',
@@ -501,6 +504,7 @@ const zhHans: Dict = {
     privacy: '隐私政策',
     terms: '使用条款',
     source: 'GitHub 上的源代码',
+    sponsor: '支持开发',
   },
   translationNote: '本翻译仅供参考，准确内容请以英文版为准。',
   englishVersion: '英文版',
@@ -620,6 +624,7 @@ const zhHant: Dict = {
     privacy: '隱私政策',
     terms: '使用條款',
     source: 'GitHub 上的原始碼',
+    sponsor: '支持開發',
   },
   translationNote: '本翻譯僅供參考，正確內容請以英文版為準。',
   englishVersion: '英文版',
@@ -746,6 +751,7 @@ const ko: Dict = {
     privacy: '개인정보처리방침',
     terms: '이용약관',
     source: 'GitHub의 소스 코드',
+    sponsor: '개발 후원하기',
   },
   translationNote: '이 번역은 참고용이므로, 정확한 내용은 영어판에서 확인해 주세요.',
   englishVersion: '영어판',
@@ -871,6 +877,7 @@ const ptBR: Dict = {
     privacy: 'Política de privacidade',
     terms: 'Termos de uso',
     source: 'Código-fonte no GitHub',
+    sponsor: 'Apoiar o desenvolvimento',
   },
   translationNote: 'Esta tradução é apenas uma referência; por isso, confira o conteúdo exato na versão em inglês.',
   englishVersion: 'Versão em inglês',
@@ -996,6 +1003,7 @@ const es419: Dict = {
     privacy: 'Política de privacidad',
     terms: 'Términos de uso',
     source: 'Código fuente en GitHub',
+    sponsor: 'Apoyar el desarrollo',
   },
   translationNote:
     'Esta traducción es solo de referencia; por eso, consulta el contenido exacto en la versión en inglés.',
