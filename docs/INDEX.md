@@ -2,8 +2,32 @@
 
 公開する文書の索引です。docs/ には、製品の現在の設計と確定した判断を置きます。
 
-| 知りたいこと | 参照先 |
-| --- | --- |
-| プロジェクトの目的と使い方 | `README.md` |
+| 知りたいこと | 参照先 | 区分 |
+| --- | --- | --- |
+| プロジェクトの目的と使い方 | `README.md` | |
+| 用語の定義 | [用語集](glossary.md) | リファレンス |
+| 構成要素と要求の流れ | [アーキテクチャ](design/architecture.md) | 解説 |
+| テーブルと掲載状態の算出規則 | [データモデル](design/data-model.md) | リファレンス |
+| 認可の流れとスコープ | [認証と認可](design/auth.md) | リファレンス |
+| 登録・検査・同期の処理と無料プランの予算 | [検査と同期](design/scanning.md) | リファレンス |
+| 対応言語と言語の判定 | [多言語対応](design/i18n.md) | リファレンス |
+| 画面の一覧と各画面の要素 | [画面構成](design/ui.md) | リファレンス |
+
+## 設計判断の記録
+
+確定した設計判断と、未決定の論点を 1 件 1 ファイルで記録します。区分はいずれも解説です。
+
+| 番号 | 判断 | 状態 |
+| --- | --- | --- |
+| 0001 | [ホスティング基盤](decisions/0001-hosting-cloudflare-workers-free.md) | 採用 |
+| 0002 | [認可サーバーと MCP の同居と認証混在](decisions/0002-single-worker-mixed-auth.md) | 採用 |
+| 0003 | [配布物の digest の取得方法](decisions/0003-github-digest-without-download.md) | 採用 |
+| 0004 | [掲載状態の算出](decisions/0004-computed-listing-status.md) | 採用 |
+| 0005 | [MalwareBazaar の未登録の扱い](decisions/0005-malwarebazaar-not-found-as-clean.md) | 採用 |
+| 0006 | [VirusTotal の未登録の扱い](decisions/0006-virustotal-not-found-undecided.md) | 未決定 |
+| 0007 | [検査と同期の実行方式](decisions/0007-asynchronous-scanning-with-cron.md) | 採用 |
+| 0008 | [公開文書と作業記録の分担](decisions/0008-docs-and-work-records.md) | 採用 |
+
+運用手順は、実装の後に docs/operations/ へ追加します。
 
 作業の記録 (調査報告、実行ログ、計画、依頼者との確認事項) は公開せず、git の追跡対象外に置きます。その索引は `.prompts/INDEX.md` にあります。
