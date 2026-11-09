@@ -43,6 +43,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Connect an MCP client to the endpoint /mcp on this site. In Claude Code, run:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
+            'In Codex, run:',
+            { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Searching and viewing details work without signing in to GitHub. To submit a repository, sign in with GitHub from the MCP client (in Claude Code, run /mcp). This platform itself never gets write access to your GitHub repositories.',
             'Example requests: "Find a pitch shift plugin that works on Windows", "Register the OBS plugin in this GitHub repository".',
           ],
@@ -105,6 +107,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: 'Getting files checked by VirusTotal',
+          paragraphs: [
+            'VirusTotal returns a result only for files it has already analyzed, so upload the files of each new release at https://www.virustotal.com/gui/home/upload after publishing it.',
+            'Uploading is free, and this platform picks up the result at its next check.',
+            'This platform does not list a release whose files VirusTotal has not analyzed, so the plugin stays pending until you upload them.',
+            'Files you upload are shared with the VirusTotal community, so upload only files that you publish.',
+          ],
+        },
+        {
           heading: 'When a submission is refused',
           paragraphs: [
             'The AI agent shows the reason code and how to fix it. Fix the cause and submit again.',
@@ -117,6 +128,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'no_release, no_verifiable_asset: Publish a release with the plugin files attached.',
                 'duplicate: The repository is already registered. Open its page from the search.',
                 'rate_limited: You can submit up to 10 times in 24 hours. Try again later.',
+                'invalid_url: Give the repository URL in the form https://github.com/<owner>/<repository>.',
+                'not_found: The repository was not found. Check the URL and that the repository is public.',
+                'unsupported_tag: Use a release tag with only letters, digits, ".", "-", and "_", up to 100 characters.',
+                'github_unavailable: GitHub did not respond normally. Try again later.',
               ],
             },
           ],
@@ -321,6 +336,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'MCP クライアントをこのサイトの /mcp に接続してください。Claude Code では次を実行してください:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
+            'Codex では次を実行してください:',
+            { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '検索と詳細取得については、GitHub サインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインしてください (Claude Code では /mcp を実行)。なおこのプラットフォーム自体が GitHub リポジトリへの書き込み権限を取得することはありません。',
             '話しかけ方の例:「Windows で動くピッチシフトのプラグインを探して」「この GitHub リポジトリの OBS プラグインを登録して」',
           ],
@@ -383,6 +400,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: 'VirusTotal での検査',
+          paragraphs: [
+            'VirusTotal は解析済みのファイルにだけ結果を返すので、新しいリリースを公開したら、配布物を https://www.virustotal.com/gui/home/upload からアップロードしてください。',
+            'アップロードは無料で、このプラットフォームは次の検査のときに結果を取得します。',
+            'このプラットフォームは VirusTotal が解析していない配布物を持つリリースを掲載しないので、アップロードするまでプラグインは検査待ちのままです。',
+            'アップロードしたファイルは VirusTotal の利用者に共有されるので、公開している配布物だけをアップロードしてください。',
+          ],
+        },
+        {
           heading: '登録が拒否されたとき',
           paragraphs: [
             'AI エージェントが理由のコードと直し方を表示するので、原因を直してから登録し直してください。',
@@ -395,6 +421,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'no_release、no_verifiable_asset: 配布物を添付したリリースを公開してください。',
                 'duplicate: リポジトリは登録済みです。検索からプラグインのページを開いてください。',
                 'rate_limited: 登録は 24 時間に 10 回までです。時間をおいてから登録してください。',
+                'invalid_url: リポジトリの URL を https://github.com/<owner>/<repository> の形で指定してください。',
+                'not_found: リポジトリが見つかりません。URL と、リポジトリが公開されていることを確認してください。',
+                'unsupported_tag: リリースのタグは、英数字・「.」・「-」・「_」だけの 100 文字以内にしてください。',
+                'github_unavailable: GitHub が正常に応答しませんでした。時間をおいてから登録してください。',
               ],
             },
           ],
@@ -603,6 +633,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '将 MCP 客户端连接到本站的 /mcp。在 Claude Code 中运行：',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
+            '在 Codex 中运行：',
+            { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '搜索和查看详情无需登录 GitHub。提交仓库时，请在 MCP 客户端中使用 GitHub 登录（在 Claude Code 中运行 /mcp）。本平台本身不会获得 GitHub 仓库的写入权限。',
             '示例：“帮我找一个能在 Windows 上使用的变调插件”“把这个 GitHub 仓库的 OBS 插件登记上去”',
           ],
@@ -665,6 +697,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: 'VirusTotal 检查',
+          paragraphs: [
+            'VirusTotal 只返回已分析过的文件的结果，因此发布新版本后，请在 https://www.virustotal.com/gui/home/upload 上传发布文件。',
+            '上传免费，本平台会在下次检查时获取结果。',
+            '本平台不会收录含有 VirusTotal 未分析文件的版本，因此在上传之前，插件会一直处于待检查状态。',
+            '上传的文件会与 VirusTotal 的用户共享，因此请只上传已公开的发布文件。',
+          ],
+        },
+        {
           heading: '提交被拒绝时',
           paragraphs: [
             'AI 代理会显示原因代码和修改方法，请修正原因后重新提交。',
@@ -677,6 +718,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'no_release、no_verifiable_asset：请发布附有插件文件的版本。',
                 'duplicate：该仓库已登记。请通过搜索打开插件页面。',
                 'rate_limited：24 小时内最多提交 10 次。请稍后再试。',
+                'invalid_url：请以 https://github.com/<owner>/<repository> 的形式指定仓库 URL。',
+                'not_found：找不到该仓库。请确认 URL 以及仓库是否公开。',
+                'unsupported_tag：发布标签只能使用字母、数字、“.”、“-”和“_”，且不超过 100 个字符。',
+                'github_unavailable：GitHub 未正常响应。请稍后再提交。',
               ],
             },
           ],
@@ -861,6 +906,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '將 MCP 用戶端連接到本站的 /mcp。在 Claude Code 中執行：',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
+            '在 Codex 中執行：',
+            { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '搜尋與查看詳情無需登入 GitHub。提交儲存庫時，請在 MCP 用戶端中以 GitHub 登入（在 Claude Code 中執行 /mcp）。本平台本身不會取得 GitHub 儲存庫的寫入權限。',
             '範例：「幫我找一個能在 Windows 上使用的變調外掛」「把這個 GitHub 儲存庫的 OBS 外掛登記上去」',
           ],
@@ -923,6 +970,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: 'VirusTotal 檢查',
+          paragraphs: [
+            'VirusTotal 只會回傳已分析過的檔案結果，因此發布新版本後，請在 https://www.virustotal.com/gui/home/upload 上傳發行檔案。',
+            '上傳免費，本平台會在下次檢查時取得結果。',
+            '本平台不會收錄含有 VirusTotal 未分析檔案的版本，因此在上傳之前，外掛會一直處於待檢查狀態。',
+            '上傳的檔案會與 VirusTotal 的使用者共享，因此請只上傳已公開的發行檔案。',
+          ],
+        },
+        {
           heading: '提交被拒絕時',
           paragraphs: [
             'AI 代理會顯示原因代碼與修改方法，請修正原因後重新提交。',
@@ -935,6 +991,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'no_release、no_verifiable_asset：請發布附有外掛檔案的版本。',
                 'duplicate：該儲存庫已登記。請透過搜尋開啟外掛頁面。',
                 'rate_limited：24 小時內最多提交 10 次。請稍後再試。',
+                'invalid_url：請以 https://github.com/<owner>/<repository> 的形式指定儲存庫 URL。',
+                'not_found：找不到該儲存庫。請確認 URL 以及儲存庫是否公開。',
+                'unsupported_tag：發行標籤只能使用字母、數字、「.」、「-」和「_」，且不超過 100 個字元。',
+                'github_unavailable：GitHub 未正常回應。請稍後再提交。',
               ],
             },
           ],
@@ -1119,6 +1179,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'MCP 클라이언트를 이 사이트의 /mcp에 연결합니다. Claude Code에서는 다음을 실행합니다:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
+            'Codex에서는 다음을 실행합니다:',
+            { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '검색과 상세 조회는 GitHub 로그인 없이 사용할 수 있습니다. 저장소를 등록할 때는 MCP 클라이언트에서 GitHub로 로그인합니다(Claude Code에서는 /mcp 실행). 이 플랫폼 자체가 GitHub 저장소에 대한 쓰기 권한을 얻는 일은 없습니다.',
             '예: "Windows에서 동작하는 피치 시프트 플러그인을 찾아 줘", "이 GitHub 저장소의 OBS 플러그인을 등록해 줘"',
           ],
@@ -1181,6 +1243,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: 'VirusTotal 검사',
+          paragraphs: [
+            'VirusTotal은 분석한 적이 있는 파일에만 결과를 돌려주므로, 새 릴리스를 공개하면 배포 파일을 https://www.virustotal.com/gui/home/upload 에서 업로드해 주세요.',
+            '업로드는 무료이며, 이 플랫폼은 다음 검사 때 결과를 가져옵니다.',
+            '이 플랫폼은 VirusTotal이 분석하지 않은 파일이 있는 릴리스를 게재하지 않으므로, 업로드할 때까지 플러그인은 검사 대기 상태로 남습니다.',
+            '업로드한 파일은 VirusTotal 사용자에게 공유되므로, 공개한 배포 파일만 업로드해 주세요.',
+          ],
+        },
+        {
           heading: '등록이 거부되었을 때',
           paragraphs: [
             'AI 에이전트가 이유 코드와 고치는 방법을 표시하므로, 원인을 고친 뒤 다시 등록해 주세요.',
@@ -1193,6 +1264,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'no_release, no_verifiable_asset: 배포 파일을 첨부한 릴리스를 공개해 주세요.',
                 'duplicate: 저장소가 이미 등록되어 있습니다. 검색에서 플러그인 페이지를 열어 주세요.',
                 'rate_limited: 등록은 24시간에 10번까지입니다. 시간을 두고 다시 등록해 주세요.',
+                'invalid_url: 저장소 URL을 https://github.com/<owner>/<repository> 형식으로 지정해 주세요.',
+                'not_found: 저장소를 찾을 수 없습니다. URL과 저장소가 공개되어 있는지 확인해 주세요.',
+                'unsupported_tag: 릴리스 태그는 영문자, 숫자, ".", "-", "_"만 사용해 100자 이내로 해 주세요.',
+                'github_unavailable: GitHub가 정상적으로 응답하지 않았습니다. 시간을 두고 다시 등록해 주세요.',
               ],
             },
           ],
@@ -1392,6 +1467,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Conecte um cliente MCP ao endereço /mcp deste site. No Claude Code, execute:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
+            'No Codex, execute:',
+            { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Buscar e ver detalhes funciona sem login no GitHub. Para enviar um repositório, entre com o GitHub pelo cliente MCP (no Claude Code, execute /mcp). Esta plataforma em si nunca recebe acesso de escrita aos seus repositórios do GitHub.',
             'Exemplos: "Encontre um plugin de pitch shift que funcione no Windows", "Registre o plugin do OBS deste repositório do GitHub".',
           ],
@@ -1454,6 +1531,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: 'Verificação pelo VirusTotal',
+          paragraphs: [
+            'O VirusTotal só retorna resultados para arquivos que já analisou; por isso, depois de publicar uma nova versão, envie os arquivos em https://www.virustotal.com/gui/home/upload.',
+            'O envio é gratuito, e esta plataforma obtém o resultado na próxima verificação.',
+            'Esta plataforma não lista uma versão com arquivos que o VirusTotal não analisou; por isso, o plugin continua aguardando verificação até você enviá-los.',
+            'Os arquivos enviados são compartilhados com a comunidade do VirusTotal; por isso, envie apenas arquivos que você publica.',
+          ],
+        },
+        {
           heading: 'Quando o envio é recusado',
           paragraphs: [
             'O agente de IA mostra o código do motivo e como corrigir; por isso, corrija a causa e envie de novo.',
@@ -1466,6 +1552,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'no_release, no_verifiable_asset: Publique uma versão com os arquivos do plugin anexados.',
                 'duplicate: O repositório já está registrado. Abra a página dele pela busca.',
                 'rate_limited: Você pode enviar até 10 vezes em 24 horas. Tente de novo mais tarde.',
+                'invalid_url: Informe a URL do repositório no formato https://github.com/<owner>/<repository>.',
+                'not_found: O repositório não foi encontrado. Verifique a URL e se o repositório é público.',
+                'unsupported_tag: Use uma tag de versão apenas com letras, números, ".", "-" e "_", com até 100 caracteres.',
+                'github_unavailable: O GitHub não respondeu normalmente. Tente de novo mais tarde.',
               ],
             },
           ],
@@ -1676,6 +1766,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Conecta un cliente MCP a la dirección /mcp de este sitio. En Claude Code, ejecuta:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
+            'En Codex, ejecuta:',
+            { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Buscar y ver detalles funciona sin iniciar sesión en GitHub. Para enviar un repositorio, inicia sesión con GitHub desde el cliente MCP (en Claude Code, ejecuta /mcp). Esta plataforma en sí nunca obtiene acceso de escritura a tus repositorios de GitHub.',
             'Ejemplos: "Busca un plugin de pitch shift que funcione en Windows", "Registra el plugin de OBS de este repositorio de GitHub".',
           ],
@@ -1738,6 +1830,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: 'Revisión con VirusTotal',
+          paragraphs: [
+            'VirusTotal solo devuelve resultados de archivos que ya analizó; por eso, después de publicar una nueva versión, sube los archivos en https://www.virustotal.com/gui/home/upload.',
+            'Subirlos es gratis, y esta plataforma obtiene el resultado en la siguiente revisión.',
+            'Esta plataforma no lista una versión con archivos que VirusTotal no analizó; por eso, el plugin sigue en espera de revisión hasta que los subas.',
+            'Los archivos que subes se comparten con la comunidad de VirusTotal; por eso, sube solo archivos que publicas.',
+          ],
+        },
+        {
           heading: 'Cuando se rechaza un envío',
           paragraphs: [
             'El agente de IA muestra el código del motivo y cómo corregirlo; por eso, corrige la causa y vuelve a enviar.',
@@ -1750,6 +1851,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'no_release, no_verifiable_asset: Publica una versión con los archivos del plugin adjuntos.',
                 'duplicate: El repositorio ya está registrado. Abre su página desde la búsqueda.',
                 'rate_limited: Puedes enviar hasta 10 veces en 24 horas. Vuelve a intentarlo más tarde.',
+                'invalid_url: Indica la URL del repositorio con el formato https://github.com/<owner>/<repository>.',
+                'not_found: No se encontró el repositorio. Revisa la URL y que el repositorio sea público.',
+                'unsupported_tag: Usa una etiqueta de versión solo con letras, números, ".", "-" y "_", de hasta 100 caracteres.',
+                'github_unavailable: GitHub no respondió con normalidad. Vuelve a intentarlo más tarde.',
               ],
             },
           ],

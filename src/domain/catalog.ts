@@ -278,7 +278,8 @@ export async function searchPlugins(env: Env, query: SearchQuery): Promise<{ tot
       const haystack = normalize(`${view.owner} ${view.repo} ${view.summary ?? ''} ${view.category}`);
       return tokens.every((token) => haystack.includes(token));
     })
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    // 掲載対象バージョンの公開日の新しい順。updated_at は同期のたびに進むため使わない。
+    .sort((a, b) => (b.listedRelease?.publishedAt ?? '').localeCompare(a.listedRelease?.publishedAt ?? ''));
   const offset = query.offset ?? 0;
   const limit = query.limit ?? 20;
   return { total: matched.length, items: matched.slice(offset, offset + limit) };
@@ -293,7 +294,18 @@ export async function catalogStats(
   env: Env,
 ): Promise<{ listed: number; lastSyncedAt: string | null; latest: PluginView[]; weekly: PluginView[] }> {
   const views = (await loadViews(env)).filter((view) => view.status === 'listed');
-  const row = await env.DB.prepare('SELECT max(last_synced_at) AS t FROM plugins').first<{ t: string | null }>();
+  // 確認日時は、掲載中のプラグインを最後に同期した日時。
+  const listedIds = new Set(views.map((view) => view.id));
+  const { results: synced } = await env.DB.prepare('SELECT id, last_synced_at FROM plugins').all<{
+    id: string;
+    last_synced_at: string;
+  }>();
+  const lastSyncedAt =
+    synced
+      .filter((entry) => listedIds.has(entry.id))
+      .map((entry) => entry.last_synced_at)
+      .sort()
+      .at(-1) ?? null;
   // 新着は、このプラットフォームに登録した日の新しい順に 5 件。
   const latest = [...views].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
   // 週間ダウンロード数の上位 5 件。週間の数を求められないものと 0 のものは出さない。
@@ -301,7 +313,7 @@ export async function catalogStats(
     .filter((view) => (view.downloads?.weekly ?? 0) > 0)
     .sort((a, b) => (b.downloads?.weekly ?? 0) - (a.downloads?.weekly ?? 0) || a.repo.localeCompare(b.repo))
     .slice(0, 5);
-  return { listed: views.length, lastSyncedAt: row?.t ?? null, latest, weekly };
+  return { listed: views.length, lastSyncedAt, latest, weekly };
 }
 
 // 掲載中で、画像を非表示にしていないプラグインの画像だけを返す。

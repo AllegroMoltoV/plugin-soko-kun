@@ -73,15 +73,7 @@ app.get('/robots.txt', (c) =>
 
 app.get('/sitemap.xml', async (c) => {
   const { items } = await searchPlugins(c.env, { limit: 5000 });
-  const paths = [
-    '/',
-    '/about',
-    '/submit',
-    '/security',
-    '/report',
-    '/privacy',
-    ...items.map((view) => `/plugins/${view.id}`),
-  ];
+  const paths = ['/', ...PAGE_KEYS.map((key) => `/${key}`), ...items.map((view) => `/plugins/${view.id}`)];
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths
     .map((p) => `<url><loc>${esc(c.env.ORIGIN + p)}</loc></url>`)

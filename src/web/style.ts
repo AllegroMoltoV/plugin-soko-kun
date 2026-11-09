@@ -30,6 +30,7 @@ export const STYLE_CSS = `
   --surface: #f6f6f6;
   --surface-2: #fafafa;
   --footer: #dcdcdc;
+  --footer-text: #555555;
   --danger: #b00000;
   --danger-pale: #fff0f0;
   --button-top: #ffffff;
@@ -59,6 +60,7 @@ export const STYLE_CSS = `
     --surface: #26262a;
     --surface-2: #222226;
     --footer: #18181b;
+    --footer-text: #a8a8a8;
     --danger: #ff8a80;
     --danger-pale: #3a1c1a;
     --button-top: #4a4a4a;
@@ -212,9 +214,9 @@ ul.blocks li { margin: 3px 0; }
 
 footer.site { background: var(--footer); border-top: 1px solid var(--line); }
 footer.site ul { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; list-style: none; margin: 0; padding: 8px 0 4px; font-size: 12px; }
-footer.site p { margin: 0; padding: 0 8px 6px; color: var(--muted); font-size: 11px; text-align: center; }
+footer.site p { margin: 0; padding: 0 8px 6px; color: var(--footer-text); font-size: 11px; text-align: center; }
 footer.site p.copyright { padding-bottom: 12px; }
-footer.site .contact-line { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 0 8px 6px; color: var(--muted); font-size: 11px; }
+footer.site .contact-line { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 0 8px 6px; color: var(--footer-text); font-size: 11px; }
 form.contact { display: inline-block; margin: 0; }
 form.contact button { font-size: 12px; padding: 1px 8px; }
 p.contact-address { font-family: "Courier New", monospace; font-size: 15px; font-weight: bold; }

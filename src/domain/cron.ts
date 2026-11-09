@@ -115,9 +115,10 @@ async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: Sync
   }
 
   const statements: D1PreparedStatement[] = [
+    // 概要は description が空でなければ追従させ、空なら登録時の概要 (README から作ったものを含む) を残す。
     env.DB.prepare(
-      'UPDATE plugins SET owner = ?, repo = ?, license_spdx = COALESCE(?, license_spdx), removed = 0 WHERE id = ?',
-    ).bind(repo.owner.login, repo.name, repo.license?.spdx_id ?? null, row.id),
+      'UPDATE plugins SET owner = ?, repo = ?, license_spdx = COALESCE(?, license_spdx), summary = COALESCE(?, summary), removed = 0 WHERE id = ?',
+    ).bind(repo.owner.login, repo.name, repo.license?.spdx_id ?? null, repo.description?.trim() || null, row.id),
   ];
   const latest = await github.getLatestRelease(repo.owner.login, repo.name, row.releases_etag ?? undefined);
   let latestTag = row.latest_tag;

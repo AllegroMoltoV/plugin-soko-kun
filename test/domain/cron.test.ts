@@ -258,3 +258,29 @@ describe('runCron のダウンロード数の記録', () => {
     expect(calls).toEqual([]);
   });
 });
+
+describe('runCron の概要の更新', () => {
+  it('description が変われば概要を更新し、空なら登録時の概要を残す', async () => {
+    await registerFixture();
+    const summary = () =>
+      env.DB.prepare('SELECT summary FROM plugins')
+        .first<{ summary: string }>()
+        .then((row) => row?.summary);
+    const run = async (description: string) => {
+      await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
+      network.use(
+        repoById(200, { description }),
+        ...githubHandlers(),
+        ...imageHandlers(),
+        ...downloadHandlers(),
+        ...scannerHandlers({ vt: 0, mb: 0 }),
+      );
+      await runCron(env);
+      network.resetHandlers();
+    };
+    await run('A new pitch shift filter');
+    expect(await summary()).toBe('A new pitch shift filter');
+    await run('');
+    expect(await summary()).toBe('A new pitch shift filter');
+  });
+});

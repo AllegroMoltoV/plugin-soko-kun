@@ -40,7 +40,7 @@ MCP の実装は `@modelcontextprotocol/server` の `createMcpHandler` を使い
 | `/callback` | GitHub での認可からの戻り先 |
 | `/oauth/token` | アクセストークンの発行 |
 
-`/oauth/register`・`/authorize`・`/oauth/token`・`/callback` には、送信元 IP アドレスあたり 1 分 20 回のレート制限を設けます。これらの経路は KV へ書き込むため、無料プランの KV の書き込みの上限を守る必要があります。`/mcp` と Web カタログの上限は、送信元 IP アドレスあたり 1 分 120 回です。`/.well-known/` 配下にはレート制限を設けません。集計の方式は [データモデル](data-model.md) の `rate_limit` に記載します。
+`/oauth/register`・`/authorize`・`/oauth/token`・`/callback` には、送信元 IP アドレスあたり 1 分 20 回のレート制限を設けます。これらの経路は KV へ書き込むため、無料プランの KV の書き込みの上限を守る必要があります。`/mcp` と Web カタログの上限は、送信元 IP アドレスあたり 1 分 120 回です。OAuth のメタデータ (`/.well-known/oauth-authorization-server` と `/.well-known/oauth-protected-resource` で始まるパス) にはレート制限を設けません。集計の方式は [データモデル](data-model.md) の `rate_limit` に記載します。
 
 ## アクセストークン
 

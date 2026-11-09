@@ -6,7 +6,7 @@
 
 Plugin Soko-kun is an independent, open registry of third-party plugins for OBS Studio. It is designed MCP-first, so AI coding agents such as Claude Code and Codex can search for plugins and register GitHub repositories directly. A read-only web catalog is also provided.
 
-This project is not affiliated with, endorsed by, or connected to the OBS Project or OBS Forums.
+This project is an unofficial service that is not affiliated with the OBS Project or OBS Forums.
 
 Status: under development. The MVP is not yet released.
 
@@ -14,6 +14,12 @@ Status: under development. The MVP is not yet released.
 
 | Path | Description |
 | --- | --- |
+| `src/` | Worker source code (MCP, OAuth, web catalog, scheduled jobs) |
+| `migrations/` | D1 schema migrations |
+| `scripts/` | Admin commands |
+| `test/` | Tests |
+| `.github/` | CI, CodeQL, deploy workflows, and Dependabot |
+| `wrangler.jsonc` | Cloudflare Workers configuration |
 | `docs/` | Design documents, glossary, and decision records (in Japanese) |
 | `LICENSE` | MIT License |
 
@@ -31,6 +37,12 @@ Usage, MCP connection steps, the listing policy, and the security policy will be
 
 | パス | 内容 |
 | --- | --- |
+| `src/` | Worker のソースコード (MCP、OAuth、Web カタログ、定期処理) |
+| `migrations/` | D1 のスキーマのマイグレーション |
+| `scripts/` | 管理コマンド |
+| `test/` | テスト |
+| `.github/` | CI、CodeQL、配備のワークフローと Dependabot |
+| `wrangler.jsonc` | Cloudflare Workers の設定 |
 | `docs/` | 設計文書、用語集、決定事項の記録 |
 | `LICENSE` | MIT License |
 

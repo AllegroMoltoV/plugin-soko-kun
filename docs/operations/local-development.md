@@ -1,6 +1,6 @@
 # ローカルでの開発
 
-手元の PC で Worker を起動し、Web カタログ・MCP・Cron の定期処理を確かめる手順です。本番の Cloudflare のリソースを使わずに、変更の動作を確認できます。ローカルの D1 と KV は、`wrangler` が `.wrangler/state/` に作ります。
+手元の PC で Worker を起動し、Web カタログ・MCP・Cron の定期処理を確かめる手順です。ローカルの D1 と KV は、`wrangler` が `.wrangler/state/` に作ります。概要の機械翻訳だけは、ローカルでも実環境の Workers AI を呼びます。そのため、`wrangler login` で Cloudflare にログインしておく必要があり、翻訳の分だけ Workers AI の無料枠を使います。
 
 ## 前提
 
@@ -64,7 +64,7 @@ npx wrangler dev --test-scheduled
 curl "http://localhost:8787/__scheduled?cron=*/15+*+*+*+*"
 ```
 
-`wrangler dev` の端末には、`{"event":"cron",...}` の形の行が出力されます。この行は、照会した件数・同期した件数・使った外部呼び出しと D1 のクエリの件数・停止の理由を含みます。
+`wrangler dev` の端末には、`{"event":"cron",...}` の形の行が出力されます。この行は、照会した件数・同期した件数・同期に失敗した件数・翻訳した件数・ダウンロード数を記録した件数・使った外部呼び出しと D1 のクエリの件数・停止の理由を含みます。
 
 ## テストと静的検査
 

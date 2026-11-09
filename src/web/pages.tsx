@@ -134,7 +134,7 @@ export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ 
           </ul>
           <Summary view={view} t={t} lang={lang} showOriginal={false} />
           <p class="meta">
-            <span translate="no">{view.owner}</span> | {t.updated} {formatDate(view.updatedAt, lang)}
+            <span translate="no">{view.owner}</span> | {t.updated} {formatDate(view.listedRelease?.publishedAt, lang)}
             {view.downloads
               ? ` | ${t.downloadsShort} ${new Intl.NumberFormat(lang).format(view.downloads.total)}`
               : null}

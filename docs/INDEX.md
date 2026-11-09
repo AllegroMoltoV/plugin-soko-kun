@@ -24,7 +24,7 @@
 | 0003 | [配布物の digest の取得方法](decisions/0003-github-digest-without-download.md) | 採用 |
 | 0004 | [掲載状態の算出](decisions/0004-computed-listing-status.md) | 採用 |
 | 0005 | [MalwareBazaar の未登録の扱い](decisions/0005-malwarebazaar-not-found-as-clean.md) | 採用 |
-| 0006 | [VirusTotal の未登録の扱い](decisions/0006-virustotal-not-found-undecided.md) | 未決定 |
+| 0006 | [VirusTotal の未登録の扱い](decisions/0006-virustotal-not-found-undecided.md) | 採用 |
 | 0007 | [検査と同期の実行方式](decisions/0007-asynchronous-scanning-with-cron.md) | 採用 |
 | 0008 | [公開文書と作業記録の分担](decisions/0008-docs-and-work-records.md) | 採用 |
 | 0009 | [VirusTotal の検出の閾値](decisions/0009-virustotal-detection-threshold.md) | 採用 |

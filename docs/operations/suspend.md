@@ -19,6 +19,8 @@
 | 状態の確認 | `npm run admin -- show <owner/repo>` |
 | 画像の非表示 | `npm run admin -- hide-images <owner/repo>` |
 | 画像の再表示 | `npm run admin -- show-images <owner/repo>` |
+| カテゴリの変更 | `npm run admin -- set-category <owner/repo> <category>` |
+| 要確認の結果を問題なしにする | `npm run admin -- approve-suspicious <owner/repo>` |
 
 いずれのコマンドも、`--remote` を付けると本番の D1 を更新します。付けない場合はローカルの D1 を更新します。`<owner/repo>` はプラグイン ID で、大文字と小文字を区別しません。
 

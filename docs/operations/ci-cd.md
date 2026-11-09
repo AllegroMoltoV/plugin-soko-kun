@@ -7,7 +7,7 @@ GitHub Actions のワークフローの目的と権限、依存の更新、本�
 | ファイル | 目的 | 起動の条件 | 権限 |
 | --- | --- | --- | --- |
 | `ci.yml` | 静的検査とテスト、ワークフローの検査、依存の脆弱性の検査 | PR、`main` への push | `contents: read` |
-| `codeql.yml` | CodeQL によるコードの脆弱性の検査 | PR、`main` への push、毎週月曜 04:23 UTC | ワークフローは `contents: read`。ジョブに `security-events: write` を加える |
+| `codeql.yml` | CodeQL によるコードの脆弱性の検査 | PR、`main` への push、毎週月曜 04:23 UTC | ワークフローは `contents: read`。ジョブに `security-events: write` と `actions: read` を加える |
 | `deploy.yml` | 本番への D1 のマイグレーションの適用と Worker の配備 | 手動実行 `workflow_dispatch` だけ | `contents: read`。environment `production` の秘密情報を使う |
 
 ### ci.yml
@@ -86,7 +86,7 @@ Dependabot の PR も CI を通してからマージします。
 
 ### Worker の設定
 
-`deploy.yml` と管理用スクリプトの `--remote` は、`wrangler.jsonc` の `production` 環境を使います。`production` 環境には、本番の `ORIGIN`・D1 の `database_id`・KV の `id` を設定します。
+`deploy.yml` と管理用スクリプトの `--remote` は、`wrangler.jsonc` の `production` 環境を使います。`production` 環境には、本番の `ORIGIN`・D1 の `database_id`・KV の `id` と、Workers AI の binding (`ai`) を設定します。環境ごとの設定には既定の環境の binding が引き継がれないため、`ai` も `production` 環境に書く必要があります。
 
 Worker の秘密情報は、`wrangler secret put` で本番の Worker に設定します。名前と用途は [認証と認可](../design/auth.md) に記載しています。
 

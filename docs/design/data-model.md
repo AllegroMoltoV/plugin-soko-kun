@@ -1,6 +1,6 @@
 # データモデル
 
-D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` に対応します。算出規則の実装は `src/domain/status.ts` にあります。
+D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0004_download_snapshots.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
 
 ## テーブルの一覧
 
@@ -37,7 +37,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `images_tag` | TEXT | | 最後に画像を取得したときのリリースのタグ。最新リリースのタグと異なるときに画像を取得し直す |
 | `images_hidden` | INTEGER | NOT NULL、既定値 0 | 1 のとき、管理者の判断で画像を表示も配信もしない |
 | `created_at` | TEXT | NOT NULL | 登録日時 |
-| `updated_at` | TEXT | NOT NULL | 更新日時 |
+| `updated_at` | TEXT | NOT NULL | 行の更新日時。同期のたびに進む。画面の「更新日」には使わない |
 | `last_synced_at` | TEXT | NOT NULL | 最後に同期した日時。同期の順序に使う |
 
 ## releases
@@ -123,7 +123,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `oauth` | `/authorize`・`/callback`・`/oauth/token`・`/oauth/register` | IP アドレスあたり 1 分 20 回 |
 | `public` | `/mcp` と Web カタログ | IP アドレスあたり 1 分 120 回 |
 
-`/.well-known/` 配下のメタデータには、レート制限を設けません。送信元 IP アドレスは要求ヘッダー `CF-Connecting-IP` から得ます。上限を超えた要求には、429 と `Retry-After: 60` を返します。60 分より前の窓の行は、Cron の定期処理で削除します。
+`/.well-known/oauth-authorization-server` と `/.well-known/oauth-protected-resource` で始まる OAuth のメタデータには、レート制限を設けません。それ以外の `/.well-known/` 配下は `public` の経路として数えます。送信元 IP アドレスは要求ヘッダー `CF-Connecting-IP` から得ます。上限を超えた要求には、429 と `Retry-After: 60` を返します。60 分より前の窓の行は、Cron の定期処理で削除します。
 
 ## 掲載状態の算出規則
 
@@ -136,7 +136,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `malwarebazaar` | 確定 | 確定 | 未確定 | 記録しない | 検出 |
 | `virustotal` | 確定 | 未確定 | 未確定 | 未確定 | 検出 |
 
-MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decisions/0005-malwarebazaar-not-found-as-clean.md) に記載しています。VirusTotal の `not_found` の扱いは未決定で、決定までは未確定とします。未決定の論点は [ADR 0006](../decisions/0006-virustotal-not-found-undecided.md) に記載しています。
+MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decisions/0005-malwarebazaar-not-found-as-clean.md) に記載しています。VirusTotal の `not_found` を未確定とする判断は [ADR 0006](../decisions/0006-virustotal-not-found-undecided.md) に記載しています。
 
 VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当たりません。`suspicious` の配布物を持つリリースは検査済みにならず、掲載を保留します。管理者が `detail` と VirusTotal の解析結果を確認して判断します。閾値の判断は [ADR 0009](../decisions/0009-virustotal-detection-threshold.md) に記載しています。
 
@@ -168,9 +168,9 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 | 状態 | Web の一覧・`search_plugins`・サイトマップ | `get_plugin` | Web の詳細ページ |
 | --- | --- | --- | --- |
 | 掲載中 | 含める | すべての項目とダウンロード URL を返す | すべての項目とダウンロードボタンを表示する |
-| 検査待ち | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 名前と状態だけを表示する。ダウンロードボタンを表示せず、noindex にする |
-| 停止 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 名前と状態と管理停止の理由だけを表示する。ダウンロードボタンを表示せず、noindex にする |
-| 掲載終了 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 名前と状態だけを表示する。ダウンロードボタンを表示せず、noindex にする |
+| 検査待ち | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | [画面構成](ui.md) の掲載中以外の要素だけを表示する。noindex にする |
+| 停止 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 同上。管理停止の理由があれば表示する |
+| 掲載終了 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 同上 |
 
 掲載中以外の `get_plugin` の応答が含む項目は、プラグイン ID・名前・作者・GitHub のリポジトリの URL・状態・理由・案内文・詳細ページの URL です。理由の値は `admin`・`removed`・`malicious` のいずれかで、検査待ちでは `null` です。
 
@@ -184,7 +184,7 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 
 | 列 | 型 | 制約 | 内容 |
 | --- | --- | --- | --- |
-| `plugin_id` | TEXT | 主キーの一部、`plugins.id` を参照 | プラグイン ID |
+| `plugin_id` | TEXT | 主キーの一部、`plugins.id` を参照、親の削除で連鎖削除 | プラグイン ID |
 | `lang` | TEXT | 主キーの一部 | 翻訳先の言語。`ja`・`en`・`zh-Hans`・`zh-Hant`・`ko`・`pt-BR`・`es-419` のいずれか |
 | `source_hash` | TEXT | NOT NULL | 翻訳に使ったモデルの名前と概要を合わせた文字列の SHA-256。概要かモデルが変わると一致しなくなり、翻訳し直す |
 | `text` | TEXT | NOT NULL | 翻訳した概要。外部データとして扱う。訳を採用しなかった場合は空の文字列で、画面は原文を表示する |
@@ -205,7 +205,7 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 | `bytes` | BLOB | NOT NULL | 画像の本体。外部データ |
 | `fetched_at` | TEXT | NOT NULL | 取得した日時 |
 
-画像は `/plugins/<owner>/<repo>/logo` と `/plugins/<owner>/<repo>/image` で配信します。URL のクエリに blob の SHA を付け、画像が変わったときに閲覧者のキャッシュを使わせないようにします。配信するのは掲載中のプラグインで、`images_hidden` が 0 のときだけです。応答には `Content-Security-Policy: default-src 'none'` と `X-Content-Type-Options: nosniff` を付けます。
+画像は `/plugins/<owner>/<repo>/logo` と `/plugins/<owner>/<repo>/image` で配信します。URL のクエリに blob の SHA を付け、画像が変わったときに閲覧者のキャッシュを使わせないようにします。配信するのは掲載中のプラグインで、`images_hidden` が 0 のときだけです。応答には、ほかの画面と同じ `Content-Security-Policy` (`default-src 'none'` を基本とする) と `X-Content-Type-Options: nosniff` を付けます。
 
 ## download_snapshots
 
@@ -215,4 +215,4 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 | --- | --- | --- | --- |
 | `plugin_id` | TEXT | 主キーの一部、`plugins.id` を参照、親の削除で連鎖削除 | プラグイン ID |
 | `day` | TEXT | 主キーの一部 | 記録した日 (UTC)。`YYYY-MM-DD` の形 |
-| `total` | INTEGER | NOT NULL | 下書きを除くすべてのリリースの配布物の `download_count` の合計 |
+| `total` | INTEGER | NOT NULL | 新しい順に最大 100 件のリリースのうち、下書きを除くものの配布物の `download_count` の合計 |
