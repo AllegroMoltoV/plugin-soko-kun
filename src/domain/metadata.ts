@@ -42,6 +42,17 @@ export function inferCategory(...texts: Array<string | null | undefined>): Categ
 
 const SUMMARY_MAX = 300;
 
+// HTML のタグを除く。入れ子のタグ (<scr<script>ipt>) は 1 回の置換で <script が残るため、変化がなくなるまで繰り返す。
+function stripTags(text: string): string {
+  let current = text;
+  let previous: string;
+  do {
+    previous = current;
+    current = current.replace(/<[^>]*>/g, '');
+  } while (current !== previous);
+  return current;
+}
+
 // README の最初の段落を、マークアップを除いた平文で取り出す。外部データとして扱い、表示時にエスケープする。
 export function summarizeReadme(readme: string): string | null {
   const blocks = readme.replace(/\r\n/g, '\n').split(/\n\s*\n/);
@@ -49,11 +60,8 @@ export function summarizeReadme(readme: string): string | null {
     const text = block.trim();
     if (!text) continue;
     if (/^(#|<|!\[|\[!\[|```|\||>|-{3,}|={3,})/.test(text)) continue;
-    const plain = text
-      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/<[^>]*>/g, '')
-      // 入れ子のタグ (<scr<script>ipt>) は 1 回の置換で <script が残るため、残った山かっこも除く。
+    const plain = stripTags(text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1'))
+      // 閉じていないタグの断片 (<script のように > の無いもの) も残さない。
       .replace(/[<>]/g, '')
       .replace(/[`*_~]/g, '')
       .replace(/\s+/g, ' ')
