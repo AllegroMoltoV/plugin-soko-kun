@@ -221,13 +221,14 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
                 <li>
                   <a href="https://github.com/AllegroMoltoV/plugin-soko-kun">{t.nav.source}</a>
                 </li>
-                <li>
-                  <a href="https://github.com/sponsors/AllegroMoltoV">{t.nav.sponsor}</a>
-                </li>
               </ul>
               <p>{t.notice}</p>
               <div class="contact-line">
                 {t.contactLabel}: <ContactButton t={t} lang={lang} />
+                <a class="sponsor" href="https://github.com/sponsors/AllegroMoltoV">
+                  <span class="heart" aria-hidden="true">♥</span>
+                  {t.nav.sponsor}
+                </a>
               </div>
               <p class="copyright">© 2026 AllegroMoltoV</p>
             </div>

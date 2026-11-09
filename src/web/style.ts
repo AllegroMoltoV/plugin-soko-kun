@@ -218,9 +218,12 @@ footer.site { background: var(--footer); border-top: 1px solid var(--line); }
 footer.site ul { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; list-style: none; margin: 0; padding: 8px 0 4px; font-size: 12px; }
 footer.site p { margin: 0; padding: 0 8px 6px; color: var(--footer-text); font-size: 11px; text-align: center; }
 footer.site p.copyright { padding-bottom: 12px; }
-footer.site .contact-line { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 0 8px 6px; color: var(--footer-text); font-size: 11px; }
+footer.site .contact-line { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; padding: 0 8px 6px; color: var(--footer-text); font-size: 11px; }
 form.contact { display: inline-block; margin: 0; }
 form.contact button { font-size: 12px; padding: 1px 8px; }
+footer.site a.sponsor { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border: 1px solid #e7a3c3; border-radius: 999px; background: #fff0f6; color: #b0306e; font-size: 12px; font-weight: bold; text-decoration: none; }
+footer.site a.sponsor:hover { background: #ffe0ee; }
+footer.site a.sponsor .heart { color: #e0457b; font-size: 13px; line-height: 1; }
 p.contact-address { font-family: "Courier New", monospace; font-size: 15px; font-weight: bold; }
 
 @media (max-width: 760px) {
@@ -235,6 +238,11 @@ p.contact-address { font-family: "Courier New", monospace; font-size: 15px; font
   details.lang[open] { flex: 1 1 100%; }
   details.lang ul { position: static; min-width: 0; margin-top: 4px; }
   table.info th { width: 6.5rem; }
+}
+@media (prefers-color-scheme: dark) {
+  footer.site a.sponsor { border-color: #9c3d6c; background: #3a0f24; color: #f4b6d2; }
+  footer.site a.sponsor:hover { background: #4e1630; }
+  footer.site a.sponsor .heart { color: #ff7aa8; }
 }
 `;
 
