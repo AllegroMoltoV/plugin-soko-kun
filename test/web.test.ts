@@ -91,7 +91,7 @@ describe('Web', () => {
     expect((await SELF.fetch(url)).status).toBe(404);
   });
 
-  it('週間ダウンロード数は 7 日以上前の記録がたまるまで右の列に出さない', async () => {
+  it('週間 DL 数ランキングは 7 日以上前の記録がたまるまで右の列に出さない', async () => {
     await register();
     await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
     const id = `${OWNER}/${REPO}`.toLowerCase();
@@ -102,11 +102,11 @@ describe('Web', () => {
         .run();
     await insert(6, 100);
     await insert(0, 140);
-    expect(await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text()).not.toContain('週間ダウンロード数');
+    expect(await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text()).not.toContain('週間 DL 数ランキング 5 件');
 
     await insert(7, 90);
     const html = await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text();
-    expect(html).toContain('週間ダウンロード数');
+    expect(html).toContain('週間 DL 数ランキング 5 件');
     expect(html).toMatch(/<ol class="weekly">.*?50<\/span>/s);
   });
 });

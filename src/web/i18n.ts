@@ -276,7 +276,7 @@ const en: Dict = {
   downloadsShort: 'Downloads',
   downloadsAsOf: 'as of {date}',
   downloadsNote: 'This is the number of downloads on GitHub, including downloads not made through this site.',
-  sideWeeklyTitle: 'Weekly downloads',
+  sideWeeklyTitle: 'Top 5 weekly downloads',
 };
 
 const ja: Dict = {
@@ -403,7 +403,7 @@ const ja: Dict = {
   downloadsShort: 'ダウンロード数',
   downloadsAsOf: '{date} 時点',
   downloadsNote: 'GitHub でのダウンロード数で、このサイトを経由したものに限りません。',
-  sideWeeklyTitle: '週間ダウンロード数',
+  sideWeeklyTitle: '週間 DL 数ランキング 5 件',
 };
 
 const zhHans: Dict = {
@@ -527,7 +527,7 @@ const zhHans: Dict = {
   downloadsShort: '下载次数',
   downloadsAsOf: '截至 {date}',
   downloadsNote: '这是在 GitHub 上的下载次数，不限于通过本站的下载。',
-  sideWeeklyTitle: '每周下载次数',
+  sideWeeklyTitle: '每周下载次数排行前 5 名',
 };
 
 const zhHant: Dict = {
@@ -646,7 +646,7 @@ const zhHant: Dict = {
   downloadsShort: '下載次數',
   downloadsAsOf: '截至 {date}',
   downloadsNote: '這是在 GitHub 上的下載次數，不限於透過本站的下載。',
-  sideWeeklyTitle: '每週下載次數',
+  sideWeeklyTitle: '每週下載次數排行前 5 名',
 };
 
 const ko: Dict = {
@@ -772,7 +772,7 @@ const ko: Dict = {
   downloadsShort: '다운로드 수',
   downloadsAsOf: '{date} 기준',
   downloadsNote: 'GitHub에서의 다운로드 수이며, 이 사이트를 거친 다운로드에 한정되지 않습니다.',
-  sideWeeklyTitle: '주간 다운로드 수',
+  sideWeeklyTitle: '주간 다운로드 순위 5위',
 };
 
 const ptBR: Dict = {
@@ -897,7 +897,7 @@ const ptBR: Dict = {
   downloadsShort: 'Downloads',
   downloadsAsOf: 'em {date}',
   downloadsNote: 'É o número de downloads no GitHub, sem se limitar aos feitos por este site.',
-  sideWeeklyTitle: 'Downloads semanais',
+  sideWeeklyTitle: 'Top 5 de downloads semanais',
 };
 
 const es419: Dict = {
@@ -1025,7 +1025,7 @@ const es419: Dict = {
   downloadsShort: 'Descargas',
   downloadsAsOf: 'al {date}',
   downloadsNote: 'Es el número de descargas en GitHub, sin limitarse a las hechas desde este sitio.',
-  sideWeeklyTitle: 'Descargas semanales',
+  sideWeeklyTitle: 'Top 5 de descargas semanales',
 };
 
 export const DICTS: Record<Lang, Dict> = {
