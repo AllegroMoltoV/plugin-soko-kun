@@ -2,6 +2,7 @@
 import { Budget } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
+import { resetScanStatements } from './cron';
 import { cmakeReferencesLibobs, hasNativeSource, inferCategory, inferOs, summarizeReadme } from './metadata';
 
 export const SUBMITS_PER_DAY = 10;
@@ -202,14 +203,7 @@ async function validateAndStore(env: Env, submitter: Submitter, repositoryUrl: s
           inferOs(asset.name),
         ),
       );
-      for (const scanner of ['virustotal', 'malwarebazaar']) {
-        statements.push(
-          env.DB.prepare("INSERT OR IGNORE INTO scans (digest, scanner, result) VALUES (?, ?, 'pending')").bind(
-            asset.digest,
-            scanner,
-          ),
-        );
-      }
+      statements.push(...resetScanStatements(env, asset.digest as string));
     }
     // 1 回の batch は D1 のクエリ 1 件として数えられ、途中で失敗しても部分的な書き込みが残らない。
     await env.DB.batch(statements);

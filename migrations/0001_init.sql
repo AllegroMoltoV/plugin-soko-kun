@@ -45,7 +45,7 @@ CREATE INDEX assets_release ON assets (release_id);
 CREATE TABLE scans (
   digest TEXT NOT NULL,
   scanner TEXT NOT NULL CHECK (scanner IN ('virustotal', 'malwarebazaar')),
-  result TEXT NOT NULL CHECK (result IN ('pending', 'clean', 'malicious', 'not_found', 'error')),
+  result TEXT NOT NULL CHECK (result IN ('pending', 'clean', 'suspicious', 'malicious', 'not_found', 'error')),
   detail TEXT,
   attempts INTEGER NOT NULL DEFAULT 0,
   scanned_at TEXT,

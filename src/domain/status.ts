@@ -1,6 +1,6 @@
 // 掲載状態の算出。状態は保存せず、検査結果と管理操作から毎回求める。
 export type Scanner = 'virustotal' | 'malwarebazaar';
-export type ScanResult = 'pending' | 'clean' | 'malicious' | 'not_found' | 'error';
+export type ScanResult = 'pending' | 'clean' | 'suspicious' | 'malicious' | 'not_found' | 'error';
 export type PluginStatus = 'listed' | 'pending' | 'suspended' | 'removed';
 
 export interface ReleaseForStatus {

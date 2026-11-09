@@ -1,0 +1,236 @@
+// 15 分ごとの定期処理。無料プランの 1 回の上限に収めるため、予算を使い切ったら次回へ持ち越す。
+import { Budget, BudgetExceededError } from '../budget';
+import type { Env } from '../env';
+import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
+import { ScannerRateLimitedError, scanWithMalwareBazaar, scanWithVirusTotal } from '../scanners';
+import { inferOs } from './metadata';
+import type { Scanner } from './status';
+
+// VirusTotal の Public API は 4 回/分。15 分ごとに 4 件なら 1 日 384 件で、上限の 500 件にも収まる。
+export const VIRUSTOTAL_PER_RUN = 4;
+export const MALWAREBAZAAR_PER_RUN = 10;
+const MAX_ATTEMPTS = 5;
+const TAG = /^[A-Za-z0-9._-]{1,100}$/;
+
+export interface CronReport {
+  scanned: number;
+  synced: number;
+  subrequests: number;
+  d1Queries: number;
+  stoppedBy?: string;
+}
+
+function now(): string {
+  return new Date().toISOString();
+}
+
+interface PendingScan {
+  digest: string;
+  scanner: Scanner;
+  attempts: number;
+}
+
+async function runScans(env: Env, budget: Budget, report: CronReport): Promise<void> {
+  const plan: Array<[Scanner, number, string | undefined]> = [
+    ['virustotal', VIRUSTOTAL_PER_RUN, env.VIRUSTOTAL_API_KEY],
+    ['malwarebazaar', MALWAREBAZAAR_PER_RUN, env.MALWAREBAZAAR_AUTH_KEY],
+  ];
+  for (const [scanner, limit, key] of plan) {
+    // 鍵が無いスキャナーは動かさない。結果は検査待ちのまま残り、検査済みとは表示されない。
+    if (!key) continue;
+    budget.takeD1Query();
+    const { results } = await env.DB.prepare(
+      `SELECT digest, scanner, attempts FROM scans
+       WHERE scanner = ? AND (result = 'pending' OR (result = 'error' AND attempts < ?))
+       ORDER BY scanned_at IS NOT NULL, scanned_at LIMIT ?`,
+    )
+      .bind(scanner, MAX_ATTEMPTS, limit)
+      .all<PendingScan>();
+    const updates: D1PreparedStatement[] = [];
+    for (const row of results) {
+      if (!budget.canFetch()) break;
+      try {
+        const outcome =
+          scanner === 'virustotal'
+            ? await scanWithVirusTotal(budget, key, row.digest)
+            : await scanWithMalwareBazaar(budget, key, row.digest);
+        updates.push(
+          env.DB.prepare(
+            'UPDATE scans SET result = ?, detail = ?, attempts = attempts + 1, scanned_at = ? WHERE digest = ? AND scanner = ?',
+          ).bind(outcome.result, outcome.detail, now(), row.digest, row.scanner),
+        );
+        report.scanned += 1;
+      } catch (error) {
+        if (error instanceof ScannerRateLimitedError) break;
+        throw error;
+      }
+    }
+    if (updates.length > 0) {
+      budget.takeD1Query();
+      await env.DB.batch(updates);
+    }
+  }
+}
+
+interface SyncRow {
+  id: string;
+  github_repo_id: number;
+  owner: string;
+  repo: string;
+  releases_etag: string | null;
+}
+
+// プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決。
+const SYNC_COST = 3;
+
+async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: SyncRow): Promise<void> {
+  const timestamp = now();
+  let repo: Awaited<ReturnType<GitHubClient['getRepoById']>>;
+  try {
+    // ID で引き直すと、リネームや移管の後も同じリポジトリを追える。
+    repo = await github.getRepoById(row.github_repo_id);
+  } catch (error) {
+    if (error instanceof GitHubError && error.kind === 'not_found') {
+      budget.takeD1Query();
+      await env.DB.prepare('UPDATE plugins SET removed = 1, updated_at = ?, last_synced_at = ? WHERE id = ?')
+        .bind(timestamp, timestamp, row.id)
+        .run();
+      return;
+    }
+    throw error;
+  }
+  if (repo.private) {
+    budget.takeD1Query();
+    await env.DB.prepare('UPDATE plugins SET removed = 1, updated_at = ?, last_synced_at = ? WHERE id = ?')
+      .bind(timestamp, timestamp, row.id)
+      .run();
+    return;
+  }
+
+  const statements: D1PreparedStatement[] = [
+    env.DB.prepare(
+      'UPDATE plugins SET owner = ?, repo = ?, license_spdx = COALESCE(?, license_spdx) WHERE id = ?',
+    ).bind(repo.owner.login, repo.name, repo.license?.spdx_id ?? null, row.id),
+  ];
+  const latest = await github.getLatestRelease(repo.owner.login, repo.name, row.releases_etag ?? undefined);
+  if (latest?.release) {
+    statements.push(
+      ...(await releaseStatements(env, budget, github, row.id, repo.owner.login, repo.name, latest.release)),
+    );
+    statements.push(env.DB.prepare('UPDATE plugins SET releases_etag = ? WHERE id = ?').bind(latest.etag, row.id));
+  }
+  statements.push(
+    env.DB.prepare('UPDATE plugins SET updated_at = ?, last_synced_at = ? WHERE id = ?').bind(
+      timestamp,
+      timestamp,
+      row.id,
+    ),
+  );
+  budget.takeD1Query();
+  await env.DB.batch(statements);
+}
+
+async function releaseStatements(
+  env: Env,
+  budget: Budget,
+  github: GitHubClient,
+  pluginId: string,
+  owner: string,
+  repo: string,
+  release: GitHubRelease,
+): Promise<D1PreparedStatement[]> {
+  const assets = release.assets.filter((asset) => asset.digest?.startsWith('sha256:'));
+  if (release.draft || !release.published_at || assets.length === 0 || !TAG.test(release.tag_name)) return [];
+  budget.takeD1Query();
+  const known = await env.DB.prepare(
+    'SELECT a.github_asset_id AS id, a.digest FROM assets a JOIN releases r ON r.github_release_id = a.release_id WHERE r.plugin_id = ?',
+  )
+    .bind(pluginId)
+    .all<{ id: number; digest: string }>();
+  const knownKeys = new Set(known.results.map((row) => `${row.id}:${row.digest}`));
+  const commitSha = await github.getCommitSha(owner, repo, release.tag_name);
+  const statements: D1PreparedStatement[] = [
+    env.DB.prepare(
+      `INSERT INTO releases (github_release_id, plugin_id, tag, name, commit_sha, published_at, html_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (github_release_id) DO UPDATE SET tag = excluded.tag, name = excluded.name,
+         commit_sha = excluded.commit_sha, html_url = excluded.html_url`,
+    ).bind(release.id, pluginId, release.tag_name, release.name, commitSha, release.published_at, release.html_url),
+    // リリースから外された配布物は掲載対象から外す。
+    env.DB.prepare(
+      `DELETE FROM assets WHERE release_id = ? AND github_asset_id NOT IN (${assets.map(() => '?').join(', ')})`,
+    ).bind(release.id, ...assets.map((asset) => asset.id)),
+  ];
+  for (const asset of assets) {
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO assets (github_asset_id, release_id, name, size, digest, download_url, os) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (github_asset_id) DO UPDATE SET name = excluded.name, size = excluded.size, digest = excluded.digest,
+           download_url = excluded.download_url, os = excluded.os`,
+      ).bind(
+        asset.id,
+        release.id,
+        asset.name,
+        asset.size,
+        asset.digest,
+        asset.browser_download_url,
+        inferOs(asset.name),
+      ),
+    );
+    // 新しく現れた配布物 (新しいアセット、または digest の変化) は、同じ digest の過去の結果があっても照会し直す。
+    // 既知の配布物はダウンロード数の変化などで ETag が変わっても照会し直さず、照会の上限を使い切らないようにする。
+    if (!knownKeys.has(`${asset.id}:${asset.digest}`)) {
+      statements.push(...resetScanStatements(env, asset.digest as string));
+    }
+  }
+  return statements;
+}
+
+export function resetScanStatements(env: Env, digest: string): D1PreparedStatement[] {
+  return (['virustotal', 'malwarebazaar'] as const).map((scanner) =>
+    env.DB.prepare(
+      `INSERT INTO scans (digest, scanner, result) VALUES (?, ?, 'pending')
+       ON CONFLICT (digest, scanner) DO UPDATE SET result = 'pending', detail = NULL, attempts = 0, scanned_at = NULL`,
+    ).bind(digest, scanner),
+  );
+}
+
+async function runSync(env: Env, budget: Budget, report: CronReport): Promise<void> {
+  const github = new GitHubClient(budget, {
+    kind: 'app',
+    clientId: env.GITHUB_CLIENT_ID,
+    clientSecret: env.GITHUB_CLIENT_SECRET,
+  });
+  budget.takeD1Query();
+  const { results } = await env.DB.prepare(
+    'SELECT id, github_repo_id, owner, repo, releases_etag FROM plugins WHERE removed = 0 ORDER BY last_synced_at LIMIT 20',
+  ).all<SyncRow>();
+  for (const row of results) {
+    if (!budget.canFetch(SYNC_COST) || !budget.canQuery(3)) break;
+    try {
+      await syncOne(env, budget, github, row);
+      report.synced += 1;
+    } catch (error) {
+      // GitHub の障害やレート制限では、そのプラグインを更新せずに次回へ回す。既存の正常な情報は変えない。
+      if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) {
+        report.stoppedBy = `github_${error.kind}`;
+        break;
+      }
+      throw error;
+    }
+  }
+}
+
+export async function runCron(env: Env, budget = new Budget()): Promise<CronReport> {
+  const report: CronReport = { scanned: 0, synced: 0, subrequests: 0, d1Queries: 0 };
+  try {
+    await runScans(env, budget, report);
+    await runSync(env, budget, report);
+  } catch (error) {
+    if (!(error instanceof BudgetExceededError)) throw error;
+    report.stoppedBy = `budget_${error.kind}`;
+  }
+  report.subrequests = budget.subrequests;
+  report.d1Queries = budget.d1Queries;
+  return report;
+}
