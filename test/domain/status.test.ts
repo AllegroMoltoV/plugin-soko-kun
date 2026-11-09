@@ -6,28 +6,23 @@ const active = { adminSuspended: false, removed: false };
 const older: ReleaseForStatus = { githubReleaseId: 1, publishedAt: '2026-10-01T00:00:00Z', digests: ['sha256:old'] };
 const newer: ReleaseForStatus = { githubReleaseId: 2, publishedAt: '2026-11-01T00:00:00Z', digests: ['sha256:new'] };
 
-function lookupFrom(table: Record<string, [ScanResult, ScanResult]>): ScanLookup {
-  return (digest, scanner) => table[digest]?.[scanner === 'virustotal' ? 0 : 1];
+function lookupFrom(table: Record<string, ScanResult>): ScanLookup {
+  return (digest) => table[digest];
 }
 
 describe('computeStatus', () => {
   it('検査が終わっていないリリースしか無ければ掲載しない', () => {
-    const result = computeStatus(active, [newer], lookupFrom({ 'sha256:new': ['pending', 'clean'] }));
+    const result = computeStatus(active, [newer], lookupFrom({ 'sha256:new': 'pending' }));
     expect(result.status).toBe('pending');
   });
 
-  it('VirusTotal に未登録のハッシュは、既定では検査済みとしない', () => {
-    const result = computeStatus(active, [newer], lookupFrom({ 'sha256:new': ['not_found', 'not_found'] }));
-    expect(result.status).toBe('pending');
-  });
-
-  it('MalwareBazaar の未登録は該当なしとして扱う', () => {
-    const result = computeStatus(active, [newer], lookupFrom({ 'sha256:new': ['clean', 'not_found'] }));
+  it('MalwareBazaar の未登録は既知のマルウェアに該当しないとして掲載する', () => {
+    const result = computeStatus(active, [newer], lookupFrom({ 'sha256:new': 'not_found' }));
     expect(result).toMatchObject({ status: 'listed', listedReleaseId: 2 });
   });
 
   it('検査の失敗は検査済みとしない', () => {
-    const result = computeStatus(active, [newer], lookupFrom({ 'sha256:new': ['error', 'clean'] }));
+    const result = computeStatus(active, [newer], lookupFrom({ 'sha256:new': 'error' }));
     expect(result.status).toBe('pending');
   });
 
@@ -35,7 +30,7 @@ describe('computeStatus', () => {
     const result = computeStatus(
       active,
       [older, newer],
-      lookupFrom({ 'sha256:old': ['clean', 'clean'], 'sha256:new': ['pending', 'pending'] }),
+      lookupFrom({ 'sha256:old': 'not_found', 'sha256:new': 'pending' }),
     );
     expect(result).toEqual({ status: 'listed', listedReleaseId: 1, pendingReleaseIds: [2] });
   });
@@ -44,7 +39,7 @@ describe('computeStatus', () => {
     const result = computeStatus(
       active,
       [older, newer],
-      lookupFrom({ 'sha256:old': ['malicious', 'clean'], 'sha256:new': ['clean', 'clean'] }),
+      lookupFrom({ 'sha256:old': 'malicious', 'sha256:new': 'not_found' }),
     );
     expect(result).toMatchObject({ status: 'suspended', reason: 'malicious' });
   });
@@ -53,7 +48,7 @@ describe('computeStatus', () => {
     const result = computeStatus(
       { adminSuspended: true, removed: false },
       [newer],
-      lookupFrom({ 'sha256:new': ['clean', 'clean'] }),
+      lookupFrom({ 'sha256:new': 'not_found' }),
     );
     expect(result).toMatchObject({ status: 'suspended', reason: 'admin' });
   });
@@ -62,7 +57,7 @@ describe('computeStatus', () => {
     const result = computeStatus(
       { adminSuspended: false, removed: true },
       [newer],
-      lookupFrom({ 'sha256:new': ['clean', 'clean'] }),
+      lookupFrom({ 'sha256:new': 'not_found' }),
     );
     expect(result.status).toBe('removed');
   });

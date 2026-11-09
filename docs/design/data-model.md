@@ -75,7 +75,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | 列 | 型 | 制約 | 内容 |
 | --- | --- | --- | --- |
 | `digest` | TEXT | 主キーの一部 | 照会した `digest` |
-| `scanner` | TEXT | 主キーの一部、`virustotal`・`malwarebazaar` のいずれか | スキャナー |
+| `scanner` | TEXT | 主キーの一部。値は `malwarebazaar` | スキャナー |
 | `result` | TEXT | NOT NULL、下表の値のいずれか | 検査結果 |
 | `detail` | TEXT | | スキャナーの応答の要約 |
 | `attempts` | INTEGER | NOT NULL、既定値 0 | 照会した回数 |
@@ -88,13 +88,11 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `result` | 意味 |
 | --- | --- |
 | `pending` | 照会していない |
-| `clean` | スキャナーが検出なしと判定した |
-| `suspicious` | VirusTotal で、`malicious` と判定したエンジンが 1〜2 件ある。または `suspicious` と判定したエンジンがある |
-| `malicious` | VirusTotal で 3 エンジン以上が `malicious` と判定した。または MalwareBazaar が既知のマルウェアとして収録している |
-| `not_found` | スキャナーが `digest` を収録していない |
+| `malicious` | MalwareBazaar が既知のマルウェアとして収録している |
+| `not_found` | MalwareBazaar が `digest` を収録していない |
 | `error` | 照会に失敗した |
 
-`suspicious` を記録するのは VirusTotal だけです。
+`0001_init.sql` の制約は、VirusTotal を照会していたときの値 `clean`・`suspicious` と `scanner` の値 `virustotal` も許しますが、本サービスはこれらを記録しません。既存の VirusTotal の検査結果は `0005_drop_virustotal.sql` で削除しました。
 
 ## submit_log
 
@@ -131,21 +129,18 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 
 ### 検査結果の解釈
 
-| スキャナー | `clean` | `not_found` | `pending`・`error` | `suspicious` | `malicious` |
-| --- | --- | --- | --- | --- | --- |
-| `malwarebazaar` | 確定 | 確定 | 未確定 | 記録しない | 検出 |
-| `virustotal` | 確定 | 未確定 | 未確定 | 未確定 | 検出 |
+| スキャナー | `not_found` | `pending`・`error` | `malicious` |
+| --- | --- | --- | --- |
+| `malwarebazaar` | 確定 | 未確定 | 検出 |
 
-MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decisions/0005-malwarebazaar-not-found-as-clean.md) に記載しています。VirusTotal の `not_found` を未確定とする判断は [ADR 0006](../decisions/0006-virustotal-not-found-undecided.md) に記載しています。
-
-VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当たりません。`suspicious` の配布物を持つリリースは検査済みにならず、掲載を保留します。管理者が `detail` と VirusTotal の解析結果を確認して判断します。閾値の判断は [ADR 0009](../decisions/0009-virustotal-detection-threshold.md) に記載しています。
+MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decisions/0005-malwarebazaar-not-found-as-clean.md) に、VirusTotal を照会先から外した判断は [ADR 0012](../decisions/0012-drop-virustotal.md) に記載しています。
 
 ### 検査済みのリリース
 
 リリースが検査済みとなるのは、次の 2 つを両方満たすときです。
 
 - 配布物を 1 件以上持つ。
-- すべての配布物について、両方のスキャナーの結果が確定である。
+- すべての配布物について、MalwareBazaar の結果が確定である。
 
 ### 掲載対象バージョン
 
@@ -159,7 +154,7 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 | --- | --- | --- | --- |
 | 1 | `admin_suspended` が 1 | 停止 | 管理停止 |
 | 2 | `removed` が 1 | 掲載終了 | GitHub での削除または非公開化 |
-| 3 | いずれかのリリースのいずれかの配布物で、どちらかのスキャナーの結果が `malicious` | 停止 | マルウェアの検出 |
+| 3 | いずれかのリリースのいずれかの配布物で、MalwareBazaar の結果が `malicious` | 停止 | マルウェアの検出 |
 | 4 | 掲載対象バージョンがある | 掲載中 | |
 | 5 | 上のいずれにも当てはまらない | 検査待ち | |
 

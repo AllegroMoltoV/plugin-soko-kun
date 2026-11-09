@@ -323,9 +323,9 @@ export const SideRelated: FC<{
   </>
 );
 
-const checkLabel = (t: Dict, scanner: 'virustotal' | 'malwarebazaar', result: ScanResult | undefined) => {
+const checkLabel = (t: Dict, result: ScanResult | undefined) => {
   if (!result) return t.check.pending;
-  if (scanner === 'malwarebazaar' && result === 'not_found') return t.malwarebazaarNotFound;
+  if (result === 'not_found') return t.malwarebazaarNotFound;
   return t.check[result];
 };
 
@@ -488,12 +488,7 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
             <div class="hash">SHA-256: {asset.digest.replace(/^sha256:/, '')}</div>
             <ul class="checks">
               <li>
-                VirusTotal: {checkLabel(t, 'virustotal', asset.scans.virustotal?.result)}
-                {asset.scans.virustotal?.detail ? ` (${asset.scans.virustotal.detail})` : ''},{' '}
-                {formatDateTime(asset.scans.virustotal?.scannedAt, lang)}
-              </li>
-              <li>
-                MalwareBazaar: {checkLabel(t, 'malwarebazaar', asset.scans.malwarebazaar?.result)},{' '}
+                MalwareBazaar: {checkLabel(t, asset.scans.malwarebazaar?.result)},{' '}
                 {formatDateTime(asset.scans.malwarebazaar?.scannedAt, lang)}
               </li>
             </ul>

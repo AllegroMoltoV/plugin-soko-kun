@@ -34,7 +34,7 @@ npx wrangler d1 time-travel restore <データベース名> --env production --t
 
 ### 復元の後の確認
 
-1. 指定した時点より後に行った管理コマンドの操作 (停止と再開・`approve-suspicious`・`set-category`・`hide-images` と `show-images`) を、`npm run admin -- show <owner/repo> --remote` で確かめます。復元で失われた操作は、やり直します。
+1. 指定した時点より後に行った管理コマンドの操作 (停止と再開・`set-category`・`hide-images` と `show-images`) を、`npm run admin -- show <owner/repo> --remote` で確かめます。復元で失われた操作は、やり直します。
 2. 指定した時点より後に登録されたプラグインは、復元で失われます。登録者は `submit_plugin` で登録し直す必要があります。
 3. リリースと配布物の情報は、Cron の同期で GitHub から取り直されます。
 

@@ -40,7 +40,7 @@ function summaryItem(env: Env, view: PluginView) {
 
 function lastScannedAt(view: PluginView): string | null {
   const times = (view.listedRelease?.assets ?? [])
-    .flatMap((asset) => [asset.scans.virustotal?.scannedAt, asset.scans.malwarebazaar?.scannedAt])
+    .map((asset) => asset.scans.malwarebazaar?.scannedAt)
     .filter((t): t is string => typeof t === 'string');
   return times.sort().at(-1) ?? null;
 }
@@ -91,7 +91,7 @@ function detailItem(env: Env, view: PluginView) {
     newerReleasesUnderCheck: view.pendingReleases,
     notes: [
       DISCLAIMER,
-      'Checks look up the SHA-256 published by GitHub in VirusTotal and MalwareBazaar. No detection does not mean the file is safe.',
+      'Checks look up the SHA-256 published by GitHub in MalwareBazaar, a database of known malware samples. No detection does not mean the file is safe.',
       'The SHA-256 identifies the file GitHub served at check time. Verify the hash of the file you download.',
     ],
     detailUrl: detailUrl(env, view),

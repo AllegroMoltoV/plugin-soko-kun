@@ -102,17 +102,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'After submitting',
           paragraphs: [
-            'This platform registers the plugin as waiting for checks and checks each file against VirusTotal and MalwareBazaar every 15 minutes. Checks for a plugin usually finish within a few hours, so check the plugin page later.',
+            'This platform registers the plugin as waiting for checks and checks each file against MalwareBazaar, a database of known malware samples, every 15 minutes. Checks for a plugin usually finish within a few hours, so check the plugin page later.',
             'When all files pass the checks, this platform lists the plugin automatically. When you publish a new release on GitHub, this platform finds it and checks it, and keeps listing the previous release until the checks finish.',
-          ],
-        },
-        {
-          heading: 'Getting files checked by VirusTotal',
-          paragraphs: [
-            'VirusTotal returns a result only for files it has already analyzed, so upload the files of each new release at https://www.virustotal.com/gui/home/upload after publishing it.',
-            'Uploading is free, and this platform picks up the result at its next check.',
-            'This platform does not list a release whose files VirusTotal has not analyzed, so the plugin stays pending until you upload them.',
-            'Files you upload are shared with the VirusTotal community, so upload only files that you publish.',
           ],
         },
         {
@@ -167,7 +158,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Automated checks',
           paragraphs: [
-            'For each file in a release, the service records the SHA-256 digest that GitHub publishes and looks it up in VirusTotal and MalwareBazaar. Files are not downloaded by the service.',
+            'For each file in a release, the service records the SHA-256 digest that GitHub publishes and looks it up in MalwareBazaar, a database of known malware samples. Files are not downloaded by the service.',
             'A release is shown as checked only after every file has a result from both lookups. Releases that are waiting for checks, or whose checks failed, are not listed. When a new release is under check, the previously checked release stays listed.',
             'A file reported as malicious suspends the plugin. A file detected by only a few engines is held for review.',
           ],
@@ -395,17 +386,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '登録した後の流れ',
           paragraphs: [
-            'このプラットフォームはプラグインを検査待ちで登録し、15 分ごとに配布物を VirusTotal と MalwareBazaar で照会します。検査はふつう数時間以内に終わるので、しばらくしてからプラグインのページを確認してください。',
+            'このプラットフォームはプラグインを検査待ちで登録し、15 分ごとに配布物を 既知のマルウェアのデータベースである MalwareBazaar で照会します。検査はふつう数時間以内に終わるので、しばらくしてからプラグインのページを確認してください。',
             'すべての配布物が検査を通ると、このプラットフォームはプラグインを自動で掲載します。GitHub で新しいリリースを公開すると、このプラットフォームはそれを見つけて検査し、検査が終わるまで前のリリースを掲載し続けます。',
-          ],
-        },
-        {
-          heading: 'VirusTotal での検査',
-          paragraphs: [
-            'VirusTotal は解析済みのファイルにだけ結果を返すので、新しいリリースを公開したら、配布物を https://www.virustotal.com/gui/home/upload からアップロードしてください。',
-            'アップロードは無料で、このプラットフォームは次の検査のときに結果を取得します。',
-            'このプラットフォームは VirusTotal が解析していない配布物を持つリリースを掲載しないので、アップロードするまでプラグインは検査待ちのままです。',
-            'アップロードしたファイルは VirusTotal の利用者に共有されるので、公開している配布物だけをアップロードしてください。',
           ],
         },
         {
@@ -460,7 +442,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '自動検査',
           paragraphs: [
-            'このプラットフォームは、リリースの配布物ごとに GitHub が公開する SHA-256 を記録し、VirusTotal と MalwareBazaar で照会します。このプラットフォームは配布物をダウンロードしません。',
+            'このプラットフォームは、リリースの配布物ごとに GitHub が公開する SHA-256 を記録し、既知のマルウェアのデータベースである MalwareBazaar で照会します。このプラットフォームは配布物をダウンロードしません。',
             'このプラットフォームは、すべての配布物で両方の照会結果がそろってから、検査済みとして表示します。検査待ちや検査に失敗したリリースは掲載しません。新しいリリースを検査しているあいだは、検査を通った前のリリースを掲載し続けます。',
             'マルウェアと判定された配布物があると、このプラットフォームはプラグインの掲載を停止します。少数のエンジンだけが検出した場合は、管理者が確認するまで掲載を保留します。',
           ],
@@ -692,17 +674,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '提交之后',
           paragraphs: [
-            '本平台将插件登记为等待检查，并每 15 分钟在 VirusTotal 和 MalwareBazaar 中查询文件。检查通常在几小时内完成，请稍后查看插件页面。',
+            '本平台将插件登记为等待检查，并每 15 分钟在已知恶意软件数据库 MalwareBazaar 中查询文件。检查通常在几小时内完成，请稍后查看插件页面。',
             '所有文件通过检查后，本平台会自动收录插件。您在 GitHub 上发布新版本后，本平台会发现并检查它，检查完成前继续收录之前的版本。',
-          ],
-        },
-        {
-          heading: 'VirusTotal 检查',
-          paragraphs: [
-            'VirusTotal 只返回已分析过的文件的结果，因此发布新版本后，请在 https://www.virustotal.com/gui/home/upload 上传发布文件。',
-            '上传免费，本平台会在下次检查时获取结果。',
-            '本平台不会收录含有 VirusTotal 未分析文件的版本，因此在上传之前，插件会一直处于待检查状态。',
-            '上传的文件会与 VirusTotal 的用户共享，因此请只上传已公开的发布文件。',
           ],
         },
         {
@@ -757,7 +730,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '自动检查',
           paragraphs: [
-            '对于发布中的每个文件，本服务记录 GitHub 公布的 SHA-256，并在 VirusTotal 和 MalwareBazaar 中查询。本服务不下载文件。',
+            '对于发布中的每个文件，本服务记录 GitHub 公布的 SHA-256，并在已知恶意软件数据库 MalwareBazaar 中查询。本服务不下载文件。',
             '只有当所有文件都得到两项查询结果后，才显示为已检查。等待检查或检查失败的发布不会被收录。新发布检查期间，之前通过检查的发布将继续收录。',
             '如有文件被判定为恶意软件，将暂停该插件的收录。仅被少数引擎检出时，将保留待确认。',
           ],
@@ -965,17 +938,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '提交之後',
           paragraphs: [
-            '本平台將外掛登記為等待檢查，並每 15 分鐘在 VirusTotal 與 MalwareBazaar 中查詢檔案。檢查通常在幾小時內完成，請稍後查看外掛頁面。',
+            '本平台將外掛登記為等待檢查，並每 15 分鐘在已知惡意軟體資料庫 MalwareBazaar 中查詢檔案。檢查通常在幾小時內完成，請稍後查看外掛頁面。',
             '所有檔案通過檢查後，本平台會自動收錄外掛。您在 GitHub 上發布新版本後，本平台會發現並檢查它，檢查完成前繼續收錄先前的版本。',
-          ],
-        },
-        {
-          heading: 'VirusTotal 檢查',
-          paragraphs: [
-            'VirusTotal 只會回傳已分析過的檔案結果，因此發布新版本後，請在 https://www.virustotal.com/gui/home/upload 上傳發行檔案。',
-            '上傳免費，本平台會在下次檢查時取得結果。',
-            '本平台不會收錄含有 VirusTotal 未分析檔案的版本，因此在上傳之前，外掛會一直處於待檢查狀態。',
-            '上傳的檔案會與 VirusTotal 的使用者共享，因此請只上傳已公開的發行檔案。',
           ],
         },
         {
@@ -1030,7 +994,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '自動檢查',
           paragraphs: [
-            '對於發行中的每個檔案，本服務記錄 GitHub 公布的 SHA-256，並在 VirusTotal 與 MalwareBazaar 中查詢。本服務不下載檔案。',
+            '對於發行中的每個檔案，本服務記錄 GitHub 公布的 SHA-256，並在已知惡意軟體資料庫 MalwareBazaar 中查詢。本服務不下載檔案。',
             '只有當所有檔案都取得兩項查詢結果後，才顯示為已檢查。等待檢查或檢查失敗的發行不會被收錄。新發行檢查期間，先前通過檢查的發行將繼續收錄。',
             '如有檔案被判定為惡意軟體，將暫停該外掛的收錄。僅被少數引擎檢出時，將保留待確認。',
           ],
@@ -1238,17 +1202,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '등록한 뒤의 흐름',
           paragraphs: [
-            '이 플랫폼은 플러그인을 검사 대기로 등록하고, 15분마다 배포 파일을 VirusTotal과 MalwareBazaar에서 조회합니다. 검사는 보통 몇 시간 안에 끝나므로, 잠시 후 플러그인 페이지를 확인해 주세요.',
+            '이 플랫폼은 플러그인을 검사 대기로 등록하고, 15분마다 배포 파일을 알려진 악성 코드 데이터베이스인 MalwareBazaar에서 조회합니다. 검사는 보통 몇 시간 안에 끝나므로, 잠시 후 플러그인 페이지를 확인해 주세요.',
             '모든 배포 파일이 검사를 통과하면 이 플랫폼은 플러그인을 자동으로 게재합니다. GitHub에서 새 릴리스를 공개하면 이 플랫폼이 이를 찾아 검사하며, 검사가 끝날 때까지 이전 릴리스를 계속 게재합니다.',
-          ],
-        },
-        {
-          heading: 'VirusTotal 검사',
-          paragraphs: [
-            'VirusTotal은 분석한 적이 있는 파일에만 결과를 돌려주므로, 새 릴리스를 공개하면 배포 파일을 https://www.virustotal.com/gui/home/upload 에서 업로드해 주세요.',
-            '업로드는 무료이며, 이 플랫폼은 다음 검사 때 결과를 가져옵니다.',
-            '이 플랫폼은 VirusTotal이 분석하지 않은 파일이 있는 릴리스를 게재하지 않으므로, 업로드할 때까지 플러그인은 검사 대기 상태로 남습니다.',
-            '업로드한 파일은 VirusTotal 사용자에게 공유되므로, 공개한 배포 파일만 업로드해 주세요.',
           ],
         },
         {
@@ -1303,7 +1258,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '자동 검사',
           paragraphs: [
-            '릴리스의 파일마다 GitHub가 공개하는 SHA-256을 기록하고, VirusTotal과 MalwareBazaar에서 조회합니다. 이 서비스는 파일을 다운로드하지 않습니다.',
+            '릴리스의 파일마다 GitHub가 공개하는 SHA-256을 기록하고, 알려진 악성 코드 데이터베이스인 MalwareBazaar에서 조회합니다. 이 서비스는 파일을 다운로드하지 않습니다.',
             '모든 파일에서 두 조회 결과가 갖추어진 뒤에 검사 완료로 표시합니다. 검사 대기 중이거나 검사에 실패한 릴리스는 게재하지 않습니다. 새 릴리스를 검사하는 동안에는 검사를 통과한 이전 릴리스를 계속 게재합니다.',
             '악성코드로 판정된 파일이 있으면 플러그인의 게재를 중지합니다. 소수의 엔진만 검출한 경우에는 확인을 위해 보류합니다.',
           ],
@@ -1526,17 +1481,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Depois do envio',
           paragraphs: [
-            'Esta plataforma registra o plugin como aguardando verificação e consulta os arquivos no VirusTotal e no MalwareBazaar a cada 15 minutos. As verificações costumam terminar em algumas horas; por isso, confira a página do plugin mais tarde.',
+            'Esta plataforma registra o plugin como aguardando verificação e consulta os arquivos no MalwareBazaar, um banco de dados de malware conhecido, a cada 15 minutos. As verificações costumam terminar em algumas horas; por isso, confira a página do plugin mais tarde.',
             'Quando todos os arquivos passam nas verificações, esta plataforma lista o plugin automaticamente. Quando você publica uma nova versão no GitHub, esta plataforma a encontra e a verifica, e mantém a versão anterior listada até a verificação terminar.',
-          ],
-        },
-        {
-          heading: 'Verificação pelo VirusTotal',
-          paragraphs: [
-            'O VirusTotal só retorna resultados para arquivos que já analisou; por isso, depois de publicar uma nova versão, envie os arquivos em https://www.virustotal.com/gui/home/upload.',
-            'O envio é gratuito, e esta plataforma obtém o resultado na próxima verificação.',
-            'Esta plataforma não lista uma versão com arquivos que o VirusTotal não analisou; por isso, o plugin continua aguardando verificação até você enviá-los.',
-            'Os arquivos enviados são compartilhados com a comunidade do VirusTotal; por isso, envie apenas arquivos que você publica.',
           ],
         },
         {
@@ -1591,7 +1537,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Verificações automáticas',
           paragraphs: [
-            'Para cada arquivo de uma versão, o serviço registra o SHA-256 publicado pelo GitHub e o consulta no VirusTotal e no MalwareBazaar. O serviço não baixa os arquivos.',
+            'Para cada arquivo de uma versão, o serviço registra o SHA-256 publicado pelo GitHub e o consulta no MalwareBazaar, um banco de dados de malware conhecido. O serviço não baixa os arquivos.',
             'Uma versão só aparece como verificada depois que todos os arquivos têm resultado das duas consultas. Versões aguardando verificação ou com falha na verificação não são listadas. Enquanto uma nova versão é verificada, a versão verificada anterior continua listada.',
             'Um arquivo apontado como malicioso suspende o plugin. Um arquivo detectado por poucos mecanismos fica em espera para revisão.',
           ],
@@ -1825,17 +1771,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Después de enviar',
           paragraphs: [
-            'Esta plataforma registra el plugin en espera de revisión y consulta los archivos en VirusTotal y MalwareBazaar cada 15 minutos. Las revisiones suelen terminar en unas horas; por eso, revisa la página del plugin más tarde.',
+            'Esta plataforma registra el plugin en espera de revisión y consulta los archivos en MalwareBazaar, una base de datos de malware conocido, cada 15 minutos. Las revisiones suelen terminar en unas horas; por eso, revisa la página del plugin más tarde.',
             'Cuando todos los archivos pasan las revisiones, esta plataforma incluye el plugin automáticamente. Cuando publicas una nueva versión en GitHub, esta plataforma la encuentra y la revisa, y mantiene la versión anterior en la lista hasta que termina la revisión.',
-          ],
-        },
-        {
-          heading: 'Revisión con VirusTotal',
-          paragraphs: [
-            'VirusTotal solo devuelve resultados de archivos que ya analizó; por eso, después de publicar una nueva versión, sube los archivos en https://www.virustotal.com/gui/home/upload.',
-            'Subirlos es gratis, y esta plataforma obtiene el resultado en la siguiente revisión.',
-            'Esta plataforma no lista una versión con archivos que VirusTotal no analizó; por eso, el plugin sigue en espera de revisión hasta que los subas.',
-            'Los archivos que subes se comparten con la comunidad de VirusTotal; por eso, sube solo archivos que publicas.',
           ],
         },
         {
@@ -1890,7 +1827,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Revisiones automáticas',
           paragraphs: [
-            'Para cada archivo de una versión, el servicio registra el SHA-256 que publica GitHub y lo consulta en VirusTotal y MalwareBazaar. El servicio no descarga los archivos.',
+            'Para cada archivo de una versión, el servicio registra el SHA-256 que publica GitHub y lo consulta en MalwareBazaar, una base de datos de malware conocido. El servicio no descarga los archivos.',
             'Una versión se muestra como revisada solo cuando todos sus archivos tienen resultado de ambas consultas. Las versiones en espera de revisión o con revisiones fallidas no aparecen en la lista. Mientras se revisa una versión nueva, la versión revisada anterior sigue en la lista.',
             'Un archivo marcado como malicioso suspende el plugin. Un archivo detectado por pocos motores queda en espera de revisión.',
           ],

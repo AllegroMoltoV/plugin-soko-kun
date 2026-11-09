@@ -20,7 +20,6 @@
 | 画像の非表示 | `npm run admin -- hide-images <owner/repo>` |
 | 画像の再表示 | `npm run admin -- show-images <owner/repo>` |
 | カテゴリの変更 | `npm run admin -- set-category <owner/repo> <category>` |
-| 要確認の結果を問題なしにする | `npm run admin -- approve-suspicious <owner/repo>` |
 
 いずれのコマンドも、`--remote` を付けると本番の D1 を更新します。付けない場合はローカルの D1 を更新します。`<owner/repo>` はプラグイン ID で、大文字と小文字を区別しません。
 
@@ -78,24 +77,6 @@
 1. 通報の対象のプラグイン ID を特定し、`show` で現在の値を確認します。
 2. 詳細ページで、掲載対象バージョン・配布物の SHA-256・検査結果を確認します。
 3. 利用者への被害のおそれがある場合は、調査の前に停止します。理由には、公開してよい範囲の内容を書きます。
-4. GitHub のリポジトリとリリース、VirusTotal の解析結果を確認し、通報の内容を調べます。
+4. GitHub のリポジトリとリリースを確認し、通報の内容を調べます。
 5. 通報が誤りと判断した場合は、再開します。
 6. 調べた結果と対応を通報者へ返答します。Private vulnerability reporting で受けた通報には、同じ非公開の場で返答します。
-
-## 要確認の結果を受けたとき
-
-VirusTotal の検査結果が `suspicious` の配布物を持つリリースは、掲載を保留します。管理者は、`suspicious` の配布物を定期的に確認します。次のコマンドで、本番の D1 から一覧を取得できます。
-
-```sh
-npx wrangler d1 execute DB --remote --env production --command "SELECT r.plugin_id, r.tag, a.name, s.digest, s.detail, s.scanned_at FROM scans s JOIN assets a ON a.digest = s.digest JOIN releases r ON r.github_release_id = a.release_id WHERE s.scanner = 'virustotal' AND s.result = 'suspicious'"
-```
-
-`detail` は、`malicious` のエンジン数・全エンジン数・`suspicious` のエンジン数を示します。VirusTotal で同じ SHA-256 の解析結果を確認し、マルウェアと判断した場合は停止します。
-
-問題がないと判断した場合は、次のコマンドで、そのプラグインの `suspicious` の結果を `clean` に変えます。`detail` には、管理者が確認した日時を残します。
-
-```bash
-npm run admin -- approve-suspicious <owner/repo> --remote
-```
-
-判断の背景は [ADR 0009](../decisions/0009-virustotal-detection-threshold.md) に記載しています。

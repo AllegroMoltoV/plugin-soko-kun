@@ -89,7 +89,7 @@ export interface Dict {
   file: string;
   size: string;
   checks: string;
-  check: Record<'clean' | 'suspicious' | 'malicious' | 'not_found' | 'pending' | 'error', string>;
+  check: Record<'malicious' | 'not_found' | 'pending' | 'error', string>;
   malwarebazaarNotFound: string;
   noDetectionNotSafe: string;
   newerUnderCheck: (newer: string, listed: string) => string;
@@ -201,8 +201,6 @@ const en: Dict = {
   size: 'Size',
   checks: 'Checks',
   check: {
-    clean: 'No detection',
-    suspicious: 'Needs review',
     malicious: 'Detected',
     not_found: 'Not in database',
     pending: 'Waiting',
@@ -328,8 +326,6 @@ const ja: Dict = {
   size: 'サイズ',
   checks: '検査',
   check: {
-    clean: '検出なし',
-    suspicious: '要確認',
     malicious: '検出あり',
     not_found: '未登録',
     pending: '検査待ち',
@@ -453,8 +449,6 @@ const zhHans: Dict = {
   size: '大小',
   checks: '检查',
   check: {
-    clean: '未检出',
-    suspicious: '需确认',
     malicious: '已检出',
     not_found: '未收录',
     pending: '等待检查',
@@ -572,8 +566,6 @@ const zhHant: Dict = {
   file: '檔案',
   checks: '檢查',
   check: {
-    clean: '未檢出',
-    suspicious: '需確認',
     malicious: '已檢出',
     not_found: '未收錄',
     pending: '等待檢查',
@@ -697,8 +689,6 @@ const ko: Dict = {
   size: '크기',
   checks: '검사',
   check: {
-    clean: '검출 없음',
-    suspicious: '확인 필요',
     malicious: '검출됨',
     not_found: '미등록',
     pending: '검사 대기',
@@ -822,8 +812,6 @@ const ptBR: Dict = {
   size: 'Tamanho',
   checks: 'Verificações',
   check: {
-    clean: 'Nada detectado',
-    suspicious: 'Requer revisão',
     malicious: 'Detectado',
     not_found: 'Fora da base',
     pending: 'Aguardando',
@@ -947,8 +935,6 @@ const es419: Dict = {
   size: 'Tamaño',
   checks: 'Revisiones',
   check: {
-    clean: 'Sin detecciones',
-    suspicious: 'Requiere revisión',
     malicious: 'Detectado',
     not_found: 'No registrado',
     pending: 'En espera',

@@ -10,7 +10,6 @@ export default defineConfig({
           TEST_MIGRATIONS: await readD1Migrations('./migrations'),
           GITHUB_CLIENT_ID: 'test-client-id',
           GITHUB_CLIENT_SECRET: 'test-client-secret',
-          VIRUSTOTAL_API_KEY: 'test-virustotal-key',
           MALWAREBAZAAR_AUTH_KEY: 'test-malwarebazaar-key',
           CONTACT_EMAIL: 'allegromoltov@soko-kun.example',
         },

@@ -24,12 +24,13 @@
 | 0003 | [配布物の digest の取得方法](decisions/0003-github-digest-without-download.md) | 採用 |
 | 0004 | [掲載状態の算出](decisions/0004-computed-listing-status.md) | 採用 |
 | 0005 | [MalwareBazaar の未登録の扱い](decisions/0005-malwarebazaar-not-found-as-clean.md) | 採用 |
-| 0006 | [VirusTotal の未登録の扱い](decisions/0006-virustotal-not-found-undecided.md) | 採用 |
+| 0006 | [VirusTotal の未登録の扱い](decisions/0006-virustotal-not-found-undecided.md) | 置き換え済み (0012) |
 | 0007 | [検査と同期の実行方式](decisions/0007-asynchronous-scanning-with-cron.md) | 採用 |
 | 0008 | [公開文書と作業記録の分担](decisions/0008-docs-and-work-records.md) | 採用 |
-| 0009 | [VirusTotal の検出の閾値](decisions/0009-virustotal-detection-threshold.md) | 採用 |
+| 0009 | [VirusTotal の検出の閾値](decisions/0009-virustotal-detection-threshold.md) | 置き換え済み (0012) |
 | 0010 | [プラグインの説明文の機械翻訳](decisions/0010-machine-translation-of-summaries.md) | 採用 |
 | 0011 | [プラグインの画像を Worker から配信する](decisions/0011-plugin-images-hosted-by-worker.md) | 採用 |
+| 0012 | [VirusTotal を照会先から外す](decisions/0012-drop-virustotal.md) | 採用 |
 
 ## 運用手順
 

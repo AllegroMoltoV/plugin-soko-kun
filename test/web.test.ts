@@ -22,7 +22,7 @@ async function register(): Promise<void> {
 describe('Web', () => {
   it('GitHub の説明文に含まれる script をエスケープして表示する', async () => {
     await register();
-    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
     const html = await (await SELF.fetch(`${ORIGIN}/plugins/${OWNER}/${REPO}?lang=en`)).text();
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(html).not.toContain('<script>alert(1)</script>');
@@ -47,7 +47,7 @@ describe('Web', () => {
 
   it('機械翻訳した概要に含まれる script もエスケープする', async () => {
     await register();
-    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
     await env.DB.prepare(
       "INSERT INTO plugin_translations (plugin_id, lang, source_hash, text, translated_at) VALUES (?, 'ja', 'x', '訳<script>alert(2)</script>', '2026-11-09T00:00:00Z')",
     )
@@ -80,7 +80,7 @@ describe('Web', () => {
     const url = `${ORIGIN}/plugins/${OWNER}/${REPO}/logo`;
     expect((await SELF.fetch(url)).status).toBe(404);
 
-    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
     const listed = await SELF.fetch(url);
     expect(listed.status).toBe(200);
     expect(listed.headers.get('Content-Type')).toBe('image/png');
@@ -93,7 +93,7 @@ describe('Web', () => {
 
   it('週間 DL 数ランキングは 7 日以上前の記録がたまるまで右の列に出さない', async () => {
     await register();
-    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
     const id = `${OWNER}/${REPO}`.toLowerCase();
     const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
     const insert = (offset: number, total: number) =>

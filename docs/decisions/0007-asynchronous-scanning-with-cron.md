@@ -32,4 +32,4 @@
 
 新しいリリースが検査を終えるまでの間、Web と MCP は前の掲載対象バージョンを示します。
 
-1 日の VirusTotal の照会は、15 分ごとに最大 4 件のとき 384 件になり、上限の 500 件に収まります。予算の値は [検査と同期](../design/scanning.md) に記載します。
+照会先は、[ADR 0012](0012-drop-virustotal.md) により MalwareBazaar だけになりました。予算の値は [検査と同期](../design/scanning.md) に記載します。

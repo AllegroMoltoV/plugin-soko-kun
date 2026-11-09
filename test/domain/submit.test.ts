@@ -88,7 +88,7 @@ describe('submitPlugin', () => {
     const scans = await env.DB.prepare("SELECT count(*) AS n FROM scans WHERE result = 'pending'").first<{
       n: number;
     }>();
-    expect(scans?.n).toBe(4);
+    expect(scans?.n).toBe(2);
     const plugin = await env.DB.prepare('SELECT github_repo_id FROM plugins').first<{ github_repo_id: number }>();
     expect(plugin?.github_repo_id).toBe(REPO_ID);
   });

@@ -34,13 +34,7 @@ const repoById = (status = 200, extra: Record<string, unknown> = {}) =>
       : new HttpResponse(null, { status }),
   );
 
-const scannerHandlers = (counter: { vt: number; mb: number }) => [
-  http.get('https://www.virustotal.com/api/v3/files/:hash', () => {
-    counter.vt += 1;
-    return HttpResponse.json({
-      data: { attributes: { last_analysis_stats: { malicious: 0, suspicious: 0, undetected: 70 } } },
-    });
-  }),
+const scannerHandlers = (counter: { mb: number }) => [
   http.post('https://mb-api.abuse.ch/api/v1/', () => {
     counter.mb += 1;
     return HttpResponse.json({ query_status: 'hash_not_found' });
@@ -56,7 +50,7 @@ describe('runCron', () => {
       ...githubHandlers(),
       ...imageHandlers(),
       ...downloadHandlers(),
-      ...scannerHandlers({ vt: 0, mb: 0 }),
+      ...scannerHandlers({ mb: 0 }),
     );
     await runCron(env);
     const row = await env.DB.prepare('SELECT admin_suspended FROM plugins').first<{ admin_suspended: number }>();
@@ -65,7 +59,7 @@ describe('runCron', () => {
 
   it('GitHub でリポジトリが消えたら掲載終了にする', async () => {
     await registerFixture();
-    network.use(repoById(404), ...scannerHandlers({ vt: 0, mb: 0 }));
+    network.use(repoById(404), ...scannerHandlers({ mb: 0 }));
     await runCron(env);
     const row = await env.DB.prepare('SELECT removed FROM plugins').first<{ removed: number }>();
     expect(row?.removed).toBe(1);
@@ -74,7 +68,7 @@ describe('runCron', () => {
   it('GitHub の障害では既存の情報を変えない', async () => {
     await registerFixture();
     const before = await env.DB.prepare('SELECT * FROM plugins').first();
-    network.use(repoById(503), ...scannerHandlers({ vt: 0, mb: 0 }));
+    network.use(repoById(503), ...scannerHandlers({ mb: 0 }));
     const report = await runCron(env);
     expect(report.stoppedBy).toBe('github_unavailable');
     expect(await env.DB.prepare('SELECT * FROM plugins').first()).toEqual(before);
@@ -82,7 +76,9 @@ describe('runCron', () => {
 
   it('新しく現れた配布物は、同じ digest の過去の結果があっても照会し直す', async () => {
     await registerFixture();
-    await env.DB.prepare("UPDATE scans SET result = 'clean', attempts = 1, scanned_at = '2026-11-01T00:00:00Z'").run();
+    await env.DB.prepare(
+      "UPDATE scans SET result = 'not_found', attempts = 1, scanned_at = '2026-11-01T00:00:00Z'",
+    ).run();
     // 同じ内容のファイルを別のアセット ID で上げ直した新しいリリース
     network.use(
       ...imageHandlers(),
@@ -111,7 +107,7 @@ describe('runCron', () => {
       http.get(`https://api.github.com/repos/${OWNER}/${REPO}/commits/v1.2.0`, () => HttpResponse.json({ sha: 'abc' })),
     );
     await runCron(env, undefined);
-    const scan = await env.DB.prepare(`SELECT result FROM scans WHERE digest = ? AND scanner = 'virustotal'`)
+    const scan = await env.DB.prepare(`SELECT result FROM scans WHERE digest = ? AND scanner = 'malwarebazaar'`)
       .bind(`sha256:${'d1'.repeat(32)}`)
       .first<{ result: string }>();
     expect(scan?.result).toBe('pending');
@@ -127,13 +123,13 @@ describe('runCron', () => {
       )
         .bind(`allegromoltov/p${i}`, 910000 + i, OWNER, `p${i}`, stamp, stamp, stamp)
         .run();
-      for (const scanner of ['virustotal', 'malwarebazaar']) {
+      for (const scanner of ['malwarebazaar']) {
         await env.DB.prepare("INSERT INTO scans (digest, scanner, result) VALUES (?, ?, 'pending')")
           .bind(`sha256:${i.toString(16).padStart(64, '0')}`, scanner)
           .run();
       }
     }
-    const counter = { vt: 0, mb: 0 };
+    const counter = { mb: 0 };
     network.use(
       ...imageHandlers(),
       ...downloadHandlers(),
@@ -156,7 +152,7 @@ describe('runCron', () => {
     const report = await runCron(env);
     expect(report.subrequests).toBeLessThanOrEqual(45);
     expect(report.d1Queries).toBeLessThanOrEqual(45);
-    expect(counter.vt).toBeLessThanOrEqual(4);
+    expect(counter.mb).toBeLessThanOrEqual(10);
   });
 });
 
@@ -208,7 +204,7 @@ describe('runCron の同期の失敗', () => {
         `https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`,
         () => new HttpResponse(null, { status: 304 }),
       ),
-      ...scannerHandlers({ vt: 0, mb: 0 }),
+      ...scannerHandlers({ mb: 0 }),
     );
     await runCron(env);
     const row = await env.DB.prepare('SELECT removed FROM plugins').first<{ removed: number }>();
@@ -225,7 +221,7 @@ describe('runCron の画像の取得', () => {
       ...githubHandlers(),
       ...imageHandlers({ 'logo.png': png(64, 64), 'image.png': svg }, calls),
       ...downloadHandlers(),
-      ...scannerHandlers({ vt: 0, mb: 0 }),
+      ...scannerHandlers({ mb: 0 }),
     );
     await runCron(env);
     const { results } = await env.DB.prepare('SELECT kind, content_type, width FROM plugin_images').all();
@@ -247,7 +243,7 @@ describe('runCron のダウンロード数の記録', () => {
       ...githubHandlers(),
       ...imageHandlers(),
       ...downloadHandlers([120, 30], calls),
-      ...scannerHandlers({ vt: 0, mb: 0 }),
+      ...scannerHandlers({ mb: 0 }),
     );
     await runCron(env);
     const { results } = await env.DB.prepare('SELECT total FROM download_snapshots').all();
@@ -273,7 +269,7 @@ describe('runCron の概要の更新', () => {
         ...githubHandlers(),
         ...imageHandlers(),
         ...downloadHandlers(),
-        ...scannerHandlers({ vt: 0, mb: 0 }),
+        ...scannerHandlers({ mb: 0 }),
       );
       await runCron(env);
       network.resetHandlers();

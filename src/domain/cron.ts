@@ -3,13 +3,11 @@ import { Budget, BudgetExceededError } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
 import { checkImage, expectedType, IMAGE_LIMITS, type ImageKind } from '../images';
-import { ScannerRateLimitedError, scanWithMalwareBazaar, scanWithVirusTotal } from '../scanners';
+import { ScannerRateLimitedError, scanWithMalwareBazaar } from '../scanners';
 import { runTranslations } from '../translate';
 import { inferOs } from './metadata';
 import type { Scanner } from './status';
 
-// VirusTotal の Public API は 4 回/分。15 分ごとに 4 件なら 1 日 384 件で、上限の 500 件にも収まる。
-export const VIRUSTOTAL_PER_RUN = 4;
 export const MALWAREBAZAAR_PER_RUN = 10;
 const MAX_ATTEMPTS = 5;
 const TAG = /^[A-Za-z0-9._-]{1,100}$/;
@@ -36,44 +34,36 @@ interface PendingScan {
 }
 
 async function runScans(env: Env, budget: Budget, report: CronReport): Promise<void> {
-  const plan: Array<[Scanner, number, string | undefined]> = [
-    ['virustotal', VIRUSTOTAL_PER_RUN, env.VIRUSTOTAL_API_KEY],
-    ['malwarebazaar', MALWAREBAZAAR_PER_RUN, env.MALWAREBAZAAR_AUTH_KEY],
-  ];
-  for (const [scanner, limit, key] of plan) {
-    // 鍵が無いスキャナーは動かさない。結果は検査待ちのまま残り、検査済みとは表示されない。
-    if (!key) continue;
+  const key = env.MALWAREBAZAAR_AUTH_KEY;
+  // 鍵が無いときは照会しない。結果は検査待ちのまま残り、検査済みとは表示されない。
+  if (!key) return;
+  budget.takeD1Query();
+  const { results } = await env.DB.prepare(
+    `SELECT digest, scanner, attempts FROM scans
+     WHERE scanner = 'malwarebazaar' AND (result = 'pending' OR (result = 'error' AND attempts < ?))
+     ORDER BY scanned_at IS NOT NULL, scanned_at LIMIT ?`,
+  )
+    .bind(MAX_ATTEMPTS, MALWAREBAZAAR_PER_RUN)
+    .all<PendingScan>();
+  const updates: D1PreparedStatement[] = [];
+  for (const row of results) {
+    if (!budget.canFetch()) break;
+    try {
+      const outcome = await scanWithMalwareBazaar(budget, key, row.digest);
+      updates.push(
+        env.DB.prepare(
+          'UPDATE scans SET result = ?, detail = ?, attempts = attempts + 1, scanned_at = ? WHERE digest = ? AND scanner = ?',
+        ).bind(outcome.result, outcome.detail, now(), row.digest, row.scanner),
+      );
+      report.scanned += 1;
+    } catch (error) {
+      if (error instanceof ScannerRateLimitedError) break;
+      throw error;
+    }
+  }
+  if (updates.length > 0) {
     budget.takeD1Query();
-    const { results } = await env.DB.prepare(
-      `SELECT digest, scanner, attempts FROM scans
-       WHERE scanner = ? AND (result = 'pending' OR (result = 'error' AND attempts < ?))
-       ORDER BY scanned_at IS NOT NULL, scanned_at LIMIT ?`,
-    )
-      .bind(scanner, MAX_ATTEMPTS, limit)
-      .all<PendingScan>();
-    const updates: D1PreparedStatement[] = [];
-    for (const row of results) {
-      if (!budget.canFetch()) break;
-      try {
-        const outcome =
-          scanner === 'virustotal'
-            ? await scanWithVirusTotal(budget, key, row.digest)
-            : await scanWithMalwareBazaar(budget, key, row.digest);
-        updates.push(
-          env.DB.prepare(
-            'UPDATE scans SET result = ?, detail = ?, attempts = attempts + 1, scanned_at = ? WHERE digest = ? AND scanner = ?',
-          ).bind(outcome.result, outcome.detail, now(), row.digest, row.scanner),
-        );
-        report.scanned += 1;
-      } catch (error) {
-        if (error instanceof ScannerRateLimitedError) break;
-        throw error;
-      }
-    }
-    if (updates.length > 0) {
-      budget.takeD1Query();
-      await env.DB.batch(updates);
-    }
+    await env.DB.batch(updates);
   }
 }
 
@@ -257,7 +247,7 @@ async function imageStatements(
 }
 
 export function resetScanStatements(env: Env, digest: string): D1PreparedStatement[] {
-  return (['virustotal', 'malwarebazaar'] as const).map((scanner) =>
+  return (['malwarebazaar'] as const).map((scanner) =>
     env.DB.prepare(
       `INSERT INTO scans (digest, scanner, result) VALUES (?, ?, 'pending')
        ON CONFLICT (digest, scanner) DO UPDATE SET result = 'pending', detail = NULL, attempts = 0, scanned_at = NULL`,

@@ -3,7 +3,6 @@
 //   npm run admin -- suspend <owner/repo> "<理由>" [--remote]
 //   npm run admin -- resume <owner/repo> [--remote]
 //   npm run admin -- show <owner/repo> [--remote]
-//   npm run admin -- approve-suspicious <owner/repo> [--remote]
 //   npm run admin -- set-category <owner/repo> <category> [--remote]
 //   npm run admin -- hide-images <owner/repo> [--remote]
 //   npm run admin -- show-images <owner/repo> [--remote]
@@ -24,7 +23,7 @@ const remote = args.includes('--remote');
 const [command, rawId, reason] = args.filter((a) => a !== '--remote');
 if (!command || !rawId)
   fail(
-    'usage: admin <suspend|resume|show|approve-suspicious|set-category|hide-images|show-images> <owner/repo> [reason|category] [--remote]',
+    'usage: admin <suspend|resume|show|set-category|hide-images|show-images> <owner/repo> [reason|category] [--remote]',
   );
 
 const id = rawId.toLowerCase();
@@ -40,10 +39,6 @@ if (command === 'suspend') {
 } else if (command === 'resume') {
   // 再開は管理者の停止を解くだけで、掲載の可否は検査結果から改めて算出される。
   sql = `UPDATE plugins SET admin_suspended = 0, suspended_reason = NULL, updated_at = ${quote(now)} WHERE id = ${quote(id)}; SELECT id, admin_suspended FROM plugins WHERE id = ${quote(id)};`;
-} else if (command === 'approve-suspicious') {
-  // VirusTotal で少数のエンジンだけが検出した配布物を、管理者が確認したうえで問題なしとする。
-  const digests = `SELECT a.digest FROM assets a JOIN releases r ON r.github_release_id = a.release_id WHERE r.plugin_id = ${quote(id)}`;
-  sql = `UPDATE scans SET result = 'clean', detail = 'reviewed by admin ' || ${quote(now)} || ': ' || ifnull(detail, '') WHERE result = 'suspicious' AND digest IN (${digests}); SELECT digest, scanner, result, detail FROM scans WHERE digest IN (${digests});`;
 } else if (command === 'set-category') {
   // 自動の推定が誤っていたカテゴリを、管理者が直す。
   if (!CATEGORIES.includes(reason)) fail(`category must be one of: ${CATEGORIES.join(', ')}`);

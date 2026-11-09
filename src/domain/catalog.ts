@@ -235,7 +235,6 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
               downloadUrl: asset.download_url,
               os: asset.os,
               scans: {
-                virustotal: toScan(asset.digest, 'virustotal'),
                 malwarebazaar: toScan(asset.digest, 'malwarebazaar'),
               },
             })),

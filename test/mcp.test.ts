@@ -83,7 +83,7 @@ describe('アクセス権限', () => {
 
   it('検査を通ったプラグインは検索でき、外部データは untrusted に入る', async () => {
     await registerPendingFixture();
-    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
     const { payload } = await toolResult(
       await SELF.fetch(toolCall('search_plugins', { keyword: 'pitch shift', os: 'windows' })),
     );
@@ -94,7 +94,7 @@ describe('アクセス権限', () => {
 
   it('管理者が停止したプラグインは検索結果から消える', async () => {
     await registerPendingFixture();
-    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
     await env.DB.prepare('UPDATE plugins SET admin_suspended = 1').run();
     const { payload } = await toolResult(await SELF.fetch(toolCall('search_plugins', {})));
     expect(payload.total).toBe(0);
