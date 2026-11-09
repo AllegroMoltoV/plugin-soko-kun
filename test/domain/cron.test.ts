@@ -148,3 +148,55 @@ describe('runCron', () => {
     expect(counter.vt).toBeLessThanOrEqual(4);
   });
 });
+
+describe('runCron の同期の失敗', () => {
+  it('1 件のプラグインで 403 が続いても、ほかのプラグインの同期を止めない', async () => {
+    const stamp = '2000-01-01T00:00:00Z';
+    for (const [i, id] of [
+      [1, 920001],
+      [2, 920002],
+    ] as const) {
+      await env.DB.prepare(
+        `INSERT INTO plugins (id, github_repo_id, owner, repo, license_spdx, submitter_github_id, created_at, updated_at, last_synced_at)
+         VALUES (?, ?, ?, ?, 'MIT', 1, ?, ?, ?)`,
+      )
+        .bind(`allegromoltov/q${i}`, id, OWNER, `q${i}`, stamp, stamp, `2000-01-0${i}T00:00:00Z`)
+        .run();
+    }
+    network.use(
+      http.get('https://api.github.com/repositories/920001', () => new HttpResponse(null, { status: 403 })),
+      http.get('https://api.github.com/repositories/920002', () =>
+        HttpResponse.json({
+          id: 920002,
+          name: 'q2',
+          owner: { login: OWNER },
+          private: false,
+          archived: false,
+          license: { spdx_id: 'MIT' },
+        }),
+      ),
+      http.get(
+        `https://api.github.com/repos/${OWNER}/q2/releases/latest`,
+        () => new HttpResponse(null, { status: 304 }),
+      ),
+    );
+    const report = await runCron(env);
+    expect(report).toMatchObject({ synced: 1, failed: 1 });
+  });
+
+  it('掲載終了のリポジトリが公開に戻れば、掲載終了を解く', async () => {
+    await registerFixture();
+    await env.DB.prepare('UPDATE plugins SET removed = 1').run();
+    network.use(
+      repoById(),
+      http.get(
+        `https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`,
+        () => new HttpResponse(null, { status: 304 }),
+      ),
+      ...scannerHandlers({ vt: 0, mb: 0 }),
+    );
+    await runCron(env);
+    const row = await env.DB.prepare('SELECT removed FROM plugins').first<{ removed: number }>();
+    expect(row?.removed).toBe(0);
+  });
+});

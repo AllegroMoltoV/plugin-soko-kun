@@ -25,7 +25,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `repo` | TEXT | NOT NULL | GitHub のリポジトリ名 |
 | `summary` | TEXT | | 概要。外部データ |
 | `license_spdx` | TEXT | NOT NULL | ライセンスの SPDX 識別子 |
-| `category` | TEXT | NOT NULL、既定値 `other` | カテゴリ |
+| `category` | TEXT | NOT NULL、既定値 `other` | カテゴリ。`audio-filter`・`video-filter`・`source`・`transition`・`dock-ui`・`output`・`utility`・`other` のいずれか |
 | `admin_suspended` | INTEGER | NOT NULL、既定値 0 | 1 のとき管理停止 |
 | `suspended_reason` | TEXT | | 管理停止の理由 |
 | `removed` | INTEGER | NOT NULL、既定値 0 | 1 のとき、GitHub でリポジトリが削除または非公開になった |
@@ -78,15 +78,18 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 
 索引: `scans_pending (result, scanned_at)`
 
-検査結果は `digest` ごとに持ちます。新しいリリースや `digest` の変化には、別の `digest` の結果を流用しません。
+検査結果は `digest` ごとに持ちます。新しく現れた配布物は、同じ `digest` の過去の結果があっても `pending` に戻して照会し直します。新しく現れた配布物とは、配布物の ID と `digest` の組がそのプラグインの既存の配布物に無いものです。規則は [検査と同期](scanning.md) に記載します。
 
 | `result` | 意味 |
 | --- | --- |
 | `pending` | 照会していない |
 | `clean` | スキャナーが検出なしと判定した |
-| `malicious` | スキャナーがマルウェアとして検出した |
+| `suspicious` | VirusTotal で、`malicious` と判定したエンジンが 1〜2 件ある。または `suspicious` と判定したエンジンがある |
+| `malicious` | VirusTotal で 3 エンジン以上が `malicious` と判定した。または MalwareBazaar が既知のマルウェアとして収録している |
 | `not_found` | スキャナーが `digest` を収録していない |
 | `error` | 照会に失敗した |
+
+`suspicious` を記録するのは VirusTotal だけです。
 
 ## submit_log
 
@@ -94,21 +97,28 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | --- | --- | --- | --- |
 | `github_user_id` | INTEGER | NOT NULL | 要求した利用者の GitHub のユーザー ID |
 | `created_at` | TEXT | NOT NULL | 要求の日時 |
-| `outcome` | TEXT | NOT NULL | 結果。失敗した要求も記録する |
+| `outcome` | TEXT | NOT NULL | 結果。成功は `accepted`、失敗は理由コード |
 
 索引: `submit_log_user (github_user_id, created_at)`
 
-`submit_plugin` のレート制限は、この表の件数で判定します。上限は利用者ごとに 1 日 10 件です。
+`submit_plugin` のレート制限は、この表の件数で判定します。上限は利用者ごとに直近 24 時間で 10 件です。検証で失敗した要求も数えます。レート制限で拒否した要求は記録しません。
 
 ## rate_limit
 
 | 列 | 型 | 制約 | 内容 |
 | --- | --- | --- | --- |
-| `key` | TEXT | 主キーの一部 | 送信元 IP アドレスのハッシュと経路の組 |
-| `window_start` | INTEGER | 主キーの一部 | 集計の窓の開始時刻 |
+| `key` | TEXT | 主キーの一部 | `<経路>:<送信元 IP アドレス>` の SHA-256 を 16 進数で表した文字列。IP アドレスをそのまま保存しない |
+| `window_start` | INTEGER | 主キーの一部 | 集計の窓の開始時刻。UNIX 時刻のミリ秒を 60,000 で割って切り捨てた値 |
 | `count` | INTEGER | NOT NULL | 窓の中の要求の件数 |
 
-窓の長さと経路ごとの上限は未決定です。
+集計は長さ 1 分の固定窓で行います。経路ごとの上限は次のとおりです。
+
+| 経路 | 対象のパス | 上限 |
+| --- | --- | --- |
+| `oauth` | `/authorize`・`/callback`・`/oauth/token`・`/oauth/register` | IP アドレスあたり 1 分 20 回 |
+| `public` | `/mcp` と Web カタログ | IP アドレスあたり 1 分 120 回 |
+
+`/.well-known/` 配下のメタデータには、レート制限を設けません。送信元 IP アドレスは要求ヘッダー `CF-Connecting-IP` から得ます。上限を超えた要求には、429 と `Retry-After: 60` を返します。60 分より前の窓の行は、Cron の定期処理で削除します。
 
 ## 掲載状態の算出規則
 
@@ -116,12 +126,14 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 
 ### 検査結果の解釈
 
-| スキャナー | `clean` | `not_found` | `pending`・`error` | `malicious` |
-| --- | --- | --- | --- | --- |
-| `malwarebazaar` | 確定 | 確定 | 未確定 | 検出 |
-| `virustotal` | 確定 | 未確定 | 未確定 | 検出 |
+| スキャナー | `clean` | `not_found` | `pending`・`error` | `suspicious` | `malicious` |
+| --- | --- | --- | --- | --- | --- |
+| `malwarebazaar` | 確定 | 確定 | 未確定 | 記録しない | 検出 |
+| `virustotal` | 確定 | 未確定 | 未確定 | 未確定 | 検出 |
 
 MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decisions/0005-malwarebazaar-not-found-as-clean.md) に記載しています。VirusTotal の `not_found` の扱いは未決定で、決定までは未確定とします。未決定の論点は [ADR 0006](../decisions/0006-virustotal-not-found-undecided.md) に記載しています。
+
+VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当たりません。`suspicious` の配布物を持つリリースは検査済みにならず、掲載を保留します。管理者が `detail` と VirusTotal の解析結果を確認して判断します。閾値の判断は [ADR 0009](../decisions/0009-virustotal-detection-threshold.md) に記載しています。
 
 ### 検査済みのリリース
 
@@ -148,11 +160,15 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 
 ### 状態ごとの公開範囲
 
-| 状態 | Web の一覧と `search_plugins` | `get_plugin` | Web の詳細ページ |
+| 状態 | Web の一覧・`search_plugins`・サイトマップ | `get_plugin` | Web の詳細ページ |
 | --- | --- | --- | --- |
 | 掲載中 | 含める | すべての項目とダウンロード URL を返す | すべての項目とダウンロードボタンを表示する |
-| 検査待ち | 含めない | 状態だけを返し、ダウンロード URL を返さない | 未決定 |
-| 停止 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 名前と状態と理由だけを表示する |
-| 掲載終了 | 含めない | 未決定 | 名前と状態と理由だけを表示する |
+| 検査待ち | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 名前と状態だけを表示する。ダウンロードボタンを表示せず、noindex にする |
+| 停止 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 名前と状態と管理停止の理由だけを表示する。ダウンロードボタンを表示せず、noindex にする |
+| 掲載終了 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 名前と状態だけを表示する。ダウンロードボタンを表示せず、noindex にする |
+
+掲載中以外の `get_plugin` の応答が含む項目は、プラグイン ID・名前・作者・GitHub のリポジトリの URL・状態・理由・案内文・詳細ページの URL です。理由の値は `admin`・`removed`・`malicious` のいずれかで、検査待ちでは `null` です。
+
+詳細ページの noindex は、応答ヘッダー `X-Robots-Tag: noindex` で示します。
 
 管理停止の解除は `admin_suspended` を 0 に戻すだけです。解除後の状態は、上の規則で算出します。

@@ -27,7 +27,17 @@
 | 0006 | [VirusTotal の未登録の扱い](decisions/0006-virustotal-not-found-undecided.md) | 未決定 |
 | 0007 | [検査と同期の実行方式](decisions/0007-asynchronous-scanning-with-cron.md) | 採用 |
 | 0008 | [公開文書と作業記録の分担](decisions/0008-docs-and-work-records.md) | 採用 |
+| 0009 | [VirusTotal の検出の閾値](decisions/0009-virustotal-detection-threshold.md) | 採用 |
 
-運用手順は、実装の後に docs/operations/ へ追加します。
+## 運用手順
+
+開発と運用の作業の手順です。区分はいずれもハウツーです。
+
+| やりたいこと | 参照先 |
+| --- | --- |
+| 手元で Worker を起動し、テストと MCP の接続を確かめる | [ローカルでの開発](operations/local-development.md) |
+| プラグインの掲載を止める、再開する、通報に対応する | [掲載停止と再開](operations/suspend.md) |
+| D1 のデータを保存する、過去の時点へ戻す | [バックアップと復元](operations/backup.md) |
+| ワークフローの権限を知る、本番の設定をそろえて配備する | [CI と配備](operations/ci-cd.md) |
 
 作業の記録 (調査報告、実行ログ、計画、依頼者との確認事項) は公開せず、git の追跡対象外に置きます。その索引は `.prompts/INDEX.md` にあります。

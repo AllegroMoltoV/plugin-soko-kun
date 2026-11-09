@@ -3,6 +3,7 @@
 //   npm run admin -- suspend <owner/repo> "<理由>" [--remote]
 //   npm run admin -- resume <owner/repo> [--remote]
 //   npm run admin -- show <owner/repo> [--remote]
+//   npm run admin -- approve-suspicious <owner/repo> [--remote]
 // --remote を付けないときはローカルの D1 を更新する。
 import { spawnSync } from 'node:child_process';
 
@@ -17,7 +18,7 @@ function fail(message) {
 const args = process.argv.slice(2);
 const remote = args.includes('--remote');
 const [command, rawId, reason] = args.filter((a) => a !== '--remote');
-if (!command || !rawId) fail('usage: admin <suspend|resume|show> <owner/repo> [reason] [--remote]');
+if (!command || !rawId) fail('usage: admin <suspend|resume|show|approve-suspicious> <owner/repo> [reason] [--remote]');
 
 const id = rawId.toLowerCase();
 if (!ID.test(id)) fail(`invalid plugin id: ${rawId}`);
@@ -32,6 +33,10 @@ if (command === 'suspend') {
 } else if (command === 'resume') {
   // 再開は管理者の停止を解くだけで、掲載の可否は検査結果から改めて算出される。
   sql = `UPDATE plugins SET admin_suspended = 0, suspended_reason = NULL, updated_at = ${quote(now)} WHERE id = ${quote(id)}; SELECT id, admin_suspended FROM plugins WHERE id = ${quote(id)};`;
+} else if (command === 'approve-suspicious') {
+  // VirusTotal で少数のエンジンだけが検出した配布物を、管理者が確認したうえで問題なしとする。
+  const digests = `SELECT a.digest FROM assets a JOIN releases r ON r.github_release_id = a.release_id WHERE r.plugin_id = ${quote(id)}`;
+  sql = `UPDATE scans SET result = 'clean', detail = 'reviewed by admin ' || ${quote(now)} || ': ' || ifnull(detail, '') WHERE result = 'suspicious' AND digest IN (${digests}); SELECT digest, scanner, result, detail FROM scans WHERE digest IN (${digests});`;
 } else if (command === 'show') {
   sql = `SELECT id, admin_suspended, suspended_reason, removed, last_synced_at FROM plugins WHERE id = ${quote(id)};`;
 } else {

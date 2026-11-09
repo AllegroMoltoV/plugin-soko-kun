@@ -1,35 +1,64 @@
 # 検査と同期
 
-`submit_plugin` の処理・Cron の定期処理・スキャナー・無料プランの予算の仕様です。検査を Cron で進める判断は [ADR 0007](../decisions/0007-asynchronous-scanning-with-cron.md) に記載しています。
+`submit_plugin` の処理・Cron の定期処理・スキャナー・無料プランの予算の仕様です。検査を Cron で進める判断は [ADR 0007](../decisions/0007-asynchronous-scanning-with-cron.md) に記載しています。実装は `src/domain/submit.ts`・`src/domain/cron.ts`・`src/scanners.ts`・`src/budget.ts` にあります。
 
 ## submit_plugin の処理
 
-`submit_plugin` は、次の順で検証し、すべて通った場合だけ保存します。いずれかで失敗した場合は、理由コードと修正方法を構造化して返します。
+`submit_plugin` は、次の順で検証し、すべて通った場合だけ保存します。いずれかで失敗した場合は、理由コード・説明・修正方法を構造化して返します。
 
-| 順序 | 検証 | 失敗時 |
+| 順序 | 検証 | 失敗時の理由コード |
 | --- | --- | --- |
-| 1 | アクセストークンがある | 401 |
-| 2 | 利用者の当日の要求が 10 件未満である。失敗した要求も数える | 拒否 |
-| 3 | 入力 URL が `^https://github.com/<owner>/<repo>/?$` に一致する | 拒否 |
-| 4 | `GET /repos/{owner}/{repo}` で、`permissions.admin` が `true`、`private` が `false`、`archived` が `false`、`license.spdx_id` がある | 拒否 |
-| 5 | `GET /repos/{owner}/{repo}/languages` が C または C++ を含む | 拒否 |
-| 6 | contents API で取得した `CMakeLists.txt` が libobs を参照する。`find_package(libobs)`、または `libobs` か `OBS::libobs` へのリンクを参照とみなす | 拒否。判定できない場合も拒否 |
-| 7 | `GET /repos/{owner}/{repo}/releases/latest` のリリースが、`digest` を持つ配布物を 1 件以上含む | 拒否 |
-| 8 | `github_repo_id` が未登録である | 重複として拒否 |
+| 1 | アクセストークンがある | 401 を返す |
+| 2 | 利用者の直近 24 時間の要求が 10 件未満である | `rate_limited` |
+| 3 | 入力 URL が `https://github.com/<owner>/<repo>` の形に一致する。末尾の `/` は許す | `invalid_url` |
+| 4 | `GET /repos/{owner}/{repo}` でリポジトリを取得できる | `not_found` |
+| 5 | `permissions.admin` が `true` である | `not_admin` |
+| 6 | `private` が `false` である | `private_repository` |
+| 7 | `archived` が `false` である | `archived_repository` |
+| 8 | `license.spdx_id` があり、`NOASSERTION` でない | `no_license` |
+| 9 | `github_repo_id` が未登録である | `duplicate` |
+| 10 | `GET /repos/{owner}/{repo}/languages` が C または C++ を含む | `not_obs_plugin` |
+| 11 | contents API で取得したルートの `CMakeLists.txt` が libobs を参照する。`find_package(libobs)`、または `target_link_libraries` での `libobs` か `OBS::libobs` の指定を参照とみなす | `not_obs_plugin`。ファイルが無い場合も同じ |
+| 12 | `GET /repos/{owner}/{repo}/releases/latest` で、下書きでない公開済みのリリースを取得できる | `no_release` |
+| 13 | そのリリースが、`sha256:` で始まる `digest` を持つ配布物を 1 件以上含む | `no_verifiable_asset` |
+| 14 | タグ名が英数字・`.`・`-`・`_` の 100 文字以内である | `unsupported_tag` |
 
-順序 4 の要求は利用者のトークンで送ります。順序 5 以降の GitHub API は、OAuth App の認証情報で呼び出します。タグは `GET /repos/{owner}/{repo}/commits/{tag}` でコミット SHA に解決します。
+順序 2 の件数には、検証で失敗した要求も含めます。順序 2 で拒否した要求は件数に含めません。GitHub API が 404 以外の異常を返した場合は `github_unavailable` を返します。
 
-保存は `db.batch()` 1 回で行います。プラグイン・リリース・配布物と、配布物ごとに両方のスキャナーの検査結果を `pending` で書き込みます。応答は、検査待ちの状態・検査の進み方・詳細ページの URL を含みます。
+順序 4 の要求は利用者のトークンで送ります。順序 10 以降の GitHub API は、OAuth App の認証情報で呼び出します。検証を通った後、タグを `GET /repos/{owner}/{repo}/commits/{tag}` でコミット SHA に解決します。リポジトリの description が空の場合は、`GET /repos/{owner}/{repo}/readme` で README を取得します。
+
+### 外部呼び出しの件数
+
+`submit_plugin` の外部呼び出しは、配布物の数によらず最大 6 件です。内訳は、リポジトリ・languages・`CMakeLists.txt`・最新リリース・タグのコミット・README の取得です。リダイレクトを受けた場合は、リダイレクト 1 回ごとに 1 件を加えて数えます。リダイレクトを追うのは同じホストの HTTPS に限り、3 回までです。
+
+`submit_plugin` はスキャナーへ照会しません。マルウェアの照会は Cron の定期処理で行います。
+
+### 保存
+
+保存は `db.batch()` 1 回で行います。プラグイン・リリース・配布物と、配布物ごとに両方のスキャナーの検査結果を `pending` で書き込みます。同じ `digest` の検査結果が既にある場合も、`pending` に戻して照会し直します。
+
+成功時の応答は、プラグイン ID・状態 `pending`・詳細ページの URL・検査する配布物の件数を含みます。
 
 ### 表示用の値の推定
 
 | 値 | 推定の規則 |
 | --- | --- |
-| 対応 OS | 配布物の名前に含まれる語と拡張子から推定する。語の例は `windows`・`win64`・`macos`・`ubuntu`・`linux`。ソースコードの配布物は対象外 |
-| 概要 | リポジトリの description。無ければ README の冒頭の段落。いずれも外部データ |
-| カテゴリ | 名前と概要に含まれる語から推定する。推定できなければ `other` |
+| 対応 OS | 配布物の名前に含まれる語と拡張子から推定する。語の例は `windows`・`win64`・`macos`・`darwin`・`ubuntu`・`linux`。名前に `source` または `src` を含む配布物は対象外で、値は NULL |
+| 概要 | リポジトリの description。空なら README の最初の段落を平文にした 300 文字以内の文字列。いずれも外部データ |
+| カテゴリ | リポジトリ名と概要に含まれる語から推定する。値は下表のいずれか |
 
-検索では、リポジトリ名の区切り文字を除いた文字列での照合も行います。
+| `category` の値 | 表示名 |
+| --- | --- |
+| `audio-filter` | 音声フィルター |
+| `video-filter` | 映像フィルター |
+| `source` | ソース |
+| `transition` | トランジション |
+| `dock-ui` | ドック・UI |
+| `output` | 配信・出力 |
+| `utility` | ユーティリティ |
+| `other` | その他。推定できない場合の値 |
+
+検索では、キーワードと照合対象の両方から文字と数字以外を除いて照合します。照合対象は所有者名・リポジトリ名・概要・カテゴリの値です。
 
 ## Cron の定期処理
 
@@ -39,57 +68,106 @@ Cron Trigger は `*/15 * * * *` で、15 分ごとに起動します。1 回の�
 | --- | --- | --- |
 | 1 | VirusTotal へのハッシュ照会 | 4 件 |
 | 2 | MalwareBazaar へのハッシュ照会 | 10 件 |
-| 3 | 同期 | 外部呼び出しの予算の残り |
-| 4 | OAuth の期限切れデータの掃除。`purgeExpiredData()` を呼ぶ | |
+| 3 | 同期 | 20 件のプラグイン。外部呼び出しの予算の残りが 3 件未満、または D1 のクエリの予算の残りが 3 件未満になった時点で止める |
+| 4 | 60 分より前の `rate_limit` の行の削除 | |
+| 5 | OAuth の期限切れデータの掃除。`purgeExpiredData()` を呼ぶ | |
 
-予算に達した時点で処理を止め、残りを次回の起動へ持ち越します。
+予算に達した時点で処理を止め、残りを次回の起動へ持ち越します。予算による停止とレート制限による停止の後も、順序 4 と 5 を実行します。それ以外の例外で順序 1 から 3 が中断した場合、その起動は失敗として終わり、順序 4 と 5 を実行しません。
+
+### 照会の対象
+
+照会の対象は、結果が `pending` の検査結果と、結果が `error` で照会の回数が 5 回未満の検査結果です。最後に照会した日時が無いものを先に、次に照会した日時の古いものから処理します。
+
+スキャナーの API キーが設定されていない場合、そのスキャナーの照会を行いません。検査結果は `pending` のまま残り、プラグインは検査待ちのままです。
+
+スキャナーが 429 を返した場合は、その起動でのそのスキャナーの照会を止めます。照会できなかった検査結果は次回の起動で処理します。
 
 ### 同期
 
-同期は、`last_synced_at` の古いプラグインから順に処理します。
+同期の対象は、掲載終了のものを含むすべてのプラグインです。`last_synced_at` の古いものから順に処理します。掲載終了のリポジトリが GitHub で公開に戻れば、`removed` を 0 に戻します。一時的な 404 で恒久に掲載から外さないためです。同期で取得するリリースは、GitHub の最新リリースだけです。
 
 | 項目 | 規則 |
 | --- | --- |
-| リポジトリの取得 | `GET /repositories/{github_repo_id}` で引き直し、名前の変更と移管に追従する |
+| リポジトリの取得 | `GET /repositories/{github_repo_id}` で引き直す。所有者名・リポジトリ名・ライセンスを更新し、名前の変更と移管に追従する |
 | 削除と非公開化 | 404 または非公開のとき `removed` を 1 にする |
-| リリースの取得 | `releases_etag` を使った条件付き要求で取得する |
-| 新しいリリース | リリースと配布物を保存し、検査結果を `pending` で作る |
-| 配布物の変化 | 配布物の ID または `digest` が変わったとき、新しい `digest` の検査結果を `pending` で作る |
+| リリースの取得 | `GET /repos/{owner}/{repo}/releases/latest` を、`releases_etag` を使った条件付き要求で送る。304 のときはリリースと配布物を変更しない |
+| 対象外のリリース | 下書き・未公開・`digest` を持つ配布物が無い・タグ名が規則に合わない、のいずれかに当てはまるリリースは保存しない |
+| リリースの保存 | タグをコミット SHA に解決し、リリースを追加または更新する |
+| 外された配布物 | リリースから外された配布物を `assets` から削除する |
+| 配布物の保存 | 配布物を追加または更新する |
+| 新しく現れた配布物 | 配布物の ID と `digest` の組が、そのプラグインの既存の配布物に無い場合、両方のスキャナーの検査結果を `pending` に戻す。同じ `digest` の過去の結果があっても照会し直す |
+| 既知の配布物 | 配布物の ID と `digest` の組が既存の配布物にある場合、検査結果を変更しない。ダウンロード数の変化などで ETag が変わっても照会し直さない |
 | 書き込み | プラグイン 1 件の更新を `db.batch()` 1 回にまとめる |
-| 失敗時 | 該当するプラグインを更新しない |
 | 管理停止 | `admin_suspended` を変更しない |
+
+既知の配布物を照会し直さないのは、VirusTotal の照会の上限を使い切らないためです。
 
 処理は冪等です。同じ起動を繰り返しても、結果は変わりません。
 
 ### GitHub API の異常
 
-GitHub API の 403・429・5xx と、レート制限のヘッダー `x-ratelimit-remaining`・`retry-after` を扱います。異常を受けたプラグインの既存の情報は変更しません。
+GitHub API の応答は、次の規則で分類します。
+
+| 応答 | 分類 | 同期での扱い |
+| --- | --- | --- |
+| 404 | 未検出 | リポジトリの取得では `removed` を 1 にする |
+| 429、または `x-ratelimit-remaining` が 0 の 403 | レート制限 | その起動の同期を止める |
+| 上記以外の 403、401 | 権限なし | そのプラグインの最終同期の時刻だけを進め、次のプラグインへ進む |
+| 5xx などその他 | 利用不可 | その起動の同期を止める |
+
+異常を受けたプラグインの既存の情報は変更しません。
 
 ## スキャナー
 
-| スキャナー | 照会 | 利用条件の上限 | 未登録の扱い |
-| --- | --- | --- | --- |
-| VirusTotal | `GET https://www.virustotal.com/api/v3/files/{sha256}` | Public API は 1 分 4 件、1 日 500 件 | 未決定。決定までは未確定とする [ADR 0006](../decisions/0006-virustotal-not-found-undecided.md) |
-| MalwareBazaar | `POST https://mb-api.abuse.ch/api/v1/` に `query=get_info` と `hash`。`Auth-Key` ヘッダーが必須 | 非営利の利用に限る。量の上限の数値は公開されていない | `clean` と同じ [ADR 0005](../decisions/0005-malwarebazaar-not-found-as-clean.md) |
+| スキャナー | 照会 | 利用条件の上限 |
+| --- | --- | --- |
+| VirusTotal | `GET https://www.virustotal.com/api/v3/files/{sha256}`。`x-apikey` ヘッダーに API キーを付ける | Public API は 1 分 4 件、1 日 500 件 |
+| MalwareBazaar | `POST https://mb-api.abuse.ch/api/v1/` に `query=get_info` と `hash`。`Auth-Key` ヘッダーが必須 | 非営利の利用に限る。量の上限の数値は公開されていない |
 
 VirusTotal の 1 日の照会は、15 分ごとに最大 4 件のとき 384 件です。
 
-照会に失敗した検査結果は `error` として記録し、`attempts` を増やします。`error` からの再照会の間隔と回数の上限は未決定です。
-
 VirusTotal の Public API の利用可否は、VirusTotal へ確認中です。
+
+### VirusTotal の判定
+
+VirusTotal の応答の `last_analysis_stats` から、エンジンごとの判定の件数を読み取って検査結果を決めます。上から順に評価し、最初に当てはまった結果を採ります。閾値を 3 エンジンとする判断は [ADR 0009](../decisions/0009-virustotal-detection-threshold.md) に記載しています。
+
+| 順序 | 応答 | 検査結果 |
+| --- | --- | --- |
+| 1 | 404 | `not_found` |
+| 2 | 429 | 記録しない。その起動の照会を止める |
+| 3 | その他の異常、または `last_analysis_stats` が無い | `error` |
+| 4 | `malicious` が 3 エンジン以上 | `malicious` |
+| 5 | `malicious` が 1〜2 エンジン、または `suspicious` が 1 エンジン以上 | `suspicious` |
+| 6 | 上のいずれにも当てはまらない | `clean` |
+
+`detail` には、`malicious` のエンジン数・全エンジン数・`suspicious` のエンジン数を記録します。
+
+VirusTotal の `not_found` の扱いは未決定です。決定までは未確定とします。未決定の論点は [ADR 0006](../decisions/0006-virustotal-not-found-undecided.md) に記載しています。
+
+### MalwareBazaar の判定
+
+| 応答 | 検査結果 |
+| --- | --- |
+| `query_status` が `ok` | `malicious`。既知のマルウェアの検体として収録されている |
+| `query_status` が `hash_not_found` | `not_found` |
+| 429 | 記録しない。その起動の照会を止める |
+| その他 | `error` |
+
+MalwareBazaar の `not_found` は `clean` と同じに扱います。この判断は [ADR 0005](../decisions/0005-malwarebazaar-not-found-as-clean.md) に記載しています。
+
+照会のたびに `attempts` を 1 増やし、`scanned_at` を更新します。
 
 ## 無料プランの予算
 
-Cloudflare Workers の無料プランの上限に対し、本サービスは次の予算を設けます。
+Cloudflare Workers の無料プランの上限に対し、本サービスは次の予算を設けます。予算は `src/budget.ts` の `Budget` で数えます。
 
 | 対象 | 無料プランの上限 | 本サービスの予算 |
 | --- | --- | --- |
 | 外部呼び出し | 1 回の起動あたり 50 件。リダイレクトも 1 件と数える | 45 件 |
-| D1 のクエリ | 1 回の起動あたり 50 件。`db.batch()` は 1 件 | 50 件以内。Cron の起動にも予算を設ける |
+| D1 のクエリ | 1 回の起動あたり 50 件。`db.batch()` は 1 件 | Cron の起動で 45 件 |
 | CPU 時間 | 1 回の起動あたり 10 ms | 配布物をダウンロードしない |
 | KV の書き込み | 1 日 1,000 件 | OAuth の経路に IP アドレスごとのレート制限を設ける |
 | Cron Trigger | アカウントあたり 5 個 | 1 個 |
 
-`submit_plugin` の外部呼び出しは、配布物の数を n として 6 + 2n 件です。上限の 50 件に収まるのは n が 22 以下のとき、予算の 45 件に収まるのは n が 19 以下のときです。予算を超える数の配布物を持つリリースの扱いは未決定です。
-
-Cron の起動での D1 のクエリの予算の値は未決定です。Cron の CPU 時間は未測定です。
+Cron の CPU 時間は未測定です。

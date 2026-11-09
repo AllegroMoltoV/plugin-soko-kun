@@ -15,6 +15,7 @@ const TAG = /^[A-Za-z0-9._-]{1,100}$/;
 export interface CronReport {
   scanned: number;
   synced: number;
+  failed: number;
   subrequests: number;
   d1Queries: number;
   stoppedBy?: string;
@@ -109,7 +110,7 @@ async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: Sync
 
   const statements: D1PreparedStatement[] = [
     env.DB.prepare(
-      'UPDATE plugins SET owner = ?, repo = ?, license_spdx = COALESCE(?, license_spdx) WHERE id = ?',
+      'UPDATE plugins SET owner = ?, repo = ?, license_spdx = COALESCE(?, license_spdx), removed = 0 WHERE id = ?',
     ).bind(repo.owner.login, repo.name, repo.license?.spdx_id ?? null, row.id),
   ];
   const latest = await github.getLatestRelease(repo.owner.login, repo.name, row.releases_etag ?? undefined);
@@ -203,7 +204,8 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
   });
   budget.takeD1Query();
   const { results } = await env.DB.prepare(
-    'SELECT id, github_repo_id, owner, repo, releases_etag FROM plugins WHERE removed = 0 ORDER BY last_synced_at LIMIT 20',
+    // 掲載終了のプラグインも同期し、GitHub で公開に戻れば掲載の判定へ戻す。一時的な 404 で恒久に外さないため。
+    'SELECT id, github_repo_id, owner, repo, releases_etag FROM plugins ORDER BY last_synced_at LIMIT 20',
   ).all<SyncRow>();
   for (const row of results) {
     if (!budget.canFetch(SYNC_COST) || !budget.canQuery(3)) break;
@@ -216,13 +218,21 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
         report.stoppedBy = `github_${error.kind}`;
         break;
       }
+      // そのプラグインに固有の失敗 (403 など) は、同期済みの時刻だけ進めて次へ回す。
+      // 毎回先頭で失敗して、ほかのプラグインの同期が止まり続けないようにするため。
+      if (error instanceof GitHubError && budget.canQuery()) {
+        budget.takeD1Query();
+        await env.DB.prepare('UPDATE plugins SET last_synced_at = ? WHERE id = ?').bind(now(), row.id).run();
+        report.failed += 1;
+        continue;
+      }
       throw error;
     }
   }
 }
 
 export async function runCron(env: Env, budget = new Budget()): Promise<CronReport> {
-  const report: CronReport = { scanned: 0, synced: 0, subrequests: 0, d1Queries: 0 };
+  const report: CronReport = { scanned: 0, synced: 0, failed: 0, subrequests: 0, d1Queries: 0 };
   try {
     await runScans(env, budget, report);
     await runSync(env, budget, report);

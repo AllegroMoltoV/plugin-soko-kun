@@ -40,7 +40,7 @@ MCP の実装は `@modelcontextprotocol/server` の `createMcpHandler` を使い
 | `/callback` | GitHub での認可からの戻り先 |
 | `/oauth/token` | アクセストークンの発行 |
 
-`/oauth/register`・`/authorize`・`/oauth/token`・`/callback` には、送信元 IP アドレスごとのレート制限を設けます。KV の書き込みの上限を守るためです。
+`/oauth/register`・`/authorize`・`/oauth/token`・`/callback` には、送信元 IP アドレスあたり 1 分 20 回のレート制限を設けます。これらの経路は KV へ書き込むため、無料プランの KV の書き込みの上限を守る必要があります。`/mcp` と Web カタログの上限は、送信元 IP アドレスあたり 1 分 120 回です。`/.well-known/` 配下にはレート制限を設けません。集計の方式は [データモデル](data-model.md) の `rate_limit` に記載します。
 
 ## アクセストークン
 
@@ -65,10 +65,24 @@ CIMD の文書は、MCP クライアントが `client_id` として指定した 
 2. MCP クライアントが `/authorize` へ認可要求を送る。要求は PKCE の S256 と `resource` を含む。
 3. 認可サーバーが同意画面を表示する。同意画面は、クライアントの名前と、アクセスを渡す先のホストを示す。
 4. 利用者が同意すると、認可サーバーが GitHub の認可画面へ転送する。この要求は、本サービスが生成した PKCE の S256 を含む。
-5. GitHub が `/callback` へ戻る。認可サーバーは GitHub のアクセストークンを取得し、認可の情報に保存する。
+5. GitHub が `/callback` へ戻る。認可サーバーは GitHub のアクセストークンと refresh token を取得し、GitHub の利用者 ID とログイン名とともに認可の情報に保存する。
 6. 認可サーバーが MCP クライアントへ認可コードを返す。MCP クライアントは `/oauth/token` でアクセストークンを受け取る。
 
 非公開の検証記録では、Claude Code がこの流れでサインインを終え、`submit_plugin` に成功しました。Codex での通し確認は本番公開時に行います。
+
+## GitHub のトークンの更新
+
+GitHub のアクセストークンは期限付きです。認可サーバーは、MCP クライアントのアクセストークンの更新に合わせて、保存した GitHub のトークンを更新します。実装は `src/auth/index.ts` の `tokenExchangeCallback` です。
+
+MCP クライアントが `/oauth/token` へ `grant_type=refresh_token` の要求を送ると、認可サーバーは保存した GitHub の refresh token で GitHub のアクセストークンを取り直します。結果ごとの扱いは次のとおりです。
+
+| GitHub の応答 | 扱い |
+| --- | --- |
+| 新しいアクセストークンを返した | 認可の情報の GitHub のアクセストークンを置き換える。新しい refresh token が返された場合は、それも置き換える |
+| `bad_refresh_token` を返した | `invalid_grant` を返す。利用者は再びサインインする必要がある |
+| その他の失敗 | 503 の `temporarily_unavailable` を返す |
+
+保存した GitHub の refresh token が無い場合は、GitHub のトークンを更新せずに MCP のトークンだけを更新します。認可コードの交換では、この処理を行いません。
 
 ## GitHub の権限
 
@@ -93,3 +107,5 @@ GitHub API を認証なしで呼ぶと、Workers の共有の送信元 IP アド
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App の Client secret |
 | `VIRUSTOTAL_API_KEY` | VirusTotal の API キー |
 | `MALWAREBAZAAR_AUTH_KEY` | MalwareBazaar の Auth-Key |
+
+`VIRUSTOTAL_API_KEY` と `MALWAREBAZAAR_AUTH_KEY` は省略できます。省略したスキャナーは照会を行わず、検査結果は `pending` のまま残ります。
