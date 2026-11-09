@@ -53,6 +53,8 @@ export function summarizeReadme(readme: string): string | null {
       .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
       .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
       .replace(/<[^>]*>/g, '')
+      // 入れ子のタグ (<scr<script>ipt>) は 1 回の置換で <script が残るため、残った山かっこも除く。
+      .replace(/[<>]/g, '')
       .replace(/[`*_~]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
