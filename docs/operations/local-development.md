@@ -99,7 +99,11 @@ claude mcp add --transport http plugin-soko-kun http://localhost:8787/mcp
 codex mcp add plugin-soko-kun --url http://localhost:8787/mcp
 ```
 
-`codex mcp add` は、サーバーが OAuth に対応していることを検出すると、自動でサインインを始めます。ブラウザーで同意画面と GitHub の認可画面を経ると、サインインが終わります。
+このサーバーは検索と詳細の取得をサインインなしで受け付けるため、`codex mcp add` はサインインの要否を判定できず、自動ではサインインを始めません。`submit_plugin` を使う前に、次のコマンドでサインインします。ブラウザーで同意画面と GitHub の認可画面を経ると、サインインが終わります。
+
+```sh
+codex mcp login plugin-soko-kun
+```
 
 ## 管理用スクリプトの実行
 

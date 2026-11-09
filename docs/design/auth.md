@@ -68,7 +68,7 @@ CIMD の文書は、MCP クライアントが `client_id` として指定した 
 5. GitHub が `/callback` へ戻る。認可サーバーは GitHub のアクセストークンと refresh token を取得し、GitHub の利用者 ID とログイン名とともに認可の情報に保存する。
 6. 認可サーバーが MCP クライアントへ認可コードを返す。MCP クライアントは `/oauth/token` でアクセストークンを受け取る。
 
-非公開の検証記録では、Claude Code がこの流れでサインインを終え、`submit_plugin` に成功しました。Codex での通し確認は本番公開時に行います。
+非公開の検証記録では、Claude Code がこの流れでサインインを終え、`submit_plugin` に成功しました。本番では、Codex も `codex mcp login` でサインインを終え、`submit_plugin` の要求が利用者のトークンによる管理権限の確認を通りました。
 
 ## GitHub のトークンの更新
 
