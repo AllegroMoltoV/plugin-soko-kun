@@ -21,6 +21,17 @@ export function withLang(path: string, lang: Lang): string {
   return `${url.pathname}${url.search}`;
 }
 
+// 検索ボタンは虫眼鏡の図だけを見せ、読み上げ用に文字を残す。画像ファイルを使わず、CSP の img-src に依存しない。
+export const SearchButton: FC<{ label: string }> = ({ label }) => (
+  <button type="submit" class="icon-button" title={label}>
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor" stroke-width="2" />
+      <line x1="10" y1="10" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+    </svg>
+    <span class="visually-hidden">{label}</span>
+  </button>
+);
+
 const SITE_NAME = '配信プラグイン倉庫くん';
 const SITE_NAME_EN = 'Plugin Soko-kun';
 
@@ -62,7 +73,7 @@ export const Layout: FC<{ meta: PageMeta; side: Child; children?: Child }> = ({ 
                   aria-label={t.searchPlaceholder}
                   maxlength={100}
                 />
-                <button type="submit">{t.searchButton}</button>
+                <SearchButton label={t.searchButton} />
               </form>
             </search>
             <details class="lang">

@@ -26,7 +26,7 @@ const en: Record<PageKey, PageContent> = {
         paragraphs: [
           'A plugin is listed when its author, who administers the GitHub repository, submits it and it meets these conditions: the repository is public, a license is detected by GitHub, the root CMakeLists.txt references libobs, the latest release has files with a SHA-256 digest from GitHub, and the automated checks find no known threat.',
           'Whether AI was used to develop a plugin does not affect listing. The same conditions apply to every plugin. Disclosing the use of AI is not required.',
-          'A listing is not a certification of safety or quality.',
+          'This platform does not certify safety or quality by listing a plugin, so check plugins yourself before using them.',
         ],
       },
       {
@@ -53,14 +53,14 @@ const en: Record<PageKey, PageContent> = {
       {
         heading: 'Limits of the checks',
         paragraphs: [
-          'The checks detect only threats already known to these databases. New or targeted malware may not be detected. No detection does not mean the file is safe.',
+          'The checks detect only threats already known to these databases. New or targeted malware may not be detected, so use plugins carefully even when nothing is detected.',
           'The digest identifies the file that GitHub served when it was recorded. Compare the SHA-256 of the file you download with the value shown here.',
         ],
       },
       {
         heading: 'Disclaimer',
         paragraphs: [
-          'The service is provided as is, without warranty of any kind. You install plugins at your own risk. The authors of each plugin are responsible for their software.',
+          'This platform is provided as is, without warranty of any kind, so install plugins at your own risk. The authors of each plugin are responsible for their software.',
         ],
       },
     ],
@@ -110,23 +110,23 @@ const ja: Record<PageKey, PageContent> = {
       {
         heading: 'このサービスについて',
         paragraphs: [
-          '配信プラグイン倉庫くんは、OBS Studio 向けのサードパーティ製プラグインの、独立したオープンなレジストリです。非公式のサービスで、OBS Project および OBS Forums とは関係がなく、承認や推奨も受けていません。',
-          '本サービスは配布物を保管しません。公開されている GitHub リポジトリの情報を記録し、作者が GitHub Releases で公開した配布物へ案内します。',
+          '配信プラグイン倉庫くんは OBS Studio 向けのサードパーティ製プラグインを集めた、独立したオープンなレジストリです。このプラットフォームは OBS Project および OBS Forums と関係のない非公式のサービスで、両者の承認や推奨を受けていません。',
+          'このプラットフォームは配布物を保管しません。このプラットフォームは公開されている GitHub リポジトリの情報を記録し、作者が GitHub Releases で公開した配布物へ案内します。',
         ],
       },
       {
         heading: '掲載ポリシー',
         paragraphs: [
-          'GitHub リポジトリの管理者である作者が登録し、次の条件をすべて満たしたプラグインを掲載します。リポジトリが公開されていること、GitHub がライセンスを検出できること、直下の CMakeLists.txt が libobs を参照していること、最新のリリースに GitHub の SHA-256 が付いた配布物があること、自動検査で既知の脅威が検出されないことです。',
-          '開発に AI を使ったかどうかは、掲載に影響しません。すべてのプラグインに同じ条件を適用し、AI の使用の申告も求めません。',
-          '掲載は、安全性や品質の認証ではありません。',
+          'このプラットフォームは、GitHub リポジトリの管理者である作者が登録し、次の条件をすべて満たしたプラグインを掲載します。条件は、リポジトリが公開されていること、GitHub がライセンスを検出できること、直下の CMakeLists.txt が libobs を参照していること、最新のリリースに GitHub の SHA-256 が付いた配布物があること、自動検査で既知の脅威が検出されないことです。',
+          '開発に AI を使ったかどうかは掲載に影響しません。このプラットフォームはすべてのプラグインに同じ条件を適用し、AI の使用の申告も求めません。',
+          'このプラットフォームは掲載によって安全性や品質を認証しないので、各自で確かめてから利用してください。',
         ],
       },
       {
         heading: 'AI エージェントから使う (MCP)',
         paragraphs: [
-          'MCP クライアントを、このサイトの /mcp に接続します。Claude Code では次を実行します: claude mcp add --transport http plugin-soko-kun <このサイト>/mcp',
-          '検索と詳細の取得は、サインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインします (Claude Code では /mcp を実行)。本サービスは GitHub のスコープを求めず、リポジトリへの書き込み権限を得ません。',
+          'MCP クライアントをこのサイトの /mcp に接続してください。Claude Code では次を実行してください: claude mcp add --transport http plugin-soko-kun <このサイト>/mcp',
+          '検索と詳細の取得はサインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインしてください (Claude Code では /mcp を実行)。このプラットフォームは GitHub のスコープを求めず、リポジトリへの書き込み権限を得ません。',
           '話しかけ方の例:「Windows で動くピッチシフトのプラグインを探して」「この GitHub リポジトリの OBS プラグインを登録して」',
         ],
       },
@@ -138,22 +138,22 @@ const ja: Record<PageKey, PageContent> = {
       {
         heading: '自動検査',
         paragraphs: [
-          'リリースの配布物ごとに、GitHub が公開する SHA-256 を記録し、VirusTotal と MalwareBazaar で照会します。本サービスは配布物をダウンロードしません。',
-          'すべての配布物で両方の照会結果がそろってから、検査済みとして表示します。検査待ちや検査に失敗したリリースは掲載しません。新しいリリースの検査中は、検査を通った前のリリースを掲載し続けます。',
-          'マルウェアと判定された配布物があると、プラグインの掲載を停止します。少数のエンジンだけが検出した場合は、確認のために保留します。',
+          'このプラットフォームは、リリースの配布物ごとに GitHub が公開する SHA-256 を記録し、VirusTotal と MalwareBazaar で照会します。このプラットフォームは配布物をダウンロードしません。',
+          'このプラットフォームは、すべての配布物で両方の照会結果がそろってから、検査済みとして表示します。検査待ちや検査に失敗したリリースは掲載しません。新しいリリースを検査しているあいだは、検査を通った前のリリースを掲載し続けます。',
+          'マルウェアと判定された配布物があると、このプラットフォームはプラグインの掲載を停止します。少数のエンジンだけが検出した場合は、管理者が確認するまで掲載を保留します。',
         ],
       },
       {
         heading: '検査の限界',
         paragraphs: [
-          '検出できるのは、これらのデータベースに既に知られている脅威だけです。新しいマルウェアや標的型のマルウェアは検出できないことがあります。検出なしは安全の保証ではありません。',
-          'SHA-256 は、記録した時点で GitHub が配布していたファイルを表します。ダウンロードしたファイルの SHA-256 を、ここに示した値と照合してください。',
+          '検査で検出できるのは、これらのデータベースに既に知られている脅威だけです。新しいマルウェアや標的型のマルウェアは検出できないことがあるので、検査で何も検出されなくても、注意して利用してください。',
+          'SHA-256 は、記録した時点で GitHub が配布していたファイルを表します。ダウンロードしたファイルの SHA-256 をここに示した値と照合してください。',
         ],
       },
       {
         heading: '免責',
         paragraphs: [
-          '本サービスは現状のまま提供し、いかなる保証もしません。プラグインの導入は利用者自身の責任で行ってください。各プラグインの責任はその作者にあります。',
+          'このプラットフォームは現状のまま提供し、いかなる保証もしないので、プラグインは個人の責任にもとづき導入してください。各プラグインの責任はその作者にあります。',
         ],
       },
     ],
@@ -164,14 +164,14 @@ const ja: Record<PageKey, PageContent> = {
       {
         heading: '公開でよい通報',
         paragraphs: [
-          `誤った情報や掲載ポリシーに関する問題は、GitHub リポジトリの Issues で受け付けます: ${REPO_URL}/issues`,
+          `誤った情報や掲載ポリシーに関する問題は、GitHub リポジトリの Issues で報告してください: ${REPO_URL}/issues`,
         ],
       },
       {
         heading: '非公開の通報',
         paragraphs: [
           `マルウェアの疑いやセキュリティの問題は、GitHub の Private vulnerability reporting で非公開に通報してください: ${REPO_URL}/security/advisories/new`,
-          '通報は人が確認します。通報だけで掲載を停止することはありません。明確な危険を確認した場合は掲載を停止し、リポジトリが更新されても停止を続けます。',
+          '管理者は通報を確認してから対応を決めます。このプラットフォームは通報だけでは掲載を停止しません。管理者が明確な危険を確認した場合は掲載を停止し、リポジトリが更新されても停止を続けます。',
         ],
       },
     ],
@@ -182,14 +182,14 @@ const ja: Record<PageKey, PageContent> = {
       {
         heading: '保存する情報',
         paragraphs: [
-          'プラグインを登録するためにサインインすると、GitHub のユーザー ID とログイン名、リポジトリの権限の確認に使う GitHub のアクセストークンを保存します。トークンは暗号化して保存し、登録したリポジトリの権限の確認にだけ使います。',
-          '乱用を防ぐため、IP アドレスを一方向のハッシュにして短期間保存します。カタログの閲覧では、選んだ言語を覚える cookie のほかは使いません。',
+          'プラグインを登録するためにサインインすると、このプラットフォームは GitHub のユーザー ID とログイン名と、リポジトリの権限の確認に使う GitHub のアクセストークンを保存します。このプラットフォームはトークンを暗号化して保存し、登録したリポジトリの権限の確認にだけ使います。',
+          'このプラットフォームは乱用を防ぐため、IP アドレスを一方向のハッシュにして短期間保存します。カタログの閲覧では、選んだ言語を覚える cookie のほかは使いません。',
         ],
       },
       {
         heading: '利用者ができること',
         paragraphs: [
-          'GitHub の設定の Applications から、いつでもアクセスを取り消せます。データの削除を求めるときは、通報ページの方法で非公開の通報をお送りください。',
+          'GitHub の設定の Applications から、いつでもアクセスを取り消せます。データの削除を求めるときは、通報ページの方法で非公開の通報を送ってください。',
         ],
       },
     ],
@@ -214,7 +214,7 @@ const zhHans: Translation = {
         paragraphs: [
           '由管理 GitHub 仓库的作者本人提交，并满足以下全部条件的插件将被收录：仓库为公开状态，GitHub 能检测到许可证，根目录的 CMakeLists.txt 引用了 libobs，最新发布中有带 GitHub SHA-256 的文件，自动检查未发现已知威胁。',
           '是否使用 AI 开发不影响收录。所有插件适用相同条件，也不要求申报 AI 的使用。',
-          '收录不代表安全性或质量认证。',
+          '本平台不会因收录而认证安全性或质量，请自行确认后再使用。',
         ],
       },
       {
@@ -241,7 +241,7 @@ const zhHans: Translation = {
       {
         heading: '检查的局限',
         paragraphs: [
-          '只能检出这些数据库中已知的威胁。新型或定向的恶意软件可能无法检出。未检出不代表文件安全。',
+          '只能检出这些数据库中已知的威胁。新型或定向的恶意软件可能无法检出，因此即使未检出任何问题，也请谨慎使用。',
           'SHA-256 代表记录时 GitHub 提供的文件。请将下载文件的 SHA-256 与此处显示的值进行比对。',
         ],
       },
@@ -303,7 +303,7 @@ const zhHant: Translation = {
         paragraphs: [
           '由管理 GitHub 儲存庫的作者本人提交，並滿足以下全部條件的外掛將被收錄：儲存庫為公開狀態，GitHub 能偵測到授權，根目錄的 CMakeLists.txt 參照了 libobs，最新發行中有帶 GitHub SHA-256 的檔案，自動檢查未發現已知威脅。',
           '是否使用 AI 開發不影響收錄。所有外掛適用相同條件，也不要求申報 AI 的使用。',
-          '收錄不代表安全性或品質認證。',
+          '本平台不會因收錄而認證安全性或品質，請自行確認後再使用。',
         ],
       },
       {
@@ -330,7 +330,7 @@ const zhHant: Translation = {
       {
         heading: '檢查的限制',
         paragraphs: [
-          '只能檢出這些資料庫中已知的威脅。新型或針對性的惡意軟體可能無法檢出。未檢出不代表檔案安全。',
+          '只能檢出這些資料庫中已知的威脅。新型或針對性的惡意軟體可能無法檢出，因此即使未檢出任何問題，也請謹慎使用。',
           'SHA-256 代表記錄時 GitHub 提供的檔案。請將下載檔案的 SHA-256 與此處顯示的值進行比對。',
         ],
       },
@@ -392,7 +392,7 @@ const ko: Translation = {
         paragraphs: [
           'GitHub 저장소의 관리자인 작성자가 등록하고 다음 조건을 모두 충족한 플러그인을 게재합니다. 저장소가 공개되어 있을 것, GitHub가 라이선스를 감지할 수 있을 것, 최상위 CMakeLists.txt가 libobs를 참조할 것, 최신 릴리스에 GitHub의 SHA-256이 붙은 파일이 있을 것, 자동 검사에서 알려진 위협이 검출되지 않을 것.',
           '개발에 AI를 사용했는지 여부는 게재에 영향을 주지 않습니다. 모든 플러그인에 같은 조건을 적용하며, AI 사용의 신고도 요구하지 않습니다.',
-          '게재는 안전성이나 품질의 인증이 아닙니다.',
+          '이 플랫폼은 게재를 통해 안전성이나 품질을 인증하지 않으므로, 직접 확인한 뒤에 이용해 주세요.',
         ],
       },
       {
@@ -419,7 +419,7 @@ const ko: Translation = {
       {
         heading: '검사의 한계',
         paragraphs: [
-          '이 데이터베이스에 이미 알려진 위협만 검출할 수 있습니다. 새로운 악성코드나 표적형 악성코드는 검출하지 못할 수 있습니다. 검출 없음이 안전을 보장하지는 않습니다.',
+          '이 데이터베이스에 이미 알려진 위협만 검출할 수 있습니다. 새로운 악성코드나 표적형 악성코드는 검출하지 못할 수 있으므로, 아무것도 검출되지 않아도 주의해서 이용해 주세요.',
           'SHA-256은 기록 시점에 GitHub가 배포하던 파일을 나타냅니다. 다운로드한 파일의 SHA-256을 여기 표시된 값과 비교해 주세요.',
         ],
       },
@@ -483,7 +483,7 @@ const ptBR: Translation = {
         paragraphs: [
           'Um plugin é listado quando o autor, que administra o repositório no GitHub, o envia e ele cumpre estas condições: o repositório é público, o GitHub detecta uma licença, o CMakeLists.txt da raiz referencia a libobs, a versão mais recente tem arquivos com SHA-256 do GitHub e as verificações automáticas não encontram ameaças conhecidas.',
           'O uso de IA no desenvolvimento não afeta a listagem. As mesmas condições valem para todos os plugins, e não é preciso declarar o uso de IA.',
-          'A listagem não é uma certificação de segurança ou de qualidade.',
+          'Esta plataforma não certifica segurança nem qualidade ao listar um plugin; por isso, verifique os plugins antes de usá-los.',
         ],
       },
       {
@@ -510,7 +510,7 @@ const ptBR: Translation = {
       {
         heading: 'Limites das verificações',
         paragraphs: [
-          'As verificações detectam apenas ameaças já conhecidas por essas bases. Malwares novos ou direcionados podem não ser detectados. Nada detectado não significa que o arquivo é seguro.',
+          'As verificações detectam apenas ameaças já conhecidas por essas bases. Malwares novos ou direcionados podem não ser detectados; por isso, use os plugins com cuidado mesmo quando nada for detectado.',
           'O SHA-256 identifica o arquivo que o GitHub servia no momento do registro. Compare o SHA-256 do arquivo baixado com o valor mostrado aqui.',
         ],
       },
@@ -576,7 +576,7 @@ const es419: Translation = {
         paragraphs: [
           'Un plugin aparece en la lista cuando su autor, que administra el repositorio de GitHub, lo envía y cumple estas condiciones: el repositorio es público, GitHub detecta una licencia, el CMakeLists.txt de la raíz hace referencia a libobs, la versión más reciente tiene archivos con SHA-256 de GitHub y las revisiones automáticas no encuentran amenazas conocidas.',
           'Haber usado IA en el desarrollo no afecta la lista. Las mismas condiciones aplican a todos los plugins y no es necesario declarar el uso de IA.',
-          'Aparecer en la lista no certifica la seguridad ni la calidad.',
+          'Esta plataforma no certifica la seguridad ni la calidad al incluir un plugin; por eso, revisa los plugins antes de usarlos.',
         ],
       },
       {
@@ -603,7 +603,7 @@ const es419: Translation = {
       {
         heading: 'Límites de las revisiones',
         paragraphs: [
-          'Las revisiones solo detectan amenazas ya conocidas por estas bases. El malware nuevo o dirigido podría no detectarse. Sin detecciones no significa que el archivo sea seguro.',
+          'Las revisiones solo detectan amenazas ya conocidas por estas bases. El malware nuevo o dirigido podría no detectarse; por eso, usa los plugins con cuidado aunque no haya detecciones.',
           'El SHA-256 identifica el archivo que GitHub entregaba al momento del registro. Compara el SHA-256 del archivo descargado con el valor que se muestra aquí.',
         ],
       },

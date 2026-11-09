@@ -4,7 +4,7 @@ import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
 import type { PageContent } from './content';
 import type { Dict, Lang } from './i18n';
-import { withLang } from './layout';
+import { SearchButton, withLang } from './layout';
 
 const formatDate = (iso: string | null | undefined, lang: Lang) =>
   iso ? new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date(iso)) : '-';
@@ -84,7 +84,7 @@ export const SearchForm: FC<{
           aria-label={t.searchPlaceholder}
           maxlength={100}
         />
-        <button type="submit">{t.searchButton}</button>
+        <SearchButton label={t.searchButton} />
       </div>
       <div class="row">
         <label>
