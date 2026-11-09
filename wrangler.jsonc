@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "plugin-soko-kun",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  // global_fetch_strictly_public は CIMD 文書の取得で SSRF を防ぐために必須
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "vars": {
+    "ORIGIN": "http://localhost:8787"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "plugin-soko-kun",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-oauth-kv" }],
+  "triggers": { "crons": ["*/15 * * * *"] },
+  "observability": { "enabled": true }
+}

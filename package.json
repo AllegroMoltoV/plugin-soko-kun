@@ -1,0 +1,42 @@
+{
+  "name": "plugin-soko-kun",
+  "version": "0.0.0",
+  "description": "Independent, MCP-first registry of third-party plugins for OBS Studio (unofficial)",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "dev": "wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AllegroMoltoV/plugin-soko-kun.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/AllegroMoltoV/plugin-soko-kun/issues"
+  },
+  "homepage": "https://github.com/AllegroMoltoV/plugin-soko-kun#readme",
+  "private": "true",
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^1.2.4",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "hono": "^4.13.17",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.6",
+    "@cloudflare/vitest-plugin": "^1.6.0",
+    "@cloudflare/workers-types": "^5.20261109.1",
+    "@msw/cloudflare": "^0.2.0",
+    "msw": "^3.0.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.158.0"
+  }
+}
