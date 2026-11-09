@@ -6,6 +6,7 @@ import type { Env } from '../env';
 import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
 import { DICTS, LANGS, type Lang, negotiate } from './i18n';
 import { Layout, type PageMeta } from './layout';
+import { LOGO_SVG } from './logo';
 import { PluginCards, PluginDetail, SearchForm, SideCommon, SideRelated, StaticPage } from './pages';
 import { STYLE_CSS } from './style';
 
@@ -65,6 +66,10 @@ const PAGE_SIZE = 20;
 
 app.get('/style.css', (c) =>
   c.body(STYLE_CSS, 200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }),
+);
+
+app.get('/logo.svg', (c) =>
+  c.body(LOGO_SVG, 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' }),
 );
 
 app.get('/robots.txt', (c) =>

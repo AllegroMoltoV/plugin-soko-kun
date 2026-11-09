@@ -2,6 +2,7 @@ import { raw } from 'hono/html';
 import type { Child, FC } from 'hono/jsx';
 import { CATEGORIES, type Category } from '../domain/metadata';
 import { type Dict, LANG_NAMES, LANGS, type Lang } from './i18n';
+import { LOGO_VERSION } from './logo';
 import { STYLE_VERSION } from './style';
 
 export interface PageMeta {
@@ -61,6 +62,7 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
           <title>{`${meta.title} - ${SITE_NAME} (${SITE_NAME_EN})`}</title>
           <meta name="description" content={meta.description} />
           <link rel="stylesheet" href={`/style.css?v=${STYLE_VERSION}`} />
+          <link rel="icon" type="image/svg+xml" href={`/logo.svg?v=${LOGO_VERSION}`} />
           {LANGS.map((l) => (
             <link rel="alternate" hreflang={l} href={`${meta.origin}${withLang(meta.path, l)}`} />
           ))}
@@ -73,10 +75,13 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
           <header class="site">
             <div class="wrap">
               <a class="brand" href={withLang('/', lang)}>
-                <b translate="no">{SITE_NAME}</b>
-                <small>
-                  <span translate="no">{SITE_NAME_EN}</span> - {t.tagline}
-                </small>
+                <img src={`/logo.svg?v=${LOGO_VERSION}`} width={40} height={40} alt="" />
+                <span class="brand-text">
+                  <b translate="no">{SITE_NAME}</b>
+                  <small>
+                    <span translate="no">{SITE_NAME_EN}</span> - {t.tagline}
+                  </small>
+                </span>
               </a>
               <search>
                 <form method="get" action="/">

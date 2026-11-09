@@ -96,7 +96,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 header.site { background: var(--primary) linear-gradient(var(--primary-light), var(--primary)); border-bottom: 2px solid var(--primary-dark); color: var(--on-primary); }
 header.site .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding-top: 8px; padding-bottom: 8px; }
-.brand { color: var(--on-primary); text-decoration: none; display: flex; flex-direction: column; margin-right: auto; min-width: 0; }
+.brand { color: var(--on-primary); text-decoration: none; display: flex; align-items: center; gap: 8px; margin-right: auto; min-width: 0; }
+.brand img { flex: none; }
+.brand-text { display: flex; flex-direction: column; min-width: 0; }
 .brand:visited, .brand:hover { color: var(--on-primary); }
 .brand b { font-size: 22px; letter-spacing: 1px; text-shadow: 1px 1px 0 var(--primary-dark); }
 .brand small { font-size: 11px; }
