@@ -226,7 +226,9 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
               <div class="contact-line">
                 {t.contactLabel}: <ContactButton t={t} lang={lang} />
                 <a class="sponsor" href="https://github.com/sponsors/AllegroMoltoV">
-                  <span class="heart" aria-hidden="true">♥</span>
+                  <span class="heart" aria-hidden="true">
+                    ♥
+                  </span>
                   {t.nav.sponsor}
                 </a>
               </div>
