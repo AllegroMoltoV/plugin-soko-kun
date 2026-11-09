@@ -22,7 +22,7 @@ GitHub Actions のワークフローの目的と権限、依存の更新、本�
 
 ### codeql.yml
 
-`codeql.yml` は、`javascript-typescript` をビルドなしで解析します。結果は GitHub の Code scanning に送ります。
+`codeql.yml` は、`javascript-typescript` をビルドなしで解析します。結果は GitHub の Code scanning に送ります。GitHub の個人アカウントの private リポジトリでは Code scanning を使えないため、リポジトリが private の間は、解析が終わった後の結果の送信で失敗します。
 
 ### deploy.yml
 
@@ -60,6 +60,8 @@ Dependabot は、毎週、次の 2 種類の更新の PR を作ります。
 
 Dependabot の PR も CI を通してからマージします。
 
+このほか、Dependabot alerts と Dependabot security updates を有効にしています。security updates は、脆弱性のある依存を直す PR を、毎週の更新とは別に作ります。
+
 ## Worker の設定
 
 `deploy.yml` と管理用スクリプトの `--remote` は、`wrangler.jsonc` の `production` 環境を使います。`production` 環境には、本番の `ORIGIN`・D1 の `database_id`・KV の `id`・Workers AI の binding (`ai`)・独自ドメインの `routes` を設定します。環境ごとの設定には既定の環境の binding が引き継がれないため、`ai` も `production` 環境に書く必要があります。Cron の `triggers` と `observability` は、既定の環境から引き継がれます。
@@ -86,26 +88,25 @@ npx wrangler deploy --env production
 
 配備のあと、`<ORIGIN>/` と `<ORIGIN>/mcp` が応答することを確かめます。
 
-## public にした後に依頼者が設定する項目
+## public にした後に設定する項目
 
-次の項目は、リポジトリと Cloudflare の管理画面での設定です。Claude Code や CI からは設定しません。リポジトリを public にしたら、2 回目以降の配備の前に、すべて設定します。
+次の項目は、リポジトリと Cloudflare の設定です。CI からは設定しません。リポジトリの設定は、依頼者の承認を得て Claude Code が `gh` で行います。Cloudflare の API トークンは依頼者が作ります。リポジトリを public にしたら、2 回目以降の配備の前に、すべて設定します。
 
 ### リポジトリの設定
 
 | 項目 | 設定 |
 | --- | --- |
-| ブランチ保護 | `main` への直接の push を禁じ、PR を必須にする。`test`・`actionlint`・`dependency-review`・`analyze` の成功をマージの条件にする |
+| ブランチ保護 | ruleset で `main` を保護する。ブランチの削除と force push を禁じる。PR を必須にし、マージには 1 名以上の承認と、`test`・`actionlint`・`dependency-review`・`analyze` の成功を求める。依頼者の作業で `main` へ直接 push するときに限り、`gh` で ruleset を一時的に無効にし、push の後に有効へ戻す |
 | Secret scanning | 有効にする |
 | Push protection | 有効にする。秘密情報を含む push を拒否する |
 | Private vulnerability reporting | 有効にする。`/report` の非公開の通報の受付先である |
-| Dependabot alerts | 有効にする |
 | environment `production` | 依頼者の承認を必須にする保護ルールを設定する。配備できるブランチを `main` に限る |
 
 ### environment production の秘密情報と変数
 
 | 名前 | 種類 | 内容 |
 | --- | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | environment の secret | Cloudflare の API トークン。権限は Workers Scripts の編集と D1 の編集に限る |
+| `CLOUDFLARE_API_TOKEN` | environment の secret | Cloudflare の API トークン。権限は、アカウントの Workers Scripts の編集と D1 の編集、ゾーン allegromoltov.jp の Workers Routes の編集に限る。Workers Routes の編集は、独自ドメイン (`routes` の `custom_domain`) を含む配備に必要である |
 | `CLOUDFLARE_ACCOUNT_ID` | environment の変数 | Cloudflare のアカウント ID |
 
 `deploy.yml` は、`CLOUDFLARE_API_TOKEN` を `secrets` から、`CLOUDFLARE_ACCOUNT_ID` を `vars` から読みます。

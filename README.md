@@ -38,7 +38,7 @@ To report a vulnerability in this service, use [private vulnerability reporting]
 | `migrations/` | D1 schema migrations |
 | `scripts/` | Admin commands |
 | `test/` | Tests |
-| `.github/` | CI, CodeQL, deploy workflows, Dependabot, and funding |
+| `.github/` | CI, CodeQL, deploy workflows, Dependabot, funding, and the security policy |
 | `wrangler.jsonc` | Cloudflare Workers configuration |
 | `docs/` | Design documents, glossary, and decision records (in Japanese) |
 | `LICENSE` | MIT License |
@@ -81,7 +81,7 @@ codex mcp add plugin-soko-kun --url https://soko-kun.allegromoltov.jp/mcp
 | `migrations/` | D1 のスキーマのマイグレーション |
 | `scripts/` | 管理コマンド |
 | `test/` | テスト |
-| `.github/` | CI、CodeQL、配備のワークフロー、Dependabot、寄付の設定 |
+| `.github/` | CI、CodeQL、配備のワークフロー、Dependabot、寄付の設定、セキュリティの方針 |
 | `wrangler.jsonc` | Cloudflare Workers の設定 |
 | `docs/` | 設計文書、用語集、決定事項の記録 |
 | `LICENSE` | MIT License |
