@@ -159,8 +159,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Automated checks',
           paragraphs: [
             'For each file in a release, the service records the SHA-256 digest that GitHub publishes and looks it up in MalwareBazaar, a database of known malware samples. Files are not downloaded by the service.',
-            'A release is shown as checked only after every file has a result from both lookups. Releases that are waiting for checks, or whose checks failed, are not listed. When a new release is under check, the previously checked release stays listed.',
-            'A file reported as malicious suspends the plugin. A file detected by only a few engines is held for review.',
+            'A release is shown as checked only after every file has a lookup result. Releases that are waiting for checks, or whose checks failed, are not listed. When a new release is under check, the previously checked release stays listed.',
+            'A file reported as malicious suspends the plugin.',
           ],
         },
         {
@@ -443,8 +443,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '自動検査',
           paragraphs: [
             'このプラットフォームは、リリースの配布物ごとに GitHub が公開する SHA-256 を記録し、既知のマルウェアのデータベースである MalwareBazaar で照会します。このプラットフォームは配布物をダウンロードしません。',
-            'このプラットフォームは、すべての配布物で両方の照会結果がそろってから、検査済みとして表示します。検査待ちや検査に失敗したリリースは掲載しません。新しいリリースを検査しているあいだは、検査を通った前のリリースを掲載し続けます。',
-            'マルウェアと判定された配布物があると、このプラットフォームはプラグインの掲載を停止します。少数のエンジンだけが検出した場合は、管理者が確認するまで掲載を保留します。',
+            'このプラットフォームは、すべての配布物の照会結果がそろってから、検査済みとして表示します。検査待ちや検査に失敗したリリースは掲載しません。新しいリリースを検査しているあいだは、検査を通った前のリリースを掲載し続けます。',
+            'マルウェアと判定された配布物があると、このプラットフォームはプラグインの掲載を停止します。',
           ],
         },
         {
@@ -731,8 +731,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '自动检查',
           paragraphs: [
             '对于发布中的每个文件，本服务记录 GitHub 公布的 SHA-256，并在已知恶意软件数据库 MalwareBazaar 中查询。本服务不下载文件。',
-            '只有当所有文件都得到两项查询结果后，才显示为已检查。等待检查或检查失败的发布不会被收录。新发布检查期间，之前通过检查的发布将继续收录。',
-            '如有文件被判定为恶意软件，将暂停该插件的收录。仅被少数引擎检出时，将保留待确认。',
+            '只有当所有文件都得到查询结果后，才显示为已检查。等待检查或检查失败的发布不会被收录。新发布检查期间，之前通过检查的发布将继续收录。',
+            '如有文件被判定为恶意软件，将暂停该插件的收录。',
           ],
         },
         {
@@ -995,8 +995,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '自動檢查',
           paragraphs: [
             '對於發行中的每個檔案，本服務記錄 GitHub 公布的 SHA-256，並在已知惡意軟體資料庫 MalwareBazaar 中查詢。本服務不下載檔案。',
-            '只有當所有檔案都取得兩項查詢結果後，才顯示為已檢查。等待檢查或檢查失敗的發行不會被收錄。新發行檢查期間，先前通過檢查的發行將繼續收錄。',
-            '如有檔案被判定為惡意軟體，將暫停該外掛的收錄。僅被少數引擎檢出時，將保留待確認。',
+            '只有當所有檔案都取得查詢結果後，才顯示為已檢查。等待檢查或檢查失敗的發行不會被收錄。新發行檢查期間，先前通過檢查的發行將繼續收錄。',
+            '如有檔案被判定為惡意軟體，將暫停該外掛的收錄。',
           ],
         },
         {
@@ -1259,8 +1259,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '자동 검사',
           paragraphs: [
             '릴리스의 파일마다 GitHub가 공개하는 SHA-256을 기록하고, 알려진 악성 코드 데이터베이스인 MalwareBazaar에서 조회합니다. 이 서비스는 파일을 다운로드하지 않습니다.',
-            '모든 파일에서 두 조회 결과가 갖추어진 뒤에 검사 완료로 표시합니다. 검사 대기 중이거나 검사에 실패한 릴리스는 게재하지 않습니다. 새 릴리스를 검사하는 동안에는 검사를 통과한 이전 릴리스를 계속 게재합니다.',
-            '악성코드로 판정된 파일이 있으면 플러그인의 게재를 중지합니다. 소수의 엔진만 검출한 경우에는 확인을 위해 보류합니다.',
+            '모든 파일의 조회 결과가 갖추어진 뒤에 검사 완료로 표시합니다. 검사 대기 중이거나 검사에 실패한 릴리스는 게재하지 않습니다. 새 릴리스를 검사하는 동안에는 검사를 통과한 이전 릴리스를 계속 게재합니다.',
+            '악성코드로 판정된 파일이 있으면 플러그인의 게재를 중지합니다.',
           ],
         },
         {
@@ -1538,8 +1538,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Verificações automáticas',
           paragraphs: [
             'Para cada arquivo de uma versão, o serviço registra o SHA-256 publicado pelo GitHub e o consulta no MalwareBazaar, um banco de dados de malware conhecido. O serviço não baixa os arquivos.',
-            'Uma versão só aparece como verificada depois que todos os arquivos têm resultado das duas consultas. Versões aguardando verificação ou com falha na verificação não são listadas. Enquanto uma nova versão é verificada, a versão verificada anterior continua listada.',
-            'Um arquivo apontado como malicioso suspende o plugin. Um arquivo detectado por poucos mecanismos fica em espera para revisão.',
+            'Uma versão só aparece como verificada depois que todos os arquivos têm resultado da consulta. Versões aguardando verificação ou com falha na verificação não são listadas. Enquanto uma nova versão é verificada, a versão verificada anterior continua listada.',
+            'Um arquivo apontado como malicioso suspende o plugin.',
           ],
         },
         {
@@ -1828,8 +1828,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Revisiones automáticas',
           paragraphs: [
             'Para cada archivo de una versión, el servicio registra el SHA-256 que publica GitHub y lo consulta en MalwareBazaar, una base de datos de malware conocido. El servicio no descarga los archivos.',
-            'Una versión se muestra como revisada solo cuando todos sus archivos tienen resultado de ambas consultas. Las versiones en espera de revisión o con revisiones fallidas no aparecen en la lista. Mientras se revisa una versión nueva, la versión revisada anterior sigue en la lista.',
-            'Un archivo marcado como malicioso suspende el plugin. Un archivo detectado por pocos motores queda en espera de revisión.',
+            'Una versión se muestra como revisada solo cuando todos sus archivos tienen resultado de la consulta. Las versiones en espera de revisión o con revisiones fallidas no aparecen en la lista. Mientras se revisa una versión nueva, la versión revisada anterior sigue en la lista.',
+            'Un archivo marcado como malicioso suspende el plugin.',
           ],
         },
         {
