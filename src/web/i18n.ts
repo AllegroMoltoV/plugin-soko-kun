@@ -78,6 +78,7 @@ export interface Dict {
   license: string;
   supportedOs: string;
   builtWithObs: string;
+  pluginTitleSuffix: string;
   unknown: string;
   version: string;
   commit: string;
@@ -192,6 +193,7 @@ const en: Dict = {
   license: 'License',
   supportedOs: 'Supported OS',
   builtWithObs: 'Built with OBS',
+  pluginTitleSuffix: 'OBS Studio plugin',
   unknown: 'Not confirmed',
   version: 'Version',
   commit: 'Commit',
@@ -320,6 +322,7 @@ const ja: Dict = {
   license: 'ライセンス',
   supportedOs: '対応 OS',
   builtWithObs: 'ビルドに使った OBS',
+  pluginTitleSuffix: 'OBS Studio プラグイン',
   unknown: '確認できません',
   version: 'バージョン',
   commit: 'コミット',
@@ -446,6 +449,7 @@ const zhHans: Dict = {
   license: '许可证',
   supportedOs: '支持的系统',
   builtWithObs: '构建所用的 OBS',
+  pluginTitleSuffix: 'OBS Studio 插件',
   unknown: '未确认',
   version: '版本',
   commit: '提交',
@@ -567,6 +571,7 @@ const zhHant: Dict = {
   license: '授權',
   supportedOs: '支援的系統',
   builtWithObs: '建置所用的 OBS',
+  pluginTitleSuffix: 'OBS Studio 外掛',
   unknown: '未確認',
   version: '版本',
   commit: '提交',
@@ -692,6 +697,7 @@ const ko: Dict = {
   license: '라이선스',
   supportedOs: '지원 OS',
   builtWithObs: '빌드에 사용한 OBS',
+  pluginTitleSuffix: 'OBS Studio 플러그인',
   unknown: '확인할 수 없음',
   version: '버전',
   commit: '커밋',
@@ -819,6 +825,7 @@ const ptBR: Dict = {
   license: 'Licença',
   supportedOs: 'Sistemas suportados',
   builtWithObs: 'OBS usado na compilação',
+  pluginTitleSuffix: 'Plugin para OBS Studio',
   unknown: 'Não confirmado',
   version: 'Versão',
   source: 'Código-fonte',
@@ -945,6 +952,7 @@ const es419: Dict = {
   license: 'Licencia',
   supportedOs: 'Sistemas compatibles',
   builtWithObs: 'OBS usado para compilar',
+  pluginTitleSuffix: 'Plugin para OBS Studio',
   unknown: 'Sin confirmar',
   version: 'Versión',
   source: 'Código fuente',

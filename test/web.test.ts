@@ -49,13 +49,16 @@ describe('Web', () => {
     await register();
     await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
     await env.DB.prepare(
-      "INSERT INTO plugin_translations (plugin_id, lang, source_hash, text, translated_at) VALUES (?, 'ja', 'x', '訳<script>alert(2)</script>', '2026-11-09T00:00:00Z')",
+      "INSERT INTO plugin_translations (plugin_id, lang, source_hash, text, translated_at) VALUES (?, 'ja', 'x', '訳\u003cscript>alert(2)\u003c/script>', '2026-11-09T00:00:00Z')",
     )
       .bind(`${OWNER}/${REPO}`.toLowerCase())
       .run();
     const html = await (await SELF.fetch(`${ORIGIN}/plugins/${OWNER}/${REPO}?lang=ja`)).text();
     expect(html).toContain('訳&lt;script&gt;alert(2)&lt;/script&gt;');
     expect(html).not.toContain('<script>alert(2)</script>');
+    // 詳細ページの構造化データにも概要が入るため、< を置き換えて script の外へ出さない。
+    expect(html).toContain('"@type":"SoftwareApplication"');
+    expect(html).toContain('訳\\u003cscript>alert(2)\\u003c/script>');
   });
 
   it('連絡先のアドレスをページに書かず、フォームの送信を受けたときだけ [at] の形で返す', async () => {

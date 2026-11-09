@@ -194,13 +194,31 @@ Web カタログの画面の一覧と、各画面に置く要素の仕様です�
 
 | 項目 | 内容 |
 | --- | --- |
-| title | 「<ページの名前> - <サイト名>」。サイト名は en・pt-BR・es-419 では「Plugin Soko-kun」、ja・zh-Hans・zh-Hant・ko では「配信プラグイン倉庫くん (Plugin Soko-kun)」 |
-| description | トップと一覧ではサービスの説明文 (7 言語)。詳細ページでは画面の言語の概要 (訳が無ければ原文)。固定ページでは本文の最初の段落。掲載中以外の詳細ページでは注意書き |
+| title | 「<ページの名前> - <サイト名>」。詳細ページのページの名前は「<リポジトリ名> - OBS Studio プラグイン」(画面の言語で表す)。英語で検索した利用者に、OBS Studio のプラグインのページだと分かるようにするため。サイト名は en・pt-BR・es-419 では「Plugin Soko-kun」、ja・zh-Hans・zh-Hant・ko では「配信プラグイン倉庫くん (Plugin Soko-kun)」 |
+| description | トップと一覧ではサービスの説明文 (7 言語)。詳細ページでは画面の言語の概要 (訳が無ければ原文) を、改行と連続する空白を 1 つの空白にまとめ、160 文字までに切り詰めたもの。固定ページでは本文の最初の段落。掲載中以外の詳細ページでは注意書き |
 | canonical | 表示している言語の `?lang=` を付けた URL。クエリは `lang`・`category`・`page` だけを残し、ほかのクエリと原文の表示 `?orig=1` は外す |
 | hreflang | canonical と同じ規則で作った 7 言語の URL と `x-default` (英語版) |
 | robots | 検索語 `?q=` と OS の絞り込み `?os=` を含むページは `noindex` にする。URL の組み合わせが無数にでき、同じ内容が重なるため |
 | OGP と Twitter card | `og:title`・`og:description`・`og:url` (canonical と同じ)・`og:type`・`og:site_name`・`og:locale`・`og:image` と `twitter:card` |
-| 構造化データ | トップに、全言語で同じ内容の WebSite の JSON-LD を出す。`name` は「配信プラグイン倉庫くん」、`alternateName` は「Plugin Soko-kun」。検索結果のサイト名は 1 サイトに 1 つだけ表示されるため |
+| 構造化データ | トップに、全言語で同じ内容の WebSite の JSON-LD を出す。`name` は「配信プラグイン倉庫くん」、`alternateName` は「Plugin Soko-kun」。検索結果のサイト名は 1 サイトに 1 つだけ表示されるため。掲載中のプラグインの詳細ページには、SoftwareApplication の JSON-LD を出す。内容は次の表のとおり |
+
+詳細ページの SoftwareApplication の JSON-LD には、次の値を入れます。値の無い項目は出しません。
+
+| 項目 | 値 |
+| --- | --- |
+| `name` | リポジトリ名 |
+| `description` | description と同じ概要 |
+| `applicationCategory` | `MultimediaApplication` |
+| `applicationSubCategory` | カテゴリの英語の名前 |
+| `operatingSystem` | 配布物から推定した OS の英語の名前 |
+| `softwareVersion` | 掲載対象バージョンのタグ |
+| `softwareRequirements` | `OBS Studio <ビルドに使った OBS の版>`。版が無ければ `OBS Studio` |
+| `license` | `https://spdx.org/licenses/<SPDX ID>` |
+| `url` | canonical と同じ URL |
+| `downloadUrl` | GitHub のリリースのページの URL |
+| `image` | プラグインのロゴの URL |
+| `author` | 作者の GitHub のアカウント名と、GitHub のプロフィールの URL |
+| `offers` | 価格 0 (`price` は `0`、`priceCurrency` は `USD`)。本サービスと GitHub での入手が無料であるため |
 
 `og:image` は、ロゴとサービス名を並べた 1200 x 630 px の共通画像 (`/og.png`) で、`twitter:card` は `summary_large_image` です。ロゴがあるプラグインの詳細ページでは、`og:image` をプラグインのロゴにし、`twitter:card` を `summary` にします。`og:locale` は `ja_JP`・`en_US`・`zh_CN`・`zh_TW`・`ko_KR`・`pt_BR`・`es_LA` です。
 

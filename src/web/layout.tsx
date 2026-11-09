@@ -19,8 +19,8 @@ export interface PageMeta {
   noindex?: boolean;
   // og:image。指定が無ければ共通画像を使う。
   ogImage?: { url: string; card: 'summary' | 'summary_large_image' };
-  // トップにだけ出す WebSite の構造化データ。
-  websiteJsonLd?: boolean;
+  // 構造化データ。toJsonLd で文字列にしたもの。トップの WebSite と、詳細ページの SoftwareApplication に使う。
+  jsonLd?: string;
   origin: string;
   currentCategory?: Category;
   keyword?: string;
@@ -63,15 +63,18 @@ const OG_LOCALE: Record<Lang, string> = {
   'es-419': 'es_LA',
 };
 
-// 検索結果のサイト名は 1 サイトに 1 つだけなので、全言語で同じ内容にする。< は script の外へ出ないよう置き換える。
-const websiteJsonLd = (origin: string) =>
-  JSON.stringify({
+// < は script の外へ出ないよう置き換える。
+export const toJsonLd = (data: Record<string, unknown>) => JSON.stringify(data).replaceAll('<', '\\u003c');
+
+// 検索結果のサイト名は 1 サイトに 1 つだけなので、全言語で同じ内容にする。
+export const websiteJsonLd = (origin: string) =>
+  toJsonLd({
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: SITE_NAME,
     alternateName: SITE_NAME_EN,
     url: `${origin}/`,
-  }).replaceAll('<', '\\u003c');
+  });
 
 // 収集を防ぐため、アドレスは HTML に書かない。フォームの送信を受けたときだけサーバーが返す。
 export const ContactButton: FC<{ t: Dict; lang: Lang }> = ({ t, lang }) => (
@@ -107,7 +110,7 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
           <meta property="og:locale" content={OG_LOCALE[lang]} />
           <meta property="og:image" content={meta.ogImage?.url ?? `${meta.origin}/og.png?v=${OG_VERSION}`} />
           <meta name="twitter:card" content={meta.ogImage?.card ?? 'summary_large_image'} />
-          {meta.websiteJsonLd ? <script type="application/ld+json">{raw(websiteJsonLd(meta.origin))}</script> : null}
+          {meta.jsonLd ? <script type="application/ld+json">{raw(meta.jsonLd)}</script> : null}
           <link rel="stylesheet" href={`/style.css?v=${STYLE_VERSION}`} />
           <link rel="icon" type="image/svg+xml" href={`/logo.svg?v=${LOGO_VERSION}`} />
           {LANGS.map((l) => (
