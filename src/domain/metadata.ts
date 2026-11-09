@@ -64,11 +64,13 @@ export function summarizeReadme(readme: string): string | null {
   return null;
 }
 
-// libobs を参照する CMake の書き方。find_package と、リンク先の指定の両方を受け付ける。
+// libobs を参照する CMake の書き方。find_package、pkg-config のモジュールの指定、リンク先の指定を受け付ける。
 export function cmakeReferencesLibobs(cmake: string): boolean {
   const text = cmake.replace(/#.*$/gm, '');
   return (
-    /find_package\s*\(\s*libobs\b/i.test(text) || /target_link_libraries\s*\([^)]*\b(OBS::libobs|libobs)\b/i.test(text)
+    /find_package\s*\(\s*libobs\b/i.test(text) ||
+    /pkg_(check_modules|search_module)\s*\([^)]*\blibobs\b/i.test(text) ||
+    /target_link_libraries\s*\([^)]*\b(OBS::libobs|libobs)\b/i.test(text)
   );
 }
 
