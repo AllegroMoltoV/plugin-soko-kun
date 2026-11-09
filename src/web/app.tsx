@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
-import { catalogStats, getPluginImage, getPluginView, searchPlugins } from '../domain/catalog';
+import { catalogStats, getPluginImage, getPluginView, type PluginView, searchPlugins } from '../domain/catalog';
 import { CATEGORIES, type Category, OS_VALUES, type Os } from '../domain/metadata';
 import type { Env } from '../env';
 import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
 import { DICTS, LANGS, type Lang, negotiate } from './i18n';
-import { Layout, type PageMeta, withLang } from './layout';
+import { Layout, type PageMeta, toJsonLd, websiteJsonLd, withLang } from './layout';
 import { LOGO_SVG } from './logo';
 import { OG_PNG } from './og-image';
 import { PluginCards, PluginDetail, SearchForm, SideCommon, SideRelated, StaticPage, summaryFor } from './pages';
@@ -64,6 +64,39 @@ function canonicalPathOf(url: string): string {
   }
   const query = kept.toString();
   return query ? `${u.pathname}?${query}` : u.pathname;
+}
+
+// 検索結果の説明文に使う。改行と連続する空白を 1 つにまとめ、長い概要は切り詰める。
+const META_DESCRIPTION_MAX = 160;
+function metaDescription(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > META_DESCRIPTION_MAX ? `${flat.slice(0, META_DESCRIPTION_MAX - 1)}…` : flat;
+}
+
+// 掲載中のプラグインの詳細ページに出す SoftwareApplication の構造化データ。値の無い項目は出さない。
+function softwareJsonLd(origin: string, lang: Lang, view: PluginView, description: string): string {
+  const en = DICTS.en;
+  const release = view.listedRelease;
+  const data: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: view.repo,
+    description,
+    applicationCategory: 'MultimediaApplication',
+    applicationSubCategory: en.categories[view.category],
+    softwareRequirements: release?.obsBuildVersion ? `OBS Studio ${release.obsBuildVersion}` : 'OBS Studio',
+    license: `https://spdx.org/licenses/${view.license}`,
+    url: `${origin}${withLang(`/plugins/${view.id}`, lang)}`,
+    author: { '@type': 'Person', name: view.owner, url: `https://github.com/${view.owner}` },
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  };
+  if (view.os.length > 0) data.operatingSystem = view.os.map((os) => en.os[os]).join(', ');
+  if (release) {
+    data.softwareVersion = release.tag;
+    data.downloadUrl = release.htmlUrl;
+  }
+  if (view.images.logo) data.image = `${origin}/plugins/${view.id}/logo?v=${view.images.logo.sha}`;
+  return toJsonLd(data);
 }
 
 function meta(
@@ -146,7 +179,7 @@ app.get('/', async (c) => {
       meta={meta(c, lang, filtered ? heading : t.searchHeading, t.siteDescription, {
         keyword,
         currentCategory: category,
-        websiteJsonLd: !filtered && page === 1,
+        jsonLd: !filtered && page === 1 ? websiteJsonLd(c.env.ORIGIN) : undefined,
       })}
       side={
         <SideCommon
@@ -214,28 +247,26 @@ app.get('/plugins/:owner/:repo', async (c) => {
     view.status === 'listed' ? (await searchPlugins(c.env, { limit: 200 })).items.filter((v) => v.id !== view.id) : [];
   const sameAuthor = related.filter((v) => v.owner.toLowerCase() === view.owner.toLowerCase()).slice(0, 5);
   const sameCategory = related.filter((v) => v.category === view.category && !sameAuthor.includes(v)).slice(0, 5);
+  // 掲載中以外のプラグインでは、外部データの概要を検索エンジン向けの説明にも出さない。
+  const description = metaDescription(
+    (view.status === 'listed' ? summaryFor(view, lang, false)?.text : null) ?? t.notice,
+  );
   const response = c.html(
     <Layout
-      // 掲載中以外のプラグインでは、外部データの概要を検索エンジン向けの説明にも出さない。
-      meta={meta(
-        c,
-        lang,
-        view.repo,
-        (view.status === 'listed' ? summaryFor(view, lang, false)?.text : null) ?? t.notice,
-        {
-          currentCategory: view.category,
-          // URL の大文字と小文字の違いで重複しないよう、サイトマップと同じ小文字の ID にそろえる。
-          canonicalPath: `/plugins/${view.id}`,
-          // ロゴがあるプラグインは、共有のときにプラグインのロゴを出す。
-          ogImage:
-            view.status === 'listed' && view.images.logo
-              ? {
-                  url: `${c.env.ORIGIN}/plugins/${view.id}/logo?v=${view.images.logo.sha}`,
-                  card: 'summary',
-                }
-              : undefined,
-        },
-      )}
+      meta={meta(c, lang, `${view.repo} - ${t.pluginTitleSuffix}`, description, {
+        jsonLd: view.status === 'listed' ? softwareJsonLd(c.env.ORIGIN, lang, view, description) : undefined,
+        currentCategory: view.category,
+        // URL の大文字と小文字の違いで重複しないよう、サイトマップと同じ小文字の ID にそろえる。
+        canonicalPath: `/plugins/${view.id}`,
+        // ロゴがあるプラグインは、共有のときにプラグインのロゴを出す。
+        ogImage:
+          view.status === 'listed' && view.images.logo
+            ? {
+                url: `${c.env.ORIGIN}/plugins/${view.id}/logo?v=${view.images.logo.sha}`,
+                card: 'summary',
+              }
+            : undefined,
+      })}
       side={
         <>
           <SideRelated t={t} lang={lang} sameAuthor={sameAuthor} sameCategory={sameCategory} collapsible={false} />
