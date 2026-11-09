@@ -72,7 +72,7 @@ nav.cats ul { display: flex; gap: 0; margin: 0; padding: 0 8px; list-style: none
 nav.cats a { display: block; padding: 8px 12px; color: #fff; text-decoration: none; font-size: .95rem; }
 nav.cats a[aria-current] { background: rgba(255,255,255,.18); }
 .notice { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); }
-.notice p { margin: 0; padding: 8px 0; font-size: .9rem; }
+.notice p { margin: 0 auto; padding: 8px 16px; font-size: .9rem; }
 .notice .short { display: none; }
 .layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; padding-top: 16px; padding-bottom: 32px; }
 main, .side section { background: var(--paper); border: 1px solid var(--line); }
@@ -141,3 +141,15 @@ footer.site p { margin: 0; padding: 0 0 14px; color: var(--muted); font-size: .8
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 `;
+
+// CSS を更新したときにブラウザのキャッシュを使い続けないよう、内容から作った版を URL に付ける。
+function fnv1a(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+export const STYLE_VERSION = fnv1a(STYLE_CSS);

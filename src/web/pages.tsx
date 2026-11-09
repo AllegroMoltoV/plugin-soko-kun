@@ -10,9 +10,9 @@ const formatDate = (iso: string | null | undefined, lang: Lang) =>
   iso ? new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date(iso)) : '-';
 const formatDateTime = (iso: string | null | undefined, lang: Lang) =>
   iso
-    ? new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(
+    ? `${new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(
         new Date(iso),
-      ) + ' UTC'
+      )} UTC`
     : '-';
 const formatSize = (bytes: number, lang: Lang) =>
   new Intl.NumberFormat(lang, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 1 }).format(bytes / 1_000_000);
@@ -72,44 +72,46 @@ export const SearchForm: FC<{
   category?: string;
   categories: readonly Category[];
 }> = ({ t, lang, keyword, os, category, categories }) => (
-  <form class="search" method="get" action="/" role="search">
-    <input type="hidden" name="lang" value={lang} />
-    <div class="row">
-      <input
-        type="search"
-        name="q"
-        value={keyword ?? ''}
-        placeholder={t.searchPlaceholder}
-        aria-label={t.searchPlaceholder}
-        maxlength={100}
-      />
-      <button type="submit">{t.searchButton}</button>
-    </div>
-    <div class="row">
-      <label>
-        {t.osLabel}{' '}
-        <select name="os">
-          <option value="">{t.osAll}</option>
-          {(['windows', 'macos', 'linux'] as const).map((value) => (
-            <option value={value} selected={os === value}>
-              {t.os[value]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t.categoryLabel}{' '}
-        <select name="category">
-          <option value="">{t.categoryAll}</option>
-          {categories.map((value) => (
-            <option value={value} selected={category === value}>
-              {t.categories[value]}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
-  </form>
+  <search>
+    <form class="search" method="get" action="/">
+      <input type="hidden" name="lang" value={lang} />
+      <div class="row">
+        <input
+          type="search"
+          name="q"
+          value={keyword ?? ''}
+          placeholder={t.searchPlaceholder}
+          aria-label={t.searchPlaceholder}
+          maxlength={100}
+        />
+        <button type="submit">{t.searchButton}</button>
+      </div>
+      <div class="row">
+        <label>
+          {t.osLabel}{' '}
+          <select name="os">
+            <option value="">{t.osAll}</option>
+            {(['windows', 'macos', 'linux'] as const).map((value) => (
+              <option value={value} selected={os === value}>
+                {t.os[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t.categoryLabel}{' '}
+          <select name="category">
+            <option value="">{t.categoryAll}</option>
+            {categories.map((value) => (
+              <option value={value} selected={category === value}>
+                {t.categories[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </form>
+  </search>
 );
 
 export const SideCommon: FC<{ t: Dict; lang: Lang; listed: number; lastSyncedAt: string | null }> = ({

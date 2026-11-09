@@ -7,7 +7,7 @@
 import { spawnSync } from 'node:child_process';
 
 const ID = /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/;
-const REASON = /^[^\u0000-\u001f]{1,200}$/;
+const REASON = /^[^\p{Cc}]{1,200}$/u;
 
 function fail(message) {
   console.error(message);

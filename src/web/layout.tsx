@@ -1,6 +1,7 @@
 import type { Child, FC } from 'hono/jsx';
 import { CATEGORIES, type Category } from '../domain/metadata';
 import { type Dict, LANG_NAMES, LANGS, type Lang } from './i18n';
+import { STYLE_VERSION } from './style';
 
 export interface PageMeta {
   lang: Lang;
@@ -32,7 +33,7 @@ export const Layout: FC<{ meta: PageMeta; side: Child; children?: Child }> = ({ 
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{`${meta.title} - ${SITE_NAME} (${SITE_NAME_EN})`}</title>
         <meta name="description" content={meta.description} />
-        <link rel="stylesheet" href="/style.css" />
+        <link rel="stylesheet" href={`/style.css?v=${STYLE_VERSION}`} />
         {LANGS.map((l) => (
           <link rel="alternate" hreflang={l} href={`${meta.origin}${withLang(meta.path, l)}`} />
         ))}
@@ -50,18 +51,20 @@ export const Layout: FC<{ meta: PageMeta; side: Child; children?: Child }> = ({ 
                 <span translate="no">{SITE_NAME_EN}</span> - {t.tagline}
               </small>
             </a>
-            <form method="get" action="/" role="search">
-              <input type="hidden" name="lang" value={lang} />
-              <input
-                type="search"
-                name="q"
-                value={meta.keyword ?? ''}
-                placeholder={t.searchPlaceholder}
-                aria-label={t.searchPlaceholder}
-                maxlength={100}
-              />
-              <button type="submit">{t.searchButton}</button>
-            </form>
+            <search>
+              <form method="get" action="/">
+                <input type="hidden" name="lang" value={lang} />
+                <input
+                  type="search"
+                  name="q"
+                  value={meta.keyword ?? ''}
+                  placeholder={t.searchPlaceholder}
+                  aria-label={t.searchPlaceholder}
+                  maxlength={100}
+                />
+                <button type="submit">{t.searchButton}</button>
+              </form>
+            </search>
             <details class="lang">
               <summary aria-label={t.languageLabel}>{LANG_NAMES[lang]}</summary>
               <ul>
