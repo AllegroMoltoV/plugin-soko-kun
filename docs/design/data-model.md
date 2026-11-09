@@ -51,6 +51,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `commit_sha` | TEXT | NOT NULL | タグを解決したコミット SHA |
 | `published_at` | TEXT | NOT NULL | 公開日時。掲載対象バージョンの選択に使う |
 | `html_url` | TEXT | NOT NULL | GitHub のリリースのページの URL |
+| `obs_build_version` | TEXT | | タグの時点の `buildspec.json` に書かれた、ビルドに使う OBS Studio の版。NULL は未取得、空文字列は取得したが値が無いことを表す。外部データ |
 
 索引: `releases_plugin (plugin_id, published_at)`
 

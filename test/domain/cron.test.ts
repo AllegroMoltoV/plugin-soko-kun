@@ -234,6 +234,41 @@ describe('runCron の画像の取得', () => {
   });
 });
 
+describe('runCron のビルドに使った OBS の版', () => {
+  it('buildspec.json の版を保存し、形の合わない値は保存しない', async () => {
+    await registerFixture();
+    const calls: string[] = [];
+    const buildspec = (version: string) =>
+      http.get('https://api.github.com/repos/:owner/:repo/contents/buildspec.json', () => {
+        calls.push('buildspec');
+        return HttpResponse.text(JSON.stringify({ dependencies: { 'obs-studio': { version } } }));
+      });
+    network.use(
+      repoById(),
+      ...githubHandlers(),
+      ...imageHandlers(),
+      ...downloadHandlers(),
+      ...scannerHandlers({ mb: 0 }),
+      buildspec('31.1.1'),
+    );
+    await runCron(env);
+    expect(await env.DB.prepare('SELECT obs_build_version FROM releases').first('obs_build_version')).toBe('31.1.1');
+
+    // 同じリリースでは取得し直さない。
+    calls.length = 0;
+    await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
+    await runCron(env);
+    expect(calls).toEqual([]);
+
+    // 形の合わない値は、画面に出さないよう空文字列で記録する。
+    await env.DB.prepare('UPDATE releases SET obs_build_version = NULL').run();
+    await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
+    network.use(buildspec('<script>'));
+    await runCron(env);
+    expect(await env.DB.prepare('SELECT obs_build_version FROM releases').first('obs_build_version')).toBe('');
+  });
+});
+
 describe('runCron のダウンロード数の記録', () => {
   it('下書きを除いたダウンロード数の合計を記録し、同じ日には取得し直さない', async () => {
     await registerFixture();

@@ -25,6 +25,8 @@ export interface ReleaseView {
   commitSha: string;
   publishedAt: string;
   htmlUrl: string;
+  // タグの時点の buildspec.json に書かれた、ビルドに使った OBS Studio の版。外部データ。
+  obsBuildVersion: string | null;
   assets: AssetView[];
 }
 
@@ -82,6 +84,7 @@ interface ReleaseRow {
   commit_sha: string;
   published_at: string;
   html_url: string;
+  obs_build_version: string | null;
 }
 interface AssetRow {
   release_id: number;
@@ -228,6 +231,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
             commitSha: listed.commit_sha,
             publishedAt: listed.published_at,
             htmlUrl: listed.html_url,
+            obsBuildVersion: listed.obs_build_version || null,
             assets: listedAssets.map((asset) => ({
               name: asset.name,
               size: asset.size,

@@ -77,8 +77,8 @@ interface SyncRow {
   latest_tag: string | null;
 }
 
-// プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決、画像の一覧とダウンロード 2 件。
-const SYNC_COST = 6;
+// プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決、画像の一覧とダウンロード 2 件、buildspec.json。
+const SYNC_COST = 7;
 
 async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: SyncRow): Promise<void> {
   const timestamp = now();
@@ -128,6 +128,11 @@ async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: Sync
   // 画像は最新リリースのタグの時点のものを使う。タグが変わったときだけ取得し直し、外部呼び出しを抑える。
   if (latestTag && latestTag !== row.images_tag) {
     statements.push(...(await imageStatements(env, budget, github, row.id, repo.owner.login, repo.name, latestTag)));
+  }
+  if (latestTag) {
+    statements.push(
+      ...(await obsVersionStatements(env, budget, github, row.id, repo.owner.login, repo.name, latestTag)),
+    );
   }
   statements.push(
     env.DB.prepare('UPDATE plugins SET updated_at = ?, last_synced_at = ? WHERE id = ?').bind(
@@ -194,6 +199,55 @@ async function releaseStatements(
     }
   }
   return statements;
+}
+
+const BUILDSPEC_MAX_BYTES = 64 * 1024;
+const OBS_VERSION = /^\d{1,3}\.\d{1,3}(\.\d{1,3})?$/;
+
+// buildspec.json の dependencies.obs-studio.version を読む。形の合わない値は外部データとして捨てる。
+export function parseObsBuildVersion(bytes: Uint8Array | null): string {
+  if (!bytes) return '';
+  try {
+    const spec = JSON.parse(new TextDecoder().decode(bytes)) as {
+      dependencies?: { 'obs-studio'?: { version?: unknown } };
+    };
+    const version = spec.dependencies?.['obs-studio']?.version;
+    return typeof version === 'string' && OBS_VERSION.test(version) ? version : '';
+  } catch {
+    return '';
+  }
+}
+
+// 最新リリースのタグの時点の buildspec.json から、ビルドに使った OBS の版を取得する。リリースごとに 1 回だけ取得する。
+async function obsVersionStatements(
+  env: Env,
+  budget: Budget,
+  github: GitHubClient,
+  pluginId: string,
+  owner: string,
+  repo: string,
+  tag: string,
+): Promise<D1PreparedStatement[]> {
+  budget.takeD1Query();
+  const release = await env.DB.prepare(
+    'SELECT github_release_id, obs_build_version FROM releases WHERE plugin_id = ? AND tag = ?',
+  )
+    .bind(pluginId, tag)
+    .first<{ github_release_id: number; obs_build_version: string | null }>();
+  // 同じ同期で追加したリリースはまだ書き込まれていないため、次の同期で取得する。
+  if (!release || release.obs_build_version !== null) return [];
+  let bytes: Uint8Array | null = null;
+  try {
+    bytes = await github.getFileBytes(owner, repo, '', 'buildspec.json', tag, BUILDSPEC_MAX_BYTES);
+  } catch (error) {
+    if (!(error instanceof GitHubError && error.kind === 'not_found')) throw error;
+  }
+  return [
+    env.DB.prepare('UPDATE releases SET obs_build_version = ? WHERE github_release_id = ?').bind(
+      parseObsBuildVersion(bytes),
+      release.github_release_id,
+    ),
+  ];
 }
 
 const IMAGE_DIR = '.soko-kun';

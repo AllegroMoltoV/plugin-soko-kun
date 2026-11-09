@@ -428,8 +428,8 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
             <td>{view.os.length > 0 ? view.os.map((os) => t.os[os]).join(', ') : t.unknown}</td>
           </tr>
           <tr>
-            <th scope="row">{t.supportedObs}</th>
-            <td>{t.unknown}</td>
+            <th scope="row">{t.builtWithObs}</th>
+            <td>{view.listedRelease?.obsBuildVersion ?? t.unknown}</td>
           </tr>
           <tr>
             <th scope="row">{t.license}</th>
