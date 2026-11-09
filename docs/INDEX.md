@@ -28,6 +28,7 @@
 | 0007 | [検査と同期の実行方式](decisions/0007-asynchronous-scanning-with-cron.md) | 採用 |
 | 0008 | [公開文書と作業記録の分担](decisions/0008-docs-and-work-records.md) | 採用 |
 | 0009 | [VirusTotal の検出の閾値](decisions/0009-virustotal-detection-threshold.md) | 採用 |
+| 0010 | [プラグインの説明文の機械翻訳](decisions/0010-machine-translation-of-summaries.md) | 採用 |
 
 ## 運用手順
 

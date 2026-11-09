@@ -3,6 +3,7 @@ import { Budget, BudgetExceededError } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
 import { ScannerRateLimitedError, scanWithMalwareBazaar, scanWithVirusTotal } from '../scanners';
+import { runTranslations } from '../translate';
 import { inferOs } from './metadata';
 import type { Scanner } from './status';
 
@@ -16,6 +17,7 @@ export interface CronReport {
   scanned: number;
   synced: number;
   failed: number;
+  translated: number;
   subrequests: number;
   d1Queries: number;
   stoppedBy?: string;
@@ -232,10 +234,11 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
 }
 
 export async function runCron(env: Env, budget = new Budget()): Promise<CronReport> {
-  const report: CronReport = { scanned: 0, synced: 0, failed: 0, subrequests: 0, d1Queries: 0 };
+  const report: CronReport = { scanned: 0, synced: 0, failed: 0, translated: 0, subrequests: 0, d1Queries: 0 };
   try {
     await runScans(env, budget, report);
     await runSync(env, budget, report);
+    report.translated = await runTranslations(env, budget);
   } catch (error) {
     if (!(error instanceof BudgetExceededError)) throw error;
     report.stoppedBy = `budget_${error.kind}`;

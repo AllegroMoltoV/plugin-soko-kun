@@ -25,7 +25,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `repo` | TEXT | NOT NULL | GitHub のリポジトリ名 |
 | `summary` | TEXT | | 概要。外部データ |
 | `license_spdx` | TEXT | NOT NULL | ライセンスの SPDX 識別子 |
-| `category` | TEXT | NOT NULL、既定値 `other` | カテゴリ。`audio-filter`・`video-filter`・`source`・`transition`・`dock-ui`・`output`・`utility`・`other` のいずれか |
+| `category` | TEXT | NOT NULL、既定値 `other` | カテゴリ。`audio-filter`・`video-filter`・`source`・`transition`・`dock-ui`・`output`・`other` のいずれか |
 | `admin_suspended` | INTEGER | NOT NULL、既定値 0 | 1 のとき管理停止 |
 | `suspended_reason` | TEXT | | 管理停止の理由 |
 | `removed` | INTEGER | NOT NULL、既定値 0 | 1 のとき、GitHub でリポジトリが削除または非公開になった |
@@ -172,3 +172,16 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 詳細ページの noindex は、応答ヘッダー `X-Robots-Tag: noindex` で示します。
 
 管理停止の解除は `admin_suspended` を 0 に戻すだけです。解除後の状態は、上の規則で算出します。
+
+## plugin_translations
+
+プラグインの概要の機械翻訳を保存します。翻訳の方針は [ADR 0010](../decisions/0010-machine-translation-of-summaries.md) に記載しています。
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `plugin_id` | TEXT | 主キーの一部、`plugins.id` を参照 | プラグイン ID |
+| `lang` | TEXT | 主キーの一部 | 翻訳先の言語。`ja`・`en`・`zh-Hans`・`ko`・`pt-BR`・`es-419` のいずれか。`zh-Hant` の画面は `zh-Hans` の翻訳を使う |
+| `source_hash` | TEXT | NOT NULL | 翻訳の元にした概要の SHA-256。概要が変わると一致しなくなり、翻訳し直す |
+| `text` | TEXT | NOT NULL | 翻訳した概要。外部データとして扱う |
+| `translated_at` | TEXT | NOT NULL | 翻訳した日時 |
+

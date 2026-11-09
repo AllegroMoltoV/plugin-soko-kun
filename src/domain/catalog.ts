@@ -1,5 +1,6 @@
 // 検索と詳細表示のためのデータ読み出し。掲載状態はここで算出し、掲載中のものだけを一覧に出す。
 import type { Env } from '../env';
+import { detectLang, type TranslationLang } from '../translate';
 import type { Category, Os } from './metadata';
 import { computeStatus, type PluginStatus, type ReleaseForStatus, type Scanner, type ScanResult } from './status';
 
@@ -32,6 +33,9 @@ export interface PluginView {
   owner: string;
   repo: string;
   summary: string | null;
+  // 概要の原文の言語と、言語ごとの機械翻訳。翻訳も外部データとして扱う。
+  summaryLang: TranslationLang | null;
+  translations: Partial<Record<TranslationLang, string>>;
   license: string;
   category: Category;
   os: Os[];
@@ -88,7 +92,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
   const where = pluginId ? 'WHERE p.id = ?' : '';
   const bind = (statement: D1PreparedStatement) => (pluginId ? statement.bind(pluginId) : statement);
   // 4 件の SELECT を 1 回の batch にまとめ、D1 のクエリ 1 件として扱う。
-  const [plugins, releases, assets, scans] = await env.DB.batch([
+  const [plugins, releases, assets, scans, translations] = await env.DB.batch([
     bind(env.DB.prepare(`SELECT * FROM plugins p ${where}`)),
     bind(env.DB.prepare(`SELECT r.* FROM releases r JOIN plugins p ON p.id = r.plugin_id ${where}`)),
     bind(
@@ -102,7 +106,22 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
          JOIN plugins p ON p.id = r.plugin_id ${where}`,
       ),
     ),
+    bind(
+      env.DB.prepare(
+        `SELECT t.plugin_id, t.lang, t.text FROM plugin_translations t JOIN plugins p ON p.id = t.plugin_id ${where}`,
+      ),
+    ),
   ]);
+  const translationsByPlugin = new Map<string, Partial<Record<TranslationLang, string>>>();
+  for (const row of (translations?.results ?? []) as Array<{
+    plugin_id: string;
+    lang: TranslationLang;
+    text: string;
+  }>) {
+    const entry = translationsByPlugin.get(row.plugin_id) ?? {};
+    entry[row.lang] = row.text;
+    translationsByPlugin.set(row.plugin_id, entry);
+  }
   const scanMap = new Map<string, ScanRow>();
   for (const row of (scans?.results ?? []) as ScanRow[]) scanMap.set(`${row.digest}:${row.scanner}`, row);
   const assetsByRelease = new Map<number, AssetRow[]>();
@@ -143,6 +162,8 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
       owner: plugin.owner,
       repo: plugin.repo,
       summary: plugin.summary,
+      summaryLang: plugin.summary ? detectLang(plugin.summary) : null,
+      translations: translationsByPlugin.get(plugin.id) ?? {},
       license: plugin.license_spdx,
       category: plugin.category,
       os: [...new Set(listedAssets.map((asset) => asset.os).filter((os): os is Os => os !== null))].sort(),
@@ -217,8 +238,12 @@ export async function getPluginView(env: Env, id: string): Promise<PluginView | 
   return view ?? null;
 }
 
-export async function catalogStats(env: Env): Promise<{ listed: number; lastSyncedAt: string | null }> {
-  const views = await loadViews(env);
+export async function catalogStats(
+  env: Env,
+): Promise<{ listed: number; lastSyncedAt: string | null; latest: PluginView[] }> {
+  const views = (await loadViews(env)).filter((view) => view.status === 'listed');
   const row = await env.DB.prepare('SELECT max(last_synced_at) AS t FROM plugins').first<{ t: string | null }>();
-  return { listed: views.filter((view) => view.status === 'listed').length, lastSyncedAt: row?.t ?? null };
+  // 新着は、このプラットフォームに登録した日の新しい順に 5 件。
+  const latest = [...views].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
+  return { listed: views.length, lastSyncedAt: row?.t ?? null, latest };
 }

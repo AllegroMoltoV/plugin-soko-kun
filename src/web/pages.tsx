@@ -2,6 +2,7 @@ import type { FC } from 'hono/jsx';
 import type { PluginView } from '../domain/catalog';
 import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
+import type { TranslationLang } from '../translate';
 import type { PageContent } from './content';
 import type { Dict, Lang } from './i18n';
 import { SearchButton, withLang } from './layout';
@@ -27,6 +28,81 @@ export const StatusBadge: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => (
   <span class={`status ${view.status}`}>{t.status[view.status]}</span>
 );
 
+// 概要は画面の言語の機械翻訳を表示し、自動翻訳である旨と原文へのリンクを添える。翻訳も外部データとしてエスケープする。
+// m2m100 は繁体字に対応しないため、zh-Hant の画面は簡体字の翻訳を使い、その旨を示す。
+export function summaryFor(view: PluginView, lang: Lang, showOriginal: boolean) {
+  if (!view.summary) return null;
+  const key: TranslationLang = lang === 'zh-Hant' ? 'zh-Hans' : lang;
+  const translated = view.summaryLang !== key ? view.translations[key] : undefined;
+  if (!translated || showOriginal) return { text: view.summary, translated: false, available: Boolean(translated) };
+  return { text: translated, translated: true, available: true };
+}
+
+export const Summary: FC<{ view: PluginView; t: Dict; lang: Lang; showOriginal: boolean; path?: string }> = ({
+  view,
+  t,
+  lang,
+  showOriginal,
+  path,
+}) => {
+  const summary = summaryFor(view, lang, showOriginal);
+  if (!summary) return null;
+  const note = lang === 'zh-Hant' ? t.machineTranslatedHans : t.machineTranslated;
+  return (
+    <>
+      <p class="summary" lang={summary.translated ? lang : 'und'}>
+        {summary.text}
+      </p>
+      {path ? (
+        summary.translated ? (
+          <p class="untrusted-note">
+            {note} <a href={withLang(`${path}?orig=1`, lang)}>{t.showOriginal}</a>
+          </p>
+        ) : summary.available ? (
+          <p class="untrusted-note">
+            {t.summaryOriginal} <a href={withLang(path, lang)}>{t.showTranslation}</a>
+          </p>
+        ) : (
+          <p class="untrusted-note">{t.summaryOriginal}</p>
+        )
+      ) : summary.translated ? (
+        <p class="untrusted-note">{t.machineTranslatedShort}</p>
+      ) : null}
+    </>
+  );
+};
+
+// 固定ページの本文の URL をリンクにする。本文はこのプラットフォームが書いた文に限る。
+// <owner> のような置き換え用の語を含む例の URL はリンクにしない。
+const URL_TOKEN = /https?:\/\/[^\s「」"()]+/g;
+const TRAILING = /[.,、。:;!?」』）)]+$/;
+export const Linkified: FC<{ text: string }> = ({ text }) => {
+  const parts: Array<string | { href: string }> = [];
+  let last = 0;
+  for (const match of text.matchAll(URL_TOKEN)) {
+    const start = match.index ?? 0;
+    const token = match[0];
+    const url = token.replace(TRAILING, '');
+    if (url.includes('<') || url.includes('>')) continue;
+    parts.push(text.slice(last, start), { href: url });
+    last = start + url.length;
+  }
+  parts.push(text.slice(last));
+  return (
+    <>
+      {parts.map((part) =>
+        typeof part === 'string' ? (
+          part
+        ) : (
+          <a href={part.href} rel="noopener noreferrer">
+            {part.href}
+          </a>
+        ),
+      )}
+    </>
+  );
+};
+
 export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ items, t, lang }) =>
   items.length === 0 ? (
     <p>{t.noResults}</p>
@@ -38,7 +114,6 @@ export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ 
             <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
               {view.repo}
             </a>
-            <StatusBadge view={view} t={t} />
             <span class="ver">{view.listedRelease?.tag}</span>
           </div>
           <ul class="tags">
@@ -51,11 +126,7 @@ export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ 
               </li>
             ))}
           </ul>
-          {view.summary ? (
-            <p class="summary" lang="und">
-              {view.summary}
-            </p>
-          ) : null}
+          <Summary view={view} t={t} lang={lang} showOriginal={false} />
           <p class="meta">
             <span translate="no">{view.owner}</span> | {t.updated} {formatDate(view.updatedAt, lang)}
           </p>
@@ -114,13 +185,31 @@ export const SearchForm: FC<{
   </search>
 );
 
-export const SideCommon: FC<{ t: Dict; lang: Lang; listed: number; lastSyncedAt: string | null }> = ({
-  t,
-  lang,
-  listed,
-  lastSyncedAt,
-}) => (
+export const SideCommon: FC<{
+  t: Dict;
+  lang: Lang;
+  listed: number;
+  lastSyncedAt: string | null;
+  latest: PluginView[];
+}> = ({ t, lang, listed, lastSyncedAt, latest }) => (
   <>
+    {latest.length > 0 ? (
+      <section>
+        <h2>{t.sideLatestTitle}</h2>
+        <ul class="latest">
+          {latest.map((view) => (
+            <li>
+              <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
+                {view.repo}
+              </a>
+              <span class="meta">
+                {t.categories[view.category]} | {formatDate(view.createdAt, lang)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ) : null}
     <section>
       <h2>{t.sideAgentTitle}</h2>
       <p>{t.sideAgentBody}</p>
@@ -138,6 +227,13 @@ export const SideCommon: FC<{ t: Dict; lang: Lang; listed: number; lastSyncedAt:
       </ul>
       <p>
         <a href={withLang('/about', lang)}>{t.sidePolicy}</a> | <a href={withLang('/report', lang)}>{t.sideReport}</a>
+      </p>
+    </section>
+    <section>
+      <h2>{t.sideSubmitTitle}</h2>
+      <p>{t.sideSubmitBody}</p>
+      <p>
+        <a href={withLang('/submit', lang)}>{t.sideSubmitLink}</a>
       </p>
     </section>
     <section>
@@ -195,7 +291,12 @@ const checkLabel = (t: Dict, scanner: 'virustotal' | 'malwarebazaar', result: Sc
   return t.check[result];
 };
 
-export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang }> = ({ view, t, lang }) => {
+export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOriginal: boolean }> = ({
+  view,
+  t,
+  lang,
+  showOriginal,
+}) => {
   const head = (
     <>
       <p class="breadcrumb">
@@ -207,9 +308,11 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang }> = ({ vi
         <li>
           <CategoryTag category={view.category} t={t} lang={lang} />
         </li>
-        <li>
-          <StatusBadge view={view} t={t} />
-        </li>
+        {view.status !== 'listed' ? (
+          <li>
+            <StatusBadge view={view} t={t} />
+          </li>
+        ) : null}
       </ul>
     </>
   );
@@ -238,14 +341,7 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang }> = ({ vi
   return (
     <>
       {head}
-      {view.summary ? (
-        <>
-          <p class="summary" lang="und">
-            {view.summary}
-          </p>
-          <p class="untrusted-note">{t.summaryOriginal}</p>
-        </>
-      ) : null}
+      <Summary view={view} t={t} lang={lang} showOriginal={showOriginal} path={`/plugins/${view.id}`} />
       {primary ? (
         <div class="download">
           <a class="button" href={primary.downloadUrl} rel="noopener noreferrer">
@@ -254,6 +350,7 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang }> = ({ vi
           <p>
             {release.tag} / <span translate="no">{primary.name}</span> / {formatSize(primary.size, lang)}
           </p>
+          <p>{t.downloadNote}</p>
         </div>
       ) : null}
 
@@ -348,13 +445,14 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang }> = ({ vi
   );
 };
 
-export const StaticPage: FC<{ content: PageContent; t: Dict; lang: Lang; path: string; anchorMcp: boolean }> = ({
-  content,
-  t,
-  lang,
-  path,
-  anchorMcp,
-}) => (
+export const StaticPage: FC<{
+  content: PageContent;
+  t: Dict;
+  lang: Lang;
+  path: string;
+  anchorMcp: boolean;
+  origin: string;
+}> = ({ content, t, lang, path, anchorMcp, origin }) => (
   <>
     <h1>{content.title}</h1>
     {lang !== 'en' ? (
@@ -366,7 +464,9 @@ export const StaticPage: FC<{ content: PageContent; t: Dict; lang: Lang; path: s
       <section id={anchorMcp && index === 2 ? 'mcp' : undefined}>
         <h2 class="bar">{section.heading}</h2>
         {section.paragraphs.map((paragraph) => (
-          <p>{paragraph}</p>
+          <p>
+            <Linkified text={paragraph.replaceAll('{{ORIGIN}}', origin)} />
+          </p>
         ))}
       </section>
     ))}

@@ -73,7 +73,15 @@ app.get('/robots.txt', (c) =>
 
 app.get('/sitemap.xml', async (c) => {
   const { items } = await searchPlugins(c.env, { limit: 5000 });
-  const paths = ['/', '/about', '/security', '/report', '/privacy', ...items.map((view) => `/plugins/${view.id}`)];
+  const paths = [
+    '/',
+    '/about',
+    '/submit',
+    '/security',
+    '/report',
+    '/privacy',
+    ...items.map((view) => `/plugins/${view.id}`),
+  ];
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths
     .map((p) => `<url><loc>${esc(c.env.ORIGIN + p)}</loc></url>`)
@@ -108,7 +116,9 @@ app.get('/', async (c) => {
   return c.html(
     <Layout
       meta={meta(c, lang, filtered ? heading : t.searchHeading, t.notice, { keyword, currentCategory: category })}
-      side={<SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} />}
+      side={
+        <SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} latest={stats.latest} />
+      }
     >
       <h1>{t.searchHeading}</h1>
       <SearchForm t={t} lang={lang} keyword={keyword} os={os} category={category} categories={CATEGORIES} />
@@ -145,11 +155,11 @@ app.get('/plugins/:owner/:repo', async (c) => {
       side={
         <>
           <SideRelated t={t} lang={lang} sameAuthor={sameAuthor} sameCategory={sameCategory} />
-          <SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} />
+          <SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} latest={stats.latest} />
         </>
       }
     >
-      <PluginDetail view={view} t={t} lang={lang} />
+      <PluginDetail view={view} t={t} lang={lang} showOriginal={c.req.query('orig') === '1'} />
     </Layout>,
   );
   // 掲載中でないプラグインの詳細は検索エンジンに載せない。
@@ -157,7 +167,7 @@ app.get('/plugins/:owner/:repo', async (c) => {
   return response;
 });
 
-for (const key of ['about', 'security', 'report', 'privacy'] as const satisfies readonly PageKey[]) {
+for (const key of ['about', 'submit', 'security', 'report', 'privacy'] as const satisfies readonly PageKey[]) {
   app.get(`/${key}`, async (c) => {
     const lang = c.get('lang');
     const t = DICTS[lang];
@@ -166,9 +176,18 @@ for (const key of ['about', 'security', 'report', 'privacy'] as const satisfies 
     return c.html(
       <Layout
         meta={meta(c, lang, content.title, content.sections[0]?.paragraphs[0] ?? t.notice)}
-        side={<SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} />}
+        side={
+          <SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} latest={stats.latest} />
+        }
       >
-        <StaticPage content={content} t={t} lang={lang} path={`/${key}`} anchorMcp={key === 'about'} />
+        <StaticPage
+          content={content}
+          t={t}
+          lang={lang}
+          path={`/${key}`}
+          anchorMcp={key === 'about'}
+          origin={c.env.ORIGIN}
+        />
       </Layout>,
     );
   });

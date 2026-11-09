@@ -17,7 +17,23 @@
       "migrations_dir": "migrations"
     }
   ],
+  "ai": { "binding": "AI" },
   "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-oauth-kv" }],
   "triggers": { "crons": ["*/15 * * * *"] },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // テスト用の環境。Workers AI は実環境へつながるため定義せず、翻訳は行わない。
+  "env": {
+    "test": {
+      "vars": { "ORIGIN": "http://localhost:8787" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "plugin-soko-kun",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-oauth-kv" }]
+    }
+  }
 }

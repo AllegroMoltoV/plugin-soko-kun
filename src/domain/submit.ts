@@ -3,7 +3,14 @@ import { Budget } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
 import { resetScanStatements } from './cron';
-import { cmakeReferencesLibobs, hasNativeSource, inferCategory, inferOs, summarizeReadme } from './metadata';
+import {
+  type Category,
+  cmakeReferencesLibobs,
+  hasNativeSource,
+  inferCategory,
+  inferOs,
+  summarizeReadme,
+} from './metadata';
 
 export const SUBMITS_PER_DAY = 10;
 
@@ -55,7 +62,13 @@ async function logAttempt(env: Env, userId: number, outcome: string): Promise<vo
     .run();
 }
 
-export async function submitPlugin(env: Env, submitter: Submitter, repositoryUrl: string): Promise<SubmitResult> {
+// category は作者が選んだカテゴリ。選ばなかった場合は、リポジトリ名と概要から推定する。
+export async function submitPlugin(
+  env: Env,
+  submitter: Submitter,
+  repositoryUrl: string,
+  category?: Category,
+): Promise<SubmitResult> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const count = await env.DB.prepare('SELECT count(*) AS n FROM submit_log WHERE github_user_id = ? AND created_at > ?')
     .bind(submitter.githubUserId, since)
@@ -68,12 +81,17 @@ export async function submitPlugin(env: Env, submitter: Submitter, repositoryUrl
     );
   }
 
-  const result = await validateAndStore(env, submitter, repositoryUrl);
+  const result = await validateAndStore(env, submitter, repositoryUrl, category);
   await logAttempt(env, submitter.githubUserId, result.ok ? 'accepted' : result.code);
   return result;
 }
 
-async function validateAndStore(env: Env, submitter: Submitter, repositoryUrl: string): Promise<SubmitResult> {
+async function validateAndStore(
+  env: Env,
+  submitter: Submitter,
+  repositoryUrl: string,
+  category?: Category,
+): Promise<SubmitResult> {
   const parsed = parseRepositoryUrl(repositoryUrl);
   if (!parsed) {
     return fail(
@@ -178,7 +196,7 @@ async function validateAndStore(env: Env, submitter: Submitter, repositoryUrl: s
         name,
         summary,
         license,
-        inferCategory(name, summary),
+        category ?? inferCategory(name, summary),
         submitter.githubUserId,
         latest?.etag ?? null,
         timestamp,

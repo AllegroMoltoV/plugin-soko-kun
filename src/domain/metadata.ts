@@ -6,7 +6,6 @@ export const CATEGORIES = [
   'transition',
   'dock-ui',
   'output',
-  'utility',
   'other',
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
@@ -23,14 +22,14 @@ export function inferOs(assetName: string): Os | null {
   return null;
 }
 
+// 先に並べた区分ほど優先する。監視や計測のように専用の画面を足すものはドック・パネルを先に判定する。
 const CATEGORY_KEYWORDS: Array<[Category, RegExp]> = [
   ['transition', /transition/],
+  ['dock-ui', /dock|panel|(^|[^a-z])ui([^a-z]|$)|monitor|meter|hotkey|overlay editor/],
   ['audio-filter', /audio|pitch|loudness|sound|voice|vocal|mic|compressor|limiter|reverb|equali[sz]er|noise|volume/],
   ['video-filter', /shadow|blur|shader|chroma|mask|color|colour|lut|sharpen|crop|video filter|effect/],
-  ['dock-ui', /dock|panel|(^|[^a-z])ui([^a-z]|$)|hotkey|overlay editor/],
   ['output', /stream|output|record|rtmp|srt|ndi|multistream|encoder/],
   ['source', /source|capture|browser|camera|text|timer|clock/],
-  ['utility', /tool|util|helper|automation|script/],
 ];
 
 export function inferCategory(...texts: Array<string | null | undefined>): Category {

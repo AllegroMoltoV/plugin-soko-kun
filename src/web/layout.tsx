@@ -131,6 +131,9 @@ export const Layout: FC<{ meta: PageMeta; side: Child; children?: Child }> = ({ 
                 <a href={withLang('/about', lang)}>{t.nav.about}</a>
               </li>
               <li>
+                <a href={withLang('/submit', lang)}>{t.nav.submit}</a>
+              </li>
+              <li>
                 <a href={withLang('/security', lang)}>{t.nav.security}</a>
               </li>
               <li>
@@ -144,6 +147,7 @@ export const Layout: FC<{ meta: PageMeta; side: Child; children?: Child }> = ({ 
               </li>
             </ul>
             <p>{t.notice}</p>
+            <p class="copyright">© 2026 AllegroMoltoV</p>
           </div>
         </footer>
       </body>

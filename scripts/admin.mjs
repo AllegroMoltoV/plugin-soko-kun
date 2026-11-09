@@ -4,11 +4,13 @@
 //   npm run admin -- resume <owner/repo> [--remote]
 //   npm run admin -- show <owner/repo> [--remote]
 //   npm run admin -- approve-suspicious <owner/repo> [--remote]
+//   npm run admin -- set-category <owner/repo> <category> [--remote]
 // --remote を付けないときはローカルの D1 を更新する。
 import { spawnSync } from 'node:child_process';
 
 const ID = /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/;
 const REASON = /^[^\p{Cc}]{1,200}$/u;
+const CATEGORIES = ['audio-filter', 'video-filter', 'source', 'transition', 'dock-ui', 'output', 'other'];
 
 function fail(message) {
   console.error(message);
@@ -18,7 +20,8 @@ function fail(message) {
 const args = process.argv.slice(2);
 const remote = args.includes('--remote');
 const [command, rawId, reason] = args.filter((a) => a !== '--remote');
-if (!command || !rawId) fail('usage: admin <suspend|resume|show|approve-suspicious> <owner/repo> [reason] [--remote]');
+if (!command || !rawId)
+  fail('usage: admin <suspend|resume|show|approve-suspicious|set-category> <owner/repo> [reason|category] [--remote]');
 
 const id = rawId.toLowerCase();
 if (!ID.test(id)) fail(`invalid plugin id: ${rawId}`);
@@ -37,6 +40,10 @@ if (command === 'suspend') {
   // VirusTotal で少数のエンジンだけが検出した配布物を、管理者が確認したうえで問題なしとする。
   const digests = `SELECT a.digest FROM assets a JOIN releases r ON r.github_release_id = a.release_id WHERE r.plugin_id = ${quote(id)}`;
   sql = `UPDATE scans SET result = 'clean', detail = 'reviewed by admin ' || ${quote(now)} || ': ' || ifnull(detail, '') WHERE result = 'suspicious' AND digest IN (${digests}); SELECT digest, scanner, result, detail FROM scans WHERE digest IN (${digests});`;
+} else if (command === 'set-category') {
+  // 自動の推定が誤っていたカテゴリを、管理者が直す。
+  if (!CATEGORIES.includes(reason)) fail(`category must be one of: ${CATEGORIES.join(', ')}`);
+  sql = `UPDATE plugins SET category = ${quote(reason)}, updated_at = ${quote(now)} WHERE id = ${quote(id)}; SELECT id, category FROM plugins WHERE id = ${quote(id)};`;
 } else if (command === 'show') {
   sql = `SELECT id, admin_suspended, suspended_reason, removed, last_synced_at FROM plugins WHERE id = ${quote(id)};`;
 } else {

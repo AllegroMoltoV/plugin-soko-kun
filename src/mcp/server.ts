@@ -148,13 +148,22 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
       {
         description:
           'Register a public GitHub repository of an OBS Studio plugin that you administer. Requires signing in with GitHub (in Claude Code, run /mcp and sign in). The plugin is listed automatically after automated checks pass.',
-        inputSchema: { repositoryUrl: z.string().max(200).describe('https://github.com/<owner>/<repository>') },
+        inputSchema: {
+          repositoryUrl: z.string().max(200).describe('https://github.com/<owner>/<repository>'),
+          category: z
+            .enum(CATEGORIES)
+            .optional()
+            .describe(
+              'Plugin type chosen by the author: audio-filter, video-filter, source (adds video or audio to the scene), transition, dock-ui (adds docks or panels to the OBS window), output (streaming and recording), other. If omitted, it is guessed from the name and summary.',
+            ),
+        },
       },
-      async ({ repositoryUrl }) => {
+      async ({ repositoryUrl, category }) => {
         const result = await submitPlugin(
           env,
           { githubUserId: user.githubUserId, githubToken: user.githubToken },
           repositoryUrl,
+          category,
         );
         return result.ok ? json(result) : { ...json(result), isError: true };
       },

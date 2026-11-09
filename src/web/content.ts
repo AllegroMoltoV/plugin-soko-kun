@@ -1,7 +1,7 @@
 // 固定ページの本文。英語版が正で、ほかの言語は参考訳。段落は平文で持ち、表示時にエスケープする。
 import type { Lang } from './i18n';
 
-export type PageKey = 'about' | 'security' | 'report' | 'privacy';
+export type PageKey = 'about' | 'submit' | 'security' | 'report' | 'privacy';
 
 export interface PageContent {
   title: string;
@@ -19,6 +19,8 @@ const en: Record<PageKey, PageContent> = {
         paragraphs: [
           'Plugin Soko-kun is an independent, open registry of third-party plugins for OBS Studio. It is an unofficial service and is not affiliated with, endorsed by, or connected to the OBS Project or OBS Forums.',
           'The registry does not host files. It records information from public GitHub repositories and links to the files that authors publish in GitHub Releases.',
+
+          'Download files directly from GitHub, because this platform does not host them.',
         ],
       },
       {
@@ -32,9 +34,59 @@ const en: Record<PageKey, PageContent> = {
       {
         heading: 'Use from AI agents (MCP)',
         paragraphs: [
-          'Connect an MCP client to the endpoint /mcp on this site. In Claude Code, run: claude mcp add --transport http plugin-soko-kun <this site>/mcp',
+          'Connect an MCP client to the endpoint /mcp on this site. In Claude Code, run: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
           'Searching and viewing details work without signing in. To submit a repository, sign in with GitHub from the MCP client (in Claude Code, run /mcp). The service requests no GitHub scopes and does not get write access to your repositories.',
           'Example requests: "Find a pitch shift plugin that works on Windows", "Register the OBS plugin in this GitHub repository".',
+        ],
+      },
+    ],
+  },
+  submit: {
+    title: 'Submit a plugin',
+    sections: [
+      {
+        heading: 'Plugins you can submit',
+        paragraphs: [
+          'This platform lists OBS Studio plugins whose author administers the GitHub repository and submits it. Check that your repository meets all of the following conditions before submitting.',
+          'The repository is public on GitHub and is not archived.',
+          'GitHub detects a license for the repository. Add a LICENSE file if GitHub shows no license.',
+          'The CMakeLists.txt at the root of the repository references libobs, for example with find_package(libobs), and the repository contains C or C++ sources.',
+          'The latest release on GitHub has the plugin files attached. GitHub records a SHA-256 digest for files uploaded to a release, and this platform uses that digest for checks.',
+        ],
+      },
+      {
+        heading: 'How to submit',
+        paragraphs: [
+          'Connect your MCP client to {{ORIGIN}}/mcp. In Claude Code, run: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
+          'Sign in with your GitHub account from the MCP client. In Claude Code, run /mcp and choose plugin-soko-kun. This platform requests no GitHub scopes and gets no write access to your repositories.',
+          'Ask the AI agent to submit your repository, for example: "Register the OBS plugin in https://github.com/<owner>/<repository>". You can also tell the agent the category, such as audio filter or dock.',
+        ],
+      },
+      {
+        heading: 'After submitting',
+        paragraphs: [
+          'This platform registers the plugin as waiting for checks and checks each file against VirusTotal and MalwareBazaar every 15 minutes. Checks for a plugin usually finish within a few hours, so check the plugin page later.',
+          'When all files pass the checks, this platform lists the plugin automatically. When you publish a new release on GitHub, this platform finds it and checks it, and keeps listing the previous release until the checks finish.',
+        ],
+      },
+      {
+        heading: 'When a submission is refused',
+        paragraphs: [
+          'The AI agent shows the reason code and how to fix it. Fix the cause and submit again.',
+          'not_admin: You do not have admin permission on the repository. Ask an administrator of the repository to submit it.',
+          'private_repository, archived_repository: Make the repository public, or unarchive it.',
+          'no_license: Add a LICENSE file that GitHub can detect.',
+          'not_obs_plugin: Make the root CMakeLists.txt reference libobs.',
+          'no_release, no_verifiable_asset: Publish a release with the plugin files attached.',
+          'duplicate: The repository is already registered. Open its page from the search.',
+          'rate_limited: You can submit up to 10 times in 24 hours. Try again later.',
+        ],
+      },
+      {
+        heading: 'Updating and withdrawing',
+        paragraphs: [
+          'To update a listing, publish a new release on GitHub. This platform also updates the summary from the repository description.',
+          'To withdraw a listing, make the repository private or delete it, or send a request as described on the Report page.',
         ],
       },
     ],
@@ -112,6 +164,8 @@ const ja: Record<PageKey, PageContent> = {
         paragraphs: [
           '配信プラグイン倉庫くんは OBS Studio 向けのサードパーティ製プラグインを集めた、独立したオープンなレジストリです。このプラットフォームは OBS Project および OBS Forums と関係のない非公式のサービスで、両者の承認や推奨を受けていません。',
           'このプラットフォームは配布物を保管しません。このプラットフォームは公開されている GitHub リポジトリの情報を記録し、作者が GitHub Releases で公開した配布物へ案内します。',
+
+          'このプラットフォームは配布物を保管しないので、配布物は GitHub から直接ダウンロードしてください。',
         ],
       },
       {
@@ -125,9 +179,59 @@ const ja: Record<PageKey, PageContent> = {
       {
         heading: 'AI エージェントから使う (MCP)',
         paragraphs: [
-          'MCP クライアントをこのサイトの /mcp に接続してください。Claude Code では次を実行してください: claude mcp add --transport http plugin-soko-kun <このサイト>/mcp',
+          'MCP クライアントをこのサイトの /mcp に接続してください。Claude Code では次を実行してください: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
           '検索と詳細の取得はサインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインしてください (Claude Code では /mcp を実行)。このプラットフォームは GitHub のスコープを求めず、リポジトリへの書き込み権限を得ません。',
           '話しかけ方の例:「Windows で動くピッチシフトのプラグインを探して」「この GitHub リポジトリの OBS プラグインを登録して」',
+        ],
+      },
+    ],
+  },
+  submit: {
+    title: 'プラグインを登録する',
+    sections: [
+      {
+        heading: '登録できるプラグイン',
+        paragraphs: [
+          'このプラットフォームは、GitHub リポジトリの管理者である作者が登録した OBS Studio のプラグインを掲載します。登録する前に、リポジトリが次の条件をすべて満たすことを確認してください。',
+          'リポジトリが GitHub で公開されていて、アーカイブされていないこと。',
+          'GitHub がリポジトリのライセンスを検出できること。GitHub にライセンスが表示されないときは、LICENSE ファイルを追加してください。',
+          'リポジトリの直下の CMakeLists.txt が find_package(libobs) などで libobs を参照していて、C または C++ のソースがあること。',
+          'GitHub の最新のリリースに、プラグインの配布物が添付されていること。GitHub はリリースにアップロードした配布物に SHA-256 を記録し、このプラットフォームはその値で検査します。',
+        ],
+      },
+      {
+        heading: '登録の手順',
+        paragraphs: [
+          'MCP クライアントを {{ORIGIN}}/mcp に接続してください。Claude Code では次を実行してください: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
+          'MCP クライアントから GitHub のアカウントでサインインしてください。Claude Code では /mcp を実行し、plugin-soko-kun を選んでください。このプラットフォームは GitHub のスコープを求めず、リポジトリへの書き込み権限を得ません。',
+          'AI エージェントに登録を頼んでください。話しかけ方の例は「https://github.com/<owner>/<repository> の OBS プラグインを登録して」です。音声フィルターやドックのように、カテゴリも伝えられます。',
+        ],
+      },
+      {
+        heading: '登録した後の流れ',
+        paragraphs: [
+          'このプラットフォームはプラグインを検査待ちで登録し、15 分ごとに配布物を VirusTotal と MalwareBazaar で照会します。検査はふつう数時間以内に終わるので、しばらくしてからプラグインのページを確認してください。',
+          'すべての配布物が検査を通ると、このプラットフォームはプラグインを自動で掲載します。GitHub で新しいリリースを公開すると、このプラットフォームはそれを見つけて検査し、検査が終わるまで前のリリースを掲載し続けます。',
+        ],
+      },
+      {
+        heading: '登録が拒否されたとき',
+        paragraphs: [
+          'AI エージェントが理由のコードと直し方を表示するので、原因を直してから登録し直してください。',
+          'not_admin: リポジトリの管理権限がありません。リポジトリの管理者に登録を頼んでください。',
+          'private_repository、archived_repository: リポジトリを公開するか、アーカイブを解除してください。',
+          'no_license: GitHub が検出できる LICENSE ファイルを追加してください。',
+          'not_obs_plugin: 直下の CMakeLists.txt で libobs を参照してください。',
+          'no_release、no_verifiable_asset: 配布物を添付したリリースを公開してください。',
+          'duplicate: リポジトリは登録済みです。検索からプラグインのページを開いてください。',
+          'rate_limited: 登録は 24 時間に 10 回までです。時間をおいてから登録してください。',
+        ],
+      },
+      {
+        heading: '更新と掲載の取り下げ',
+        paragraphs: [
+          '掲載を更新するときは、GitHub で新しいリリースを公開してください。このプラットフォームは、リポジトリの説明から概要も更新します。',
+          '掲載を取り下げるときは、リポジトリを非公開にするか削除してください。通報ページの方法で取り下げを依頼することもできます。',
         ],
       },
     ],
@@ -207,6 +311,8 @@ const zhHans: Translation = {
         paragraphs: [
           '配信プラグイン倉庫くん（Plugin Soko-kun）是一个独立、开放的 OBS Studio 第三方插件收录服务。本服务为非官方服务，与 OBS Project 及 OBS Forums 无关，也未获得其认可或推荐。',
           '本服务不保存文件。它记录公开 GitHub 仓库的信息，并引导用户前往作者在 GitHub Releases 发布的文件。',
+
+          '本平台不保存文件，请直接从 GitHub 下载文件。',
         ],
       },
       {
@@ -220,9 +326,59 @@ const zhHans: Translation = {
       {
         heading: '通过 AI 代理使用（MCP）',
         paragraphs: [
-          '将 MCP 客户端连接到本站的 /mcp。在 Claude Code 中运行：claude mcp add --transport http plugin-soko-kun <本站>/mcp',
+          '将 MCP 客户端连接到本站的 /mcp。在 Claude Code 中运行：claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
           '搜索和查看详情无需登录。提交仓库时，请在 MCP 客户端中使用 GitHub 登录（在 Claude Code 中运行 /mcp）。本服务不请求任何 GitHub 权限范围，也不会获得仓库的写入权限。',
           '示例：“帮我找一个能在 Windows 上使用的变调插件”“把这个 GitHub 仓库的 OBS 插件登记上去”',
+        ],
+      },
+    ],
+  },
+  submit: {
+    title: '提交插件',
+    sections: [
+      {
+        heading: '可以提交的插件',
+        paragraphs: [
+          '本平台收录由 GitHub 仓库管理员本人提交的 OBS Studio 插件。提交前，请确认仓库满足以下全部条件。',
+          '仓库在 GitHub 上公开，且未归档。',
+          'GitHub 能检测到仓库的许可证。如果 GitHub 未显示许可证，请添加 LICENSE 文件。',
+          '仓库根目录的 CMakeLists.txt 通过 find_package(libobs) 等方式引用 libobs，且仓库包含 C 或 C++ 源代码。',
+          'GitHub 上的最新发布附有插件文件。GitHub 会为上传到发布中的文件记录 SHA-256，本平台使用该值进行检查。',
+        ],
+      },
+      {
+        heading: '提交步骤',
+        paragraphs: [
+          '请将 MCP 客户端连接到 {{ORIGIN}}/mcp。在 Claude Code 中请运行：claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
+          '请在 MCP 客户端中使用 GitHub 账号登录。在 Claude Code 中请运行 /mcp 并选择 plugin-soko-kun。本平台不请求任何 GitHub 权限范围，也不会获得仓库的写入权限。',
+          '请让 AI 代理帮您提交，例如：“把 https://github.com/<owner>/<repository> 的 OBS 插件登记上去”。您也可以告诉代理分类，例如音频滤镜或停靠窗口。',
+        ],
+      },
+      {
+        heading: '提交之后',
+        paragraphs: [
+          '本平台将插件登记为等待检查，并每 15 分钟在 VirusTotal 和 MalwareBazaar 中查询文件。检查通常在几小时内完成，请稍后查看插件页面。',
+          '所有文件通过检查后，本平台会自动收录插件。您在 GitHub 上发布新版本后，本平台会发现并检查它，检查完成前继续收录之前的版本。',
+        ],
+      },
+      {
+        heading: '提交被拒绝时',
+        paragraphs: [
+          'AI 代理会显示原因代码和修改方法，请修正原因后重新提交。',
+          'not_admin：您没有该仓库的管理权限。请让仓库管理员提交。',
+          'private_repository、archived_repository：请公开仓库或取消归档。',
+          'no_license：请添加 GitHub 能检测到的 LICENSE 文件。',
+          'not_obs_plugin：请在根目录的 CMakeLists.txt 中引用 libobs。',
+          'no_release、no_verifiable_asset：请发布附有插件文件的版本。',
+          'duplicate：该仓库已登记。请通过搜索打开插件页面。',
+          'rate_limited：24 小时内最多提交 10 次。请稍后再试。',
+        ],
+      },
+      {
+        heading: '更新与撤下',
+        paragraphs: [
+          '更新收录内容时，请在 GitHub 上发布新版本。本平台也会根据仓库说明更新简介。',
+          '撤下收录时，请将仓库设为私有或删除仓库。您也可以按举报页面的方法申请撤下。',
         ],
       },
     ],
@@ -296,6 +452,8 @@ const zhHant: Translation = {
         paragraphs: [
           '配信プラグイン倉庫くん（Plugin Soko-kun）是一個獨立、開放的 OBS Studio 第三方外掛收錄服務。本服務為非官方服務，與 OBS Project 及 OBS Forums 無關，也未獲得其認可或推薦。',
           '本服務不保存檔案。它記錄公開 GitHub 儲存庫的資訊，並引導使用者前往作者在 GitHub Releases 發布的檔案。',
+
+          '本平台不保存檔案，請直接從 GitHub 下載檔案。',
         ],
       },
       {
@@ -309,9 +467,59 @@ const zhHant: Translation = {
       {
         heading: '透過 AI 代理使用（MCP）',
         paragraphs: [
-          '將 MCP 用戶端連接到本站的 /mcp。在 Claude Code 中執行：claude mcp add --transport http plugin-soko-kun <本站>/mcp',
+          '將 MCP 用戶端連接到本站的 /mcp。在 Claude Code 中執行：claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
           '搜尋與查看詳情無需登入。提交儲存庫時，請在 MCP 用戶端中以 GitHub 登入（在 Claude Code 中執行 /mcp）。本服務不要求任何 GitHub 權限範圍，也不會取得儲存庫的寫入權限。',
           '範例：「幫我找一個能在 Windows 上使用的變調外掛」「把這個 GitHub 儲存庫的 OBS 外掛登記上去」',
+        ],
+      },
+    ],
+  },
+  submit: {
+    title: '提交外掛',
+    sections: [
+      {
+        heading: '可以提交的外掛',
+        paragraphs: [
+          '本平台收錄由 GitHub 儲存庫管理員本人提交的 OBS Studio 外掛。提交前，請確認儲存庫滿足以下全部條件。',
+          '儲存庫在 GitHub 上公開，且未封存。',
+          'GitHub 能偵測到儲存庫的授權。如果 GitHub 未顯示授權，請新增 LICENSE 檔案。',
+          '儲存庫根目錄的 CMakeLists.txt 透過 find_package(libobs) 等方式參照 libobs，且儲存庫包含 C 或 C++ 原始碼。',
+          'GitHub 上的最新發行附有外掛檔案。GitHub 會為上傳到發行中的檔案記錄 SHA-256，本平台使用該值進行檢查。',
+        ],
+      },
+      {
+        heading: '提交步驟',
+        paragraphs: [
+          '請將 MCP 用戶端連接到 {{ORIGIN}}/mcp。在 Claude Code 中請執行：claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
+          '請在 MCP 用戶端中以 GitHub 帳號登入。在 Claude Code 中請執行 /mcp 並選擇 plugin-soko-kun。本平台不要求任何 GitHub 權限範圍，也不會取得儲存庫的寫入權限。',
+          '請讓 AI 代理幫您提交，例如：「把 https://github.com/<owner>/<repository> 的 OBS 外掛登記上去」。您也可以告訴代理分類，例如音訊濾鏡或停駐視窗。',
+        ],
+      },
+      {
+        heading: '提交之後',
+        paragraphs: [
+          '本平台將外掛登記為等待檢查，並每 15 分鐘在 VirusTotal 與 MalwareBazaar 中查詢檔案。檢查通常在幾小時內完成，請稍後查看外掛頁面。',
+          '所有檔案通過檢查後，本平台會自動收錄外掛。您在 GitHub 上發布新版本後，本平台會發現並檢查它，檢查完成前繼續收錄先前的版本。',
+        ],
+      },
+      {
+        heading: '提交被拒絕時',
+        paragraphs: [
+          'AI 代理會顯示原因代碼與修改方法，請修正原因後重新提交。',
+          'not_admin：您沒有該儲存庫的管理權限。請讓儲存庫管理員提交。',
+          'private_repository、archived_repository：請公開儲存庫或解除封存。',
+          'no_license：請新增 GitHub 能偵測到的 LICENSE 檔案。',
+          'not_obs_plugin：請在根目錄的 CMakeLists.txt 中參照 libobs。',
+          'no_release、no_verifiable_asset：請發布附有外掛檔案的版本。',
+          'duplicate：該儲存庫已登記。請透過搜尋開啟外掛頁面。',
+          'rate_limited：24 小時內最多提交 10 次。請稍後再試。',
+        ],
+      },
+      {
+        heading: '更新與撤下',
+        paragraphs: [
+          '更新收錄內容時，請在 GitHub 上發布新版本。本平台也會根據儲存庫說明更新簡介。',
+          '撤下收錄時，請將儲存庫設為私人或刪除儲存庫。您也可以依檢舉頁面的方法申請撤下。',
         ],
       },
     ],
@@ -385,6 +593,8 @@ const ko: Translation = {
         paragraphs: [
           '配信プラグイン倉庫くん(Plugin Soko-kun)은 OBS Studio용 서드파티 플러그인을 위한 독립적이고 개방된 레지스트리입니다. 비공식 서비스이며 OBS Project 및 OBS Forums와 관계가 없고, 승인이나 추천을 받지 않았습니다.',
           '이 서비스는 배포 파일을 보관하지 않습니다. 공개된 GitHub 저장소의 정보를 기록하고, 작성자가 GitHub Releases에 공개한 파일로 안내합니다.',
+
+          '이 플랫폼은 배포 파일을 보관하지 않으므로, 배포 파일은 GitHub에서 직접 다운로드해 주세요.',
         ],
       },
       {
@@ -398,9 +608,59 @@ const ko: Translation = {
       {
         heading: 'AI 에이전트에서 사용하기 (MCP)',
         paragraphs: [
-          'MCP 클라이언트를 이 사이트의 /mcp에 연결합니다. Claude Code에서는 다음을 실행합니다: claude mcp add --transport http plugin-soko-kun <이 사이트>/mcp',
+          'MCP 클라이언트를 이 사이트의 /mcp에 연결합니다. Claude Code에서는 다음을 실행합니다: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
           '검색과 상세 조회는 로그인 없이 사용할 수 있습니다. 저장소를 등록할 때는 MCP 클라이언트에서 GitHub로 로그인합니다(Claude Code에서는 /mcp 실행). 이 서비스는 GitHub 스코프를 요청하지 않으며 저장소에 대한 쓰기 권한을 얻지 않습니다.',
           '예: "Windows에서 동작하는 피치 시프트 플러그인을 찾아 줘", "이 GitHub 저장소의 OBS 플러그인을 등록해 줘"',
+        ],
+      },
+    ],
+  },
+  submit: {
+    title: '플러그인 등록하기',
+    sections: [
+      {
+        heading: '등록할 수 있는 플러그인',
+        paragraphs: [
+          '이 플랫폼은 GitHub 저장소의 관리자인 작성자가 등록한 OBS Studio 플러그인을 게재합니다. 등록하기 전에 저장소가 다음 조건을 모두 충족하는지 확인해 주세요.',
+          '저장소가 GitHub에 공개되어 있고, 보관(archive)되어 있지 않을 것.',
+          'GitHub가 저장소의 라이선스를 감지할 수 있을 것. GitHub에 라이선스가 표시되지 않으면 LICENSE 파일을 추가해 주세요.',
+          '저장소 최상위의 CMakeLists.txt가 find_package(libobs) 등으로 libobs를 참조하고, C 또는 C++ 소스가 있을 것.',
+          'GitHub의 최신 릴리스에 플러그인 배포 파일이 첨부되어 있을 것. GitHub는 릴리스에 올린 파일에 SHA-256을 기록하며, 이 플랫폼은 그 값으로 검사합니다.',
+        ],
+      },
+      {
+        heading: '등록 절차',
+        paragraphs: [
+          'MCP 클라이언트를 {{ORIGIN}}/mcp에 연결해 주세요. Claude Code에서는 다음을 실행해 주세요: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
+          'MCP 클라이언트에서 GitHub 계정으로 로그인해 주세요. Claude Code에서는 /mcp를 실행하고 plugin-soko-kun을 선택해 주세요. 이 플랫폼은 GitHub 스코프를 요청하지 않으며 저장소에 대한 쓰기 권한을 얻지 않습니다.',
+          'AI 에이전트에게 등록을 부탁해 주세요. 예: "https://github.com/<owner>/<repository>의 OBS 플러그인을 등록해 줘". 오디오 필터나 도크처럼 카테고리도 전할 수 있습니다.',
+        ],
+      },
+      {
+        heading: '등록한 뒤의 흐름',
+        paragraphs: [
+          '이 플랫폼은 플러그인을 검사 대기로 등록하고, 15분마다 배포 파일을 VirusTotal과 MalwareBazaar에서 조회합니다. 검사는 보통 몇 시간 안에 끝나므로, 잠시 후 플러그인 페이지를 확인해 주세요.',
+          '모든 배포 파일이 검사를 통과하면 이 플랫폼은 플러그인을 자동으로 게재합니다. GitHub에서 새 릴리스를 공개하면 이 플랫폼이 이를 찾아 검사하며, 검사가 끝날 때까지 이전 릴리스를 계속 게재합니다.',
+        ],
+      },
+      {
+        heading: '등록이 거부되었을 때',
+        paragraphs: [
+          'AI 에이전트가 이유 코드와 고치는 방법을 표시하므로, 원인을 고친 뒤 다시 등록해 주세요.',
+          'not_admin: 저장소의 관리 권한이 없습니다. 저장소 관리자에게 등록을 부탁해 주세요.',
+          'private_repository, archived_repository: 저장소를 공개하거나 보관을 해제해 주세요.',
+          'no_license: GitHub가 감지할 수 있는 LICENSE 파일을 추가해 주세요.',
+          'not_obs_plugin: 최상위 CMakeLists.txt에서 libobs를 참조해 주세요.',
+          'no_release, no_verifiable_asset: 배포 파일을 첨부한 릴리스를 공개해 주세요.',
+          'duplicate: 저장소가 이미 등록되어 있습니다. 검색에서 플러그인 페이지를 열어 주세요.',
+          'rate_limited: 등록은 24시간에 10번까지입니다. 시간을 두고 다시 등록해 주세요.',
+        ],
+      },
+      {
+        heading: '업데이트와 게재 철회',
+        paragraphs: [
+          '게재 내용을 업데이트하려면 GitHub에서 새 릴리스를 공개해 주세요. 이 플랫폼은 저장소 설명에서 개요도 업데이트합니다.',
+          '게재를 철회하려면 저장소를 비공개로 하거나 삭제해 주세요. 신고 페이지의 방법으로 철회를 요청할 수도 있습니다.',
         ],
       },
     ],
@@ -476,6 +736,8 @@ const ptBR: Translation = {
         paragraphs: [
           'Plugin Soko-kun é um registro independente e aberto de plugins de terceiros para o OBS Studio. É um serviço não oficial, sem vínculo, aprovação ou recomendação do OBS Project ou do OBS Forums.',
           'O registro não hospeda arquivos. Ele registra informações de repositórios públicos do GitHub e aponta para os arquivos que os autores publicam no GitHub Releases.',
+
+          'Esta plataforma não hospeda arquivos; por isso, baixe os arquivos diretamente do GitHub.',
         ],
       },
       {
@@ -489,9 +751,59 @@ const ptBR: Translation = {
       {
         heading: 'Uso com agentes de IA (MCP)',
         paragraphs: [
-          'Conecte um cliente MCP ao endereço /mcp deste site. No Claude Code, execute: claude mcp add --transport http plugin-soko-kun <este site>/mcp',
+          'Conecte um cliente MCP ao endereço /mcp deste site. No Claude Code, execute: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
           'Buscar e ver detalhes funciona sem login. Para enviar um repositório, entre com o GitHub pelo cliente MCP (no Claude Code, execute /mcp). O serviço não pede escopos do GitHub e não recebe acesso de escrita aos seus repositórios.',
           'Exemplos: "Encontre um plugin de pitch shift que funcione no Windows", "Registre o plugin do OBS deste repositório do GitHub".',
+        ],
+      },
+    ],
+  },
+  submit: {
+    title: 'Enviar um plugin',
+    sections: [
+      {
+        heading: 'Plugins que você pode enviar',
+        paragraphs: [
+          'Esta plataforma lista plugins do OBS Studio enviados pelo autor que administra o repositório no GitHub. Antes de enviar, confira se o repositório cumpre todas as condições abaixo.',
+          'O repositório é público no GitHub e não está arquivado.',
+          'O GitHub detecta uma licença no repositório. Se o GitHub não mostrar licença, adicione um arquivo LICENSE.',
+          'O CMakeLists.txt da raiz referencia a libobs, por exemplo com find_package(libobs), e o repositório tem código-fonte em C ou C++.',
+          'A versão mais recente no GitHub tem os arquivos do plugin anexados. O GitHub registra o SHA-256 dos arquivos enviados a uma versão, e esta plataforma usa esse valor nas verificações.',
+        ],
+      },
+      {
+        heading: 'Como enviar',
+        paragraphs: [
+          'Conecte seu cliente MCP a {{ORIGIN}}/mcp. No Claude Code, execute: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
+          'Entre com sua conta do GitHub pelo cliente MCP. No Claude Code, execute /mcp e escolha plugin-soko-kun. Esta plataforma não pede escopos do GitHub e não recebe acesso de escrita aos seus repositórios.',
+          'Peça ao agente de IA para enviar o repositório, por exemplo: "Registre o plugin do OBS em https://github.com/<owner>/<repository>". Você também pode informar a categoria, como filtro de áudio ou dock.',
+        ],
+      },
+      {
+        heading: 'Depois do envio',
+        paragraphs: [
+          'Esta plataforma registra o plugin como aguardando verificação e consulta os arquivos no VirusTotal e no MalwareBazaar a cada 15 minutos. As verificações costumam terminar em algumas horas; por isso, confira a página do plugin mais tarde.',
+          'Quando todos os arquivos passam nas verificações, esta plataforma lista o plugin automaticamente. Quando você publica uma nova versão no GitHub, esta plataforma a encontra e a verifica, e mantém a versão anterior listada até a verificação terminar.',
+        ],
+      },
+      {
+        heading: 'Quando o envio é recusado',
+        paragraphs: [
+          'O agente de IA mostra o código do motivo e como corrigir; por isso, corrija a causa e envie de novo.',
+          'not_admin: Você não tem permissão de administrador no repositório. Peça a um administrador para enviar.',
+          'private_repository, archived_repository: Torne o repositório público ou desarquive-o.',
+          'no_license: Adicione um arquivo LICENSE que o GitHub consiga detectar.',
+          'not_obs_plugin: Faça o CMakeLists.txt da raiz referenciar a libobs.',
+          'no_release, no_verifiable_asset: Publique uma versão com os arquivos do plugin anexados.',
+          'duplicate: O repositório já está registrado. Abra a página dele pela busca.',
+          'rate_limited: Você pode enviar até 10 vezes em 24 horas. Tente de novo mais tarde.',
+        ],
+      },
+      {
+        heading: 'Atualizar e retirar',
+        paragraphs: [
+          'Para atualizar a listagem, publique uma nova versão no GitHub. Esta plataforma também atualiza o resumo a partir da descrição do repositório.',
+          'Para retirar a listagem, torne o repositório privado ou exclua-o. Você também pode pedir a retirada como descrito na página Denunciar.',
         ],
       },
     ],
@@ -569,6 +881,8 @@ const es419: Translation = {
         paragraphs: [
           'Plugin Soko-kun es un registro independiente y abierto de plugins de terceros para OBS Studio. Es un servicio no oficial y no tiene relación, aprobación ni recomendación de OBS Project ni de OBS Forums.',
           'El registro no aloja archivos. Registra información de repositorios públicos de GitHub y enlaza a los archivos que los autores publican en GitHub Releases.',
+
+          'Esta plataforma no aloja archivos; por eso, descarga los archivos directamente de GitHub.',
         ],
       },
       {
@@ -582,9 +896,59 @@ const es419: Translation = {
       {
         heading: 'Uso con agentes de IA (MCP)',
         paragraphs: [
-          'Conecta un cliente MCP a la dirección /mcp de este sitio. En Claude Code, ejecuta: claude mcp add --transport http plugin-soko-kun <este sitio>/mcp',
+          'Conecta un cliente MCP a la dirección /mcp de este sitio. En Claude Code, ejecuta: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
           'Buscar y ver detalles funciona sin iniciar sesión. Para enviar un repositorio, inicia sesión con GitHub desde el cliente MCP (en Claude Code, ejecuta /mcp). El servicio no pide alcances de GitHub ni obtiene acceso de escritura a tus repositorios.',
           'Ejemplos: "Busca un plugin de pitch shift que funcione en Windows", "Registra el plugin de OBS de este repositorio de GitHub".',
+        ],
+      },
+    ],
+  },
+  submit: {
+    title: 'Enviar un plugin',
+    sections: [
+      {
+        heading: 'Plugins que puedes enviar',
+        paragraphs: [
+          'Esta plataforma incluye plugins de OBS Studio enviados por el autor que administra el repositorio de GitHub. Antes de enviar, revisa que el repositorio cumpla todas estas condiciones.',
+          'El repositorio es público en GitHub y no está archivado.',
+          'GitHub detecta una licencia en el repositorio. Si GitHub no muestra una licencia, agrega un archivo LICENSE.',
+          'El CMakeLists.txt de la raíz hace referencia a libobs, por ejemplo con find_package(libobs), y el repositorio tiene código fuente en C o C++.',
+          'La versión más reciente en GitHub tiene los archivos del plugin adjuntos. GitHub registra el SHA-256 de los archivos que subes a una versión, y esta plataforma usa ese valor en las revisiones.',
+        ],
+      },
+      {
+        heading: 'Cómo enviar',
+        paragraphs: [
+          'Conecta tu cliente MCP a {{ORIGIN}}/mcp. En Claude Code, ejecuta: claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp',
+          'Inicia sesión con tu cuenta de GitHub desde el cliente MCP. En Claude Code, ejecuta /mcp y elige plugin-soko-kun. Esta plataforma no pide alcances de GitHub ni obtiene acceso de escritura a tus repositorios.',
+          'Pide al agente de IA que envíe el repositorio, por ejemplo: "Registra el plugin de OBS de https://github.com/<owner>/<repository>". También puedes indicar la categoría, como filtro de audio o panel.',
+        ],
+      },
+      {
+        heading: 'Después de enviar',
+        paragraphs: [
+          'Esta plataforma registra el plugin en espera de revisión y consulta los archivos en VirusTotal y MalwareBazaar cada 15 minutos. Las revisiones suelen terminar en unas horas; por eso, revisa la página del plugin más tarde.',
+          'Cuando todos los archivos pasan las revisiones, esta plataforma incluye el plugin automáticamente. Cuando publicas una nueva versión en GitHub, esta plataforma la encuentra y la revisa, y mantiene la versión anterior en la lista hasta que termina la revisión.',
+        ],
+      },
+      {
+        heading: 'Cuando se rechaza un envío',
+        paragraphs: [
+          'El agente de IA muestra el código del motivo y cómo corregirlo; por eso, corrige la causa y vuelve a enviar.',
+          'not_admin: No tienes permiso de administrador en el repositorio. Pide a un administrador que lo envíe.',
+          'private_repository, archived_repository: Haz público el repositorio o desarchívalo.',
+          'no_license: Agrega un archivo LICENSE que GitHub pueda detectar.',
+          'not_obs_plugin: Haz que el CMakeLists.txt de la raíz haga referencia a libobs.',
+          'no_release, no_verifiable_asset: Publica una versión con los archivos del plugin adjuntos.',
+          'duplicate: El repositorio ya está registrado. Abre su página desde la búsqueda.',
+          'rate_limited: Puedes enviar hasta 10 veces en 24 horas. Vuelve a intentarlo más tarde.',
+        ],
+      },
+      {
+        heading: 'Actualizar y retirar',
+        paragraphs: [
+          'Para actualizar la publicación, publica una nueva versión en GitHub. Esta plataforma también actualiza el resumen a partir de la descripción del repositorio.',
+          'Para retirar la publicación, haz privado el repositorio o elimínalo. También puedes pedir el retiro como se describe en la página Reportar.',
         ],
       },
     ],

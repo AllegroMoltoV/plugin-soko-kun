@@ -113,17 +113,28 @@ export interface Dict {
   sideStatsSynced: string;
   sameAuthor: string;
   sameCategory: string;
-  nav: { about: string; security: string; report: string; privacy: string; source: string };
+  nav: { about: string; submit: string; security: string; report: string; privacy: string; source: string };
   translationNote: string;
   englishVersion: string;
   languageLabel: string;
   notFound: string;
+  machineTranslated: string;
+  machineTranslatedHans: string;
+  showOriginal: string;
+  showTranslation: string;
+  machineTranslatedShort: string;
+  downloadNote: string;
+  sideLatestTitle: string;
+  sideSubmitTitle: string;
+  sideSubmitBody: string;
+  sideSubmitLink: string;
+  submitNav: string;
 }
 
 const en: Dict = {
   tagline: 'A warehouse of plugins for OBS Studio',
   notice:
-    'This platform is an unofficial, free service not affiliated with the OBS Project, and it does not guarantee the safety of any plugin, so use plugins carefully and at your own risk. Files are downloaded directly from GitHub.',
+    'This platform is an unofficial, free service not affiliated with the OBS Project. It does not guarantee the safety of any plugin, so use plugins carefully and at your own risk.',
   noticeShort: 'This platform is unofficial and does not guarantee the safety of any plugin, so use plugins carefully.',
   searchHeading: 'Find plugins for OBS Studio',
   searchPlaceholder: 'Keyword (e.g. pitch shift)',
@@ -144,11 +155,10 @@ const en: Dict = {
   categories: {
     'audio-filter': 'Audio filters',
     'video-filter': 'Video filters',
-    source: 'Sources',
+    source: 'Input sources',
     transition: 'Transitions',
-    'dock-ui': 'Docks and UI',
-    output: 'Streaming and output',
-    utility: 'Utilities',
+    'dock-ui': 'Docks and panels',
+    output: 'Streaming and recording',
     other: 'Other',
   },
   os: { windows: 'Windows', macos: 'macOS', linux: 'Linux' },
@@ -211,6 +221,7 @@ const en: Dict = {
   sameCategory: 'New in this category',
   nav: {
     about: 'About and listing policy',
+    submit: 'Submit a plugin',
     security: 'Security and disclaimer',
     report: 'Report',
     privacy: 'Privacy',
@@ -220,12 +231,23 @@ const en: Dict = {
   englishVersion: 'English version',
   languageLabel: 'Language',
   notFound: 'The page you are looking for was not found.',
+  machineTranslated: 'This summary was machine-translated from the original.',
+  machineTranslatedHans: 'This summary was machine-translated into Simplified Chinese from the original.',
+  showOriginal: 'Show the original',
+  showTranslation: 'Show the machine translation',
+  machineTranslatedShort: 'Machine translation',
+  downloadNote: 'The file is downloaded directly from GitHub. This platform does not host files.',
+  sideLatestTitle: 'Latest 5 plugins',
+  sideSubmitTitle: 'Submit your plugin',
+  sideSubmitBody: 'Authors of OBS Studio plugins can submit their GitHub repositories from an AI agent.',
+  sideSubmitLink: 'How to submit',
+  submitNav: 'Submit a plugin',
 };
 
 const ja: Dict = {
   tagline: 'OBS Studio 向けプラグインの倉庫',
   notice:
-    'このプラットフォームは OBS Project と無関係の非公式で無料のサービスで、各プラグインの安全性を保証しないので、個人の責任にもとづき注意して利用してください。配布物は GitHub から直接ダウンロードします。',
+    'このプラットフォームは OBS Project と無関係の非公式で無料のサービスです。各プラグインの安全性を保証しないので、個人の責任にもとづき注意して利用してください。',
   noticeShort: 'このプラットフォームは非公式で、各プラグインの安全性を保証しないので、注意して利用してください。',
   searchHeading: 'OBS Studio 向けのプラグインを探す',
   searchPlaceholder: 'キーワード (例: pitch shift)',
@@ -246,11 +268,10 @@ const ja: Dict = {
   categories: {
     'audio-filter': '音声フィルター',
     'video-filter': '映像フィルター',
-    source: 'ソース',
+    source: '入力ソース',
     transition: 'トランジション',
-    'dock-ui': 'ドック・UI',
-    output: '配信・出力',
-    utility: 'ユーティリティ',
+    'dock-ui': 'ドック・パネル',
+    output: '配信・録画',
     other: 'その他',
   },
   os: { windows: 'Windows', macos: 'macOS', linux: 'Linux' },
@@ -313,6 +334,7 @@ const ja: Dict = {
   sameCategory: '同じカテゴリの新着',
   nav: {
     about: '概要と掲載ポリシー',
+    submit: 'プラグインを登録する',
     security: 'セキュリティと免責',
     report: '通報',
     privacy: 'プライバシー',
@@ -322,13 +344,23 @@ const ja: Dict = {
   englishVersion: '英語版',
   languageLabel: '言語',
   notFound: 'お探しのページは見つかりません。',
+  machineTranslated: 'この概要は原文を自動翻訳したものです。',
+  machineTranslatedHans: 'この概要は原文を簡体字の中国語へ自動翻訳したものです。',
+  showOriginal: '原文を表示する',
+  showTranslation: '自動翻訳を表示する',
+  machineTranslatedShort: '自動翻訳',
+  downloadNote: '配布物は GitHub から直接ダウンロードします。このプラットフォームは配布物を保管しません。',
+  sideLatestTitle: '新着 5 件',
+  sideSubmitTitle: 'プラグインを登録する',
+  sideSubmitBody: 'OBS Studio のプラグインの作者は、AI エージェントから GitHub リポジトリを登録できます。',
+  sideSubmitLink: '登録の方法を見る',
+  submitNav: 'プラグインを登録する',
 };
 
 const zhHans: Dict = {
   ...en,
   tagline: 'OBS Studio 插件仓库',
-  notice:
-    '本平台是与 OBS Project 无关的非官方免费服务，不保证各插件的安全性，请自行承担责任并谨慎使用。文件直接从 GitHub 下载。',
+  notice: '本平台是与 OBS Project 无关的非官方免费服务。本平台不保证各插件的安全性，请自行承担责任并谨慎使用。',
   noticeShort: '本平台为非官方服务，不保证各插件的安全性，请谨慎使用。',
   searchHeading: '查找 OBS Studio 插件',
   searchPlaceholder: '关键词（例：pitch shift）',
@@ -348,11 +380,10 @@ const zhHans: Dict = {
   categories: {
     'audio-filter': '音频滤镜',
     'video-filter': '视频滤镜',
-    source: '来源',
+    source: '输入源',
     transition: '转场',
-    'dock-ui': '停靠窗口与界面',
-    output: '直播与输出',
-    utility: '实用工具',
+    'dock-ui': '停靠窗口与面板',
+    output: '直播与录制',
     other: '其他',
   },
   library: '插件库',
@@ -412,6 +443,7 @@ const zhHans: Dict = {
   sameCategory: '同分类的新插件',
   nav: {
     about: '简介与收录政策',
+    submit: '提交插件',
     security: '安全与免责声明',
     report: '举报',
     privacy: '隐私',
@@ -421,13 +453,23 @@ const zhHans: Dict = {
   englishVersion: '英文版',
   languageLabel: '语言',
   notFound: '找不到您要查找的页面。',
+  machineTranslated: '此简介由原文自动翻译而成。',
+  machineTranslatedHans: '此简介由原文自动翻译为简体中文。',
+  showOriginal: '显示原文',
+  showTranslation: '显示自动翻译',
+  machineTranslatedShort: '自动翻译',
+  downloadNote: '文件直接从 GitHub 下载。本平台不保存文件。',
+  sideLatestTitle: '最新 5 个插件',
+  sideSubmitTitle: '提交插件',
+  sideSubmitBody: 'OBS Studio 插件的作者可以通过 AI 代理提交 GitHub 仓库。',
+  sideSubmitLink: '查看提交方法',
+  submitNav: '提交插件',
 };
 
 const zhHant: Dict = {
   ...zhHans,
   tagline: 'OBS Studio 外掛倉庫',
-  notice:
-    '本平台是與 OBS Project 無關的非官方免費服務，不保證各外掛的安全性，請自行承擔責任並謹慎使用。檔案直接從 GitHub 下載。',
+  notice: '本平台是與 OBS Project 無關的非官方免費服務。本平台不保證各外掛的安全性，請自行承擔責任並謹慎使用。',
   noticeShort: '本平台為非官方服務，不保證各外掛的安全性，請謹慎使用。',
   searchHeading: '尋找 OBS Studio 外掛',
   searchPlaceholder: '關鍵字（例：pitch shift）',
@@ -444,11 +486,10 @@ const zhHant: Dict = {
   categories: {
     'audio-filter': '音訊濾鏡',
     'video-filter': '視訊濾鏡',
-    source: '來源',
+    source: '輸入來源',
     transition: '轉場',
-    'dock-ui': '停駐視窗與介面',
-    output: '直播與輸出',
-    utility: '實用工具',
+    'dock-ui': '停駐視窗與面板',
+    output: '直播與錄影',
     other: '其他',
   },
   library: '外掛庫',
@@ -506,6 +547,7 @@ const zhHant: Dict = {
   sameCategory: '同分類的新外掛',
   nav: {
     about: '簡介與收錄政策',
+    submit: '提交外掛',
     security: '安全與免責聲明',
     report: '檢舉',
     privacy: '隱私',
@@ -515,13 +557,24 @@ const zhHant: Dict = {
   englishVersion: '英文版',
   languageLabel: '語言',
   notFound: '找不到您要尋找的頁面。',
+  machineTranslated: '此簡介由原文自動翻譯而成。',
+  machineTranslatedHans: '此簡介由原文自動翻譯為簡體中文（尚無繁體中文翻譯）。',
+  showOriginal: '顯示原文',
+  showTranslation: '顯示自動翻譯',
+  machineTranslatedShort: '自動翻譯（簡體）',
+  downloadNote: '檔案直接從 GitHub 下載。本平台不保存檔案。',
+  sideLatestTitle: '最新 5 個外掛',
+  sideSubmitTitle: '提交外掛',
+  sideSubmitBody: 'OBS Studio 外掛的作者可以透過 AI 代理提交 GitHub 儲存庫。',
+  sideSubmitLink: '查看提交方法',
+  submitNav: '提交外掛',
 };
 
 const ko: Dict = {
   ...en,
   tagline: 'OBS Studio 플러그인 창고',
   notice:
-    '이 플랫폼은 OBS Project와 관계없는 비공식 무료 서비스이며 각 플러그인의 안전성을 보장하지 않으므로, 본인의 책임하에 주의해서 이용해 주세요. 배포 파일은 GitHub에서 직접 다운로드합니다.',
+    '이 플랫폼은 OBS Project와 관계없는 비공식 무료 서비스입니다. 각 플러그인의 안전성을 보장하지 않으므로, 본인의 책임하에 주의해서 이용해 주세요.',
   noticeShort: '이 플랫폼은 비공식이며 각 플러그인의 안전성을 보장하지 않으므로 주의해서 이용해 주세요.',
   searchHeading: 'OBS Studio 플러그인 찾기',
   searchPlaceholder: '키워드 (예: pitch shift)',
@@ -541,11 +594,10 @@ const ko: Dict = {
   categories: {
     'audio-filter': '오디오 필터',
     'video-filter': '비디오 필터',
-    source: '소스',
+    source: '입력 소스',
     transition: '전환 효과',
-    'dock-ui': '도크·UI',
-    output: '방송·출력',
-    utility: '유틸리티',
+    'dock-ui': '도크·패널',
+    output: '방송·녹화',
     other: '기타',
   },
   library: '라이브러리',
@@ -607,6 +659,7 @@ const ko: Dict = {
   sameCategory: '같은 카테고리의 신규',
   nav: {
     about: '개요와 게재 정책',
+    submit: '플러그인 등록하기',
     security: '보안과 면책',
     report: '신고',
     privacy: '개인정보',
@@ -616,13 +669,24 @@ const ko: Dict = {
   englishVersion: '영어판',
   languageLabel: '언어',
   notFound: '찾으시는 페이지가 없습니다.',
+  machineTranslated: '이 개요는 원문을 자동 번역한 것입니다.',
+  machineTranslatedHans: '이 개요는 원문을 간체 중국어로 자동 번역한 것입니다.',
+  showOriginal: '원문 보기',
+  showTranslation: '자동 번역 보기',
+  machineTranslatedShort: '자동 번역',
+  downloadNote: '배포 파일은 GitHub에서 직접 다운로드합니다. 이 플랫폼은 배포 파일을 보관하지 않습니다.',
+  sideLatestTitle: '신규 5개',
+  sideSubmitTitle: '플러그인 등록하기',
+  sideSubmitBody: 'OBS Studio 플러그인 작성자는 AI 에이전트에서 GitHub 저장소를 등록할 수 있습니다.',
+  sideSubmitLink: '등록 방법 보기',
+  submitNav: '플러그인 등록하기',
 };
 
 const ptBR: Dict = {
   ...en,
   tagline: 'Um depósito de plugins para o OBS Studio',
   notice:
-    'Esta plataforma é um serviço gratuito e não oficial, sem vínculo com o OBS Project, e não garante a segurança de nenhum plugin; por isso, use os plugins com cuidado e por sua conta e risco. Os arquivos são baixados diretamente do GitHub.',
+    'Esta plataforma é um serviço gratuito e não oficial, sem vínculo com o OBS Project. Ela não garante a segurança de nenhum plugin; por isso, use os plugins com cuidado e por sua conta e risco.',
   noticeShort: 'Esta plataforma não é oficial e não garante a segurança dos plugins; por isso, use-os com cuidado.',
   searchHeading: 'Encontre plugins para o OBS Studio',
   searchPlaceholder: 'Palavra-chave (ex.: pitch shift)',
@@ -642,11 +706,10 @@ const ptBR: Dict = {
   categories: {
     'audio-filter': 'Filtros de áudio',
     'video-filter': 'Filtros de vídeo',
-    source: 'Fontes',
+    source: 'Fontes de entrada',
     transition: 'Transições',
-    'dock-ui': 'Docks e interface',
-    output: 'Transmissão e saída',
-    utility: 'Utilitários',
+    'dock-ui': 'Docks e painéis',
+    output: 'Transmissão e gravação',
     other: 'Outros',
   },
   library: 'Biblioteca',
@@ -707,6 +770,7 @@ const ptBR: Dict = {
   sameCategory: 'Novos nesta categoria',
   nav: {
     about: 'Sobre e política de listagem',
+    submit: 'Enviar um plugin',
     security: 'Segurança e isenção',
     report: 'Denunciar',
     privacy: 'Privacidade',
@@ -716,13 +780,24 @@ const ptBR: Dict = {
   englishVersion: 'Versão em inglês',
   languageLabel: 'Idioma',
   notFound: 'A página que você procura não foi encontrada.',
+  machineTranslated: 'Este resumo foi traduzido automaticamente do original.',
+  machineTranslatedHans: 'Este resumo foi traduzido automaticamente para chinês simplificado.',
+  showOriginal: 'Mostrar o original',
+  showTranslation: 'Mostrar a tradução automática',
+  machineTranslatedShort: 'Tradução automática',
+  downloadNote: 'O arquivo é baixado diretamente do GitHub. Esta plataforma não hospeda arquivos.',
+  sideLatestTitle: '5 plugins mais recentes',
+  sideSubmitTitle: 'Envie seu plugin',
+  sideSubmitBody: 'Autores de plugins do OBS Studio podem enviar seus repositórios do GitHub por um agente de IA.',
+  sideSubmitLink: 'Como enviar',
+  submitNav: 'Enviar um plugin',
 };
 
 const es419: Dict = {
   ...en,
   tagline: 'Un depósito de plugins para OBS Studio',
   notice:
-    'Esta plataforma es un servicio gratuito y no oficial, sin relación con OBS Project, y no garantiza la seguridad de ningún plugin; por eso, usa los plugins con cuidado y bajo tu propia responsabilidad. Los archivos se descargan directamente de GitHub.',
+    'Esta plataforma es un servicio gratuito y no oficial, sin relación con OBS Project. No garantiza la seguridad de ningún plugin; por eso, usa los plugins con cuidado y bajo tu propia responsabilidad.',
   noticeShort: 'Esta plataforma no es oficial y no garantiza la seguridad de los plugins; por eso, úsalos con cuidado.',
   searchHeading: 'Encuentra plugins para OBS Studio',
   searchPlaceholder: 'Palabra clave (p. ej., pitch shift)',
@@ -742,11 +817,10 @@ const es419: Dict = {
   categories: {
     'audio-filter': 'Filtros de audio',
     'video-filter': 'Filtros de video',
-    source: 'Fuentes',
+    source: 'Fuentes de entrada',
     transition: 'Transiciones',
-    'dock-ui': 'Paneles e interfaz',
-    output: 'Transmisión y salida',
-    utility: 'Utilidades',
+    'dock-ui': 'Paneles y docks',
+    output: 'Transmisión y grabación',
     other: 'Otros',
   },
   library: 'Biblioteca',
@@ -807,6 +881,7 @@ const es419: Dict = {
   sameCategory: 'Nuevos en esta categoría',
   nav: {
     about: 'Acerca de y política de la lista',
+    submit: 'Enviar un plugin',
     security: 'Seguridad y descargo',
     report: 'Reportar',
     privacy: 'Privacidad',
@@ -817,6 +892,18 @@ const es419: Dict = {
   englishVersion: 'Versión en inglés',
   languageLabel: 'Idioma',
   notFound: 'No se encontró la página que buscas.',
+  machineTranslated: 'Este resumen se tradujo automáticamente del original.',
+  machineTranslatedHans: 'Este resumen se tradujo automáticamente al chino simplificado.',
+  showOriginal: 'Mostrar el original',
+  showTranslation: 'Mostrar la traducción automática',
+  machineTranslatedShort: 'Traducción automática',
+  downloadNote: 'El archivo se descarga directamente de GitHub. Esta plataforma no aloja archivos.',
+  sideLatestTitle: 'Los 5 plugins más recientes',
+  sideSubmitTitle: 'Envía tu plugin',
+  sideSubmitBody:
+    'Los autores de plugins de OBS Studio pueden enviar sus repositorios de GitHub desde un agente de IA.',
+  sideSubmitLink: 'Cómo enviar',
+  submitNav: 'Enviar un plugin',
 };
 
 export const DICTS: Record<Lang, Dict> = {

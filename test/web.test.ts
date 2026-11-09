@@ -43,4 +43,17 @@ describe('Web', () => {
     expect(html).not.toContain('releases/download');
     expect(detail.headers.get('X-Robots-Tag')).toBe('noindex');
   });
+
+  it('機械翻訳した概要に含まれる script もエスケープする', async () => {
+    await register();
+    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    await env.DB.prepare(
+      "INSERT INTO plugin_translations (plugin_id, lang, source_hash, text, translated_at) VALUES (?, 'ja', 'x', '訳<script>alert(2)</script>', '2026-11-09T00:00:00Z')",
+    )
+      .bind(`${OWNER}/${REPO}`.toLowerCase())
+      .run();
+    const html = await (await SELF.fetch(`${ORIGIN}/plugins/${OWNER}/${REPO}?lang=ja`)).text();
+    expect(html).toContain('訳&lt;script&gt;alert(2)&lt;/script&gt;');
+    expect(html).not.toContain('<script>alert(2)</script>');
+  });
 });
