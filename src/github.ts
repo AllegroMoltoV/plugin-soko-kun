@@ -178,7 +178,7 @@ export class GitHubClient {
     }
   }
 
-  // 上限を超える応答は読み切らずに null を返す。
+  // 上限を超える応答は読み切らずに null を返す。dir が空文字列のときは、リポジトリの直下のファイルを取得する。
   async getFileBytes(
     owner: string,
     repo: string,
@@ -188,7 +188,7 @@ export class GitHubClient {
     maxBytes: number,
   ): Promise<Uint8Array | null> {
     const response = await this.request(
-      `${API}/repos/${path(owner, repo)}/contents/${path(dir, file)}?ref=${encodeURIComponent(path(ref))}`,
+      `${API}/repos/${path(owner, repo)}/contents/${dir ? path(dir, file) : path(file)}?ref=${encodeURIComponent(path(ref))}`,
       'application/vnd.github.raw+json',
     );
     const length = Number(response.headers.get('Content-Length') ?? '0');

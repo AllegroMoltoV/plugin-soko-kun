@@ -77,7 +77,7 @@ export interface Dict {
   author: string;
   license: string;
   supportedOs: string;
-  supportedObs: string;
+  builtWithObs: string;
   unknown: string;
   version: string;
   commit: string;
@@ -191,7 +191,7 @@ const en: Dict = {
   author: 'Author',
   license: 'License',
   supportedOs: 'Supported OS',
-  supportedObs: 'Supported OBS',
+  builtWithObs: 'Built with OBS',
   unknown: 'Not confirmed',
   version: 'Version',
   commit: 'Commit',
@@ -319,7 +319,7 @@ const ja: Dict = {
   author: '作者',
   license: 'ライセンス',
   supportedOs: '対応 OS',
-  supportedObs: '対応 OBS',
+  builtWithObs: 'ビルドに使った OBS',
   unknown: '確認できません',
   version: 'バージョン',
   commit: 'コミット',
@@ -445,7 +445,7 @@ const zhHans: Dict = {
   author: '作者',
   license: '许可证',
   supportedOs: '支持的系统',
-  supportedObs: '支持的 OBS',
+  builtWithObs: '构建所用的 OBS',
   unknown: '未确认',
   version: '版本',
   commit: '提交',
@@ -566,7 +566,7 @@ const zhHant: Dict = {
   library: '外掛庫',
   license: '授權',
   supportedOs: '支援的系統',
-  supportedObs: '支援的 OBS',
+  builtWithObs: '建置所用的 OBS',
   unknown: '未確認',
   version: '版本',
   commit: '提交',
@@ -691,7 +691,7 @@ const ko: Dict = {
   author: '작성자',
   license: '라이선스',
   supportedOs: '지원 OS',
-  supportedObs: '지원 OBS',
+  builtWithObs: '빌드에 사용한 OBS',
   unknown: '확인할 수 없음',
   version: '버전',
   commit: '커밋',
@@ -818,7 +818,7 @@ const ptBR: Dict = {
   author: 'Autor',
   license: 'Licença',
   supportedOs: 'Sistemas suportados',
-  supportedObs: 'OBS suportado',
+  builtWithObs: 'OBS usado na compilação',
   unknown: 'Não confirmado',
   version: 'Versão',
   source: 'Código-fonte',
@@ -944,7 +944,7 @@ const es419: Dict = {
   author: 'Autor',
   license: 'Licencia',
   supportedOs: 'Sistemas compatibles',
-  supportedObs: 'OBS compatible',
+  builtWithObs: 'OBS usado para compilar',
   unknown: 'Sin confirmar',
   version: 'Versión',
   source: 'Código fuente',
