@@ -1,4 +1,4 @@
-import { applyD1Migrations, env } from 'cloudflare:test';
+import { applyD1Migrations, env, reset } from 'cloudflare:test';
 import { setupNetwork } from '@msw/cloudflare';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 
@@ -11,6 +11,8 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
+  // D1 と KV はテスト間で共有されるため、各テストの前に消してからマイグレーションを当て直す。
+  await reset();
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 });
 
