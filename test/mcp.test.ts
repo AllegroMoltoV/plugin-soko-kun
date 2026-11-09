@@ -92,6 +92,16 @@ describe('アクセス権限', () => {
     expect(item?.untrusted.summary).toContain('pitch shift');
   });
 
+  it('概要の機械翻訳の語でも検索できる', async () => {
+    await registerPendingFixture();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
+    await env.DB.prepare(
+      "INSERT INTO plugin_translations (plugin_id, lang, source_hash, text, translated_at) SELECT id, 'ja', 'x', '声の高さを変える音声フィルター', '2026-11-10T00:00:00Z' FROM plugins",
+    ).run();
+    const { payload } = await toolResult(await SELF.fetch(toolCall('search_plugins', { keyword: '声の高さ' })));
+    expect(payload.total).toBe(1);
+  });
+
   it('管理者が停止したプラグインは検索結果から消える', async () => {
     await registerPendingFixture();
     await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();

@@ -113,7 +113,9 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
           .string()
           .max(100)
           .optional()
-          .describe('Words to match against plugin names and summaries, in English.'),
+          .describe(
+            'Words to match against plugin names and summaries. Summaries are also matched in their machine translations into the other supported languages (ja, en, zh-Hans, zh-Hant, ko, pt-BR, es-419). Partial match.',
+          ),
         os: z.enum(OS_VALUES).optional(),
         category: z.enum(CATEGORIES).optional(),
       },
