@@ -3,6 +3,7 @@ import type { Child, FC } from 'hono/jsx';
 import { CATEGORIES, type Category } from '../domain/metadata';
 import { type Dict, LANG_NAMES, LANGS, type Lang } from './i18n';
 import { LOGO_VERSION } from './logo';
+import { OG_VERSION } from './og-image';
 import { STYLE_VERSION } from './style';
 
 export interface PageMeta {
@@ -10,8 +11,16 @@ export interface PageMeta {
   t: Dict;
   title: string;
   description: string;
-  // 言語の切替えと hreflang に使う、lang を除いたパスとクエリ。
+  // 言語の切替えに使う、lang を除いたパスとクエリ。
   path: string;
+  // canonical と hreflang に使う、lang を除き category と page だけを残したパスとクエリ。
+  canonicalPath: string;
+  // 検索語や OS の絞り込みのように、検索エンジンに載せないページ。
+  noindex?: boolean;
+  // og:image。指定が無ければ共通画像を使う。
+  ogImage?: { url: string; card: 'summary' | 'summary_large_image' };
+  // トップにだけ出す WebSite の構造化データ。
+  websiteJsonLd?: boolean;
   origin: string;
   currentCategory?: Category;
   keyword?: string;
@@ -37,6 +46,33 @@ export const SearchButton: FC<{ label: string }> = ({ label }) => (
 const SITE_NAME = '配信プラグイン倉庫くん';
 const SITE_NAME_EN = 'Plugin Soko-kun';
 
+// 英語で検索した利用者に英語のサイト名を見せる。漢字を読める言語では日本語の名前を先に出す。
+const siteNameFor = (lang: Lang) =>
+  lang === 'en' || lang === 'pt-BR' || lang === 'es-419' ? SITE_NAME_EN : `${SITE_NAME} (${SITE_NAME_EN})`;
+
+// Google の hreflang は ISO 639-1 と ISO 3166-1 だけを扱うため、es-419 は es で示す。
+const hreflangOf = (lang: Lang) => (lang === 'es-419' ? 'es' : lang);
+
+const OG_LOCALE: Record<Lang, string> = {
+  ja: 'ja_JP',
+  en: 'en_US',
+  'zh-Hans': 'zh_CN',
+  'zh-Hant': 'zh_TW',
+  ko: 'ko_KR',
+  'pt-BR': 'pt_BR',
+  'es-419': 'es_LA',
+};
+
+// 検索結果のサイト名は 1 サイトに 1 つだけなので、全言語で同じ内容にする。< は script の外へ出ないよう置き換える。
+const websiteJsonLd = (origin: string) =>
+  JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    alternateName: SITE_NAME_EN,
+    url: `${origin}/`,
+  }).replaceAll('<', '\\u003c');
+
 // 収集を防ぐため、アドレスは HTML に書かない。フォームの送信を受けたときだけサーバーが返す。
 export const ContactButton: FC<{ t: Dict; lang: Lang }> = ({ t, lang }) => (
   <form class="contact" method="post" action={withLang('/contact', lang)}>
@@ -59,14 +95,25 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>{`${meta.title} - ${SITE_NAME} (${SITE_NAME_EN})`}</title>
+          <title>{`${meta.title} - ${siteNameFor(lang)}`}</title>
           <meta name="description" content={meta.description} />
+          {meta.noindex ? <meta name="robots" content="noindex" /> : null}
+          <link rel="canonical" href={`${meta.origin}${withLang(meta.canonicalPath, lang)}`} />
+          <meta property="og:title" content={meta.title} />
+          <meta property="og:description" content={meta.description} />
+          <meta property="og:url" content={`${meta.origin}${withLang(meta.canonicalPath, lang)}`} />
+          <meta property="og:type" content="website" />
+          <meta property="og:site_name" content={siteNameFor(lang)} />
+          <meta property="og:locale" content={OG_LOCALE[lang]} />
+          <meta property="og:image" content={meta.ogImage?.url ?? `${meta.origin}/og.png?v=${OG_VERSION}`} />
+          <meta name="twitter:card" content={meta.ogImage?.card ?? 'summary_large_image'} />
+          {meta.websiteJsonLd ? <script type="application/ld+json">{raw(websiteJsonLd(meta.origin))}</script> : null}
           <link rel="stylesheet" href={`/style.css?v=${STYLE_VERSION}`} />
           <link rel="icon" type="image/svg+xml" href={`/logo.svg?v=${LOGO_VERSION}`} />
           {LANGS.map((l) => (
-            <link rel="alternate" hreflang={l} href={`${meta.origin}${withLang(meta.path, l)}`} />
+            <link rel="alternate" hreflang={hreflangOf(l)} href={`${meta.origin}${withLang(meta.canonicalPath, l)}`} />
           ))}
-          <link rel="alternate" hreflang="x-default" href={`${meta.origin}${withLang(meta.path, 'en')}`} />
+          <link rel="alternate" hreflang="x-default" href={`${meta.origin}${withLang(meta.canonicalPath, 'en')}`} />
         </head>
         <body>
           <a class="skip" href="#main">

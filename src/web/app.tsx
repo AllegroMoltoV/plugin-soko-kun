@@ -5,9 +5,10 @@ import { CATEGORIES, type Category, OS_VALUES, type Os } from '../domain/metadat
 import type { Env } from '../env';
 import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
 import { DICTS, LANGS, type Lang, negotiate } from './i18n';
-import { Layout, type PageMeta } from './layout';
+import { Layout, type PageMeta, withLang } from './layout';
 import { LOGO_SVG } from './logo';
-import { PluginCards, PluginDetail, SearchForm, SideCommon, SideRelated, StaticPage } from './pages';
+import { OG_PNG } from './og-image';
+import { PluginCards, PluginDetail, SearchForm, SideCommon, SideRelated, StaticPage, summaryFor } from './pages';
 import { STYLE_CSS } from './style';
 
 type AppEnv = { Bindings: Env; Variables: { lang: Lang } };
@@ -52,6 +53,19 @@ function pathWithoutLang(url: string): string {
   return `${u.pathname}${u.search}`;
 }
 
+// canonical と hreflang には、ページの内容を決めるクエリだけを残す。追跡用などの任意のクエリと ?orig=1 は外す。
+const CANONICAL_QUERY = ['category', 'page'];
+function canonicalPathOf(url: string): string {
+  const u = new URL(url);
+  const kept = new URLSearchParams();
+  for (const key of CANONICAL_QUERY) {
+    const value = u.searchParams.get(key);
+    if (value && !(key === 'page' && value === '1')) kept.set(key, value);
+  }
+  const query = kept.toString();
+  return query ? `${u.pathname}?${query}` : u.pathname;
+}
+
 function meta(
   c: { env: Env; req: { url: string } },
   lang: Lang,
@@ -59,13 +73,28 @@ function meta(
   description: string,
   extra: Partial<PageMeta> = {},
 ): PageMeta {
-  return { lang, t: DICTS[lang], title, description, path: pathWithoutLang(c.req.url), origin: c.env.ORIGIN, ...extra };
+  const u = new URL(c.req.url);
+  return {
+    lang,
+    t: DICTS[lang],
+    title,
+    description,
+    path: pathWithoutLang(c.req.url),
+    canonicalPath: canonicalPathOf(c.req.url),
+    noindex: u.searchParams.has('q') || u.searchParams.has('os'),
+    origin: c.env.ORIGIN,
+    ...extra,
+  };
 }
 
 const PAGE_SIZE = 20;
 
 app.get('/style.css', (c) =>
   c.body(STYLE_CSS, 200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }),
+);
+
+app.get('/og.png', (c) =>
+  c.body(OG_PNG, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }),
 );
 
 app.get('/logo.svg', (c) =>
@@ -78,7 +107,9 @@ app.get('/robots.txt', (c) =>
 
 app.get('/sitemap.xml', async (c) => {
   const { items } = await searchPlugins(c.env, { limit: 5000 });
-  const paths = ['/', ...PAGE_KEYS.map((key) => `/${key}`), ...items.map((view) => `/plugins/${view.id}`)];
+  const paths = ['/', ...PAGE_KEYS.map((key) => `/${key}`), ...items.map((view) => `/plugins/${view.id}`)].flatMap(
+    (path) => LANGS.map((l) => withLang(path, l)),
+  );
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths
     .map((p) => `<url><loc>${esc(c.env.ORIGIN + p)}</loc></url>`)
@@ -112,7 +143,11 @@ app.get('/', async (c) => {
   };
   return c.html(
     <Layout
-      meta={meta(c, lang, filtered ? heading : t.searchHeading, t.notice, { keyword, currentCategory: category })}
+      meta={meta(c, lang, filtered ? heading : t.searchHeading, t.siteDescription, {
+        keyword,
+        currentCategory: category,
+        websiteJsonLd: !filtered && page === 1,
+      })}
       side={
         <SideCommon
           t={t}
@@ -182,9 +217,25 @@ app.get('/plugins/:owner/:repo', async (c) => {
   const response = c.html(
     <Layout
       // 掲載中以外のプラグインでは、外部データの概要を検索エンジン向けの説明にも出さない。
-      meta={meta(c, lang, view.repo, (view.status === 'listed' ? view.summary : null) ?? t.notice, {
-        currentCategory: view.category,
-      })}
+      meta={meta(
+        c,
+        lang,
+        view.repo,
+        (view.status === 'listed' ? summaryFor(view, lang, false)?.text : null) ?? t.notice,
+        {
+          currentCategory: view.category,
+          // URL の大文字と小文字の違いで重複しないよう、サイトマップと同じ小文字の ID にそろえる。
+          canonicalPath: `/plugins/${view.id}`,
+          // ロゴがあるプラグインは、共有のときにプラグインのロゴを出す。
+          ogImage:
+            view.status === 'listed' && view.images.logo
+              ? {
+                  url: `${c.env.ORIGIN}/plugins/${view.id}/logo?v=${view.images.logo.sha}`,
+                  card: 'summary',
+                }
+              : undefined,
+        },
+      )}
       side={
         <>
           <SideRelated t={t} lang={lang} sameAuthor={sameAuthor} sameCategory={sameCategory} collapsible={false} />

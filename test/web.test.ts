@@ -109,4 +109,12 @@ describe('Web', () => {
     expect(html).toContain('週間 DL 数ランキング 5 件');
     expect(html).toMatch(/<ol class="weekly">.*?50<\/span>/s);
   });
+
+  it('canonical は lang と category と page だけを残し、検索語のページは noindex にする', async () => {
+    const top = await (await SELF.fetch(`${ORIGIN}/?lang=en&utm_source=x&category=audio-filter`)).text();
+    expect(top).toContain(`<link rel="canonical" href="${ORIGIN}/?category=audio-filter&amp;lang=en"/>`);
+    expect(top).not.toContain('<meta name="robots" content="noindex"/>');
+    const search = await (await SELF.fetch(`${ORIGIN}/?lang=en&q=pitch`)).text();
+    expect(search).toContain('<meta name="robots" content="noindex"/>');
+  });
 });
