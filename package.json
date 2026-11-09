@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "dev": "wrangler dev",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local"
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "admin": "node scripts/admin.mjs"
   },
   "repository": {
     "type": "git",
