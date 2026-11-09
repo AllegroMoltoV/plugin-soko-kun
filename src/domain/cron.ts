@@ -19,6 +19,7 @@ export interface CronReport {
   synced: number;
   failed: number;
   translated: number;
+  downloadsRecorded: number;
   subrequests: number;
   d1Queries: number;
   stoppedBy?: string;
@@ -293,11 +294,73 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
   }
 }
 
+export const DOWNLOADS_PER_RUN = 10;
+const SNAPSHOT_RETENTION_DAYS = 15;
+
+const dayOf = (date: Date) => date.toISOString().slice(0, 10);
+
+// プラグインごとに 1 日 1 回、すべてのリリースの配布物のダウンロード数の合計を記録する。
+async function runDownloads(env: Env, budget: Budget, report: CronReport, today = new Date()): Promise<void> {
+  const github = new GitHubClient(budget, {
+    kind: 'app',
+    clientId: env.GITHUB_CLIENT_ID,
+    clientSecret: env.GITHUB_CLIENT_SECRET,
+  });
+  const day = dayOf(today);
+  budget.takeD1Query();
+  const { results } = await env.DB.prepare(
+    `SELECT p.id, p.owner, p.repo, (SELECT max(d.day) FROM download_snapshots d WHERE d.plugin_id = p.id) AS last_day
+     FROM plugins p WHERE p.removed = 0 AND (last_day IS NULL OR last_day < ?)
+     ORDER BY last_day IS NOT NULL, last_day LIMIT ?`,
+  )
+    .bind(day, DOWNLOADS_PER_RUN)
+    .all<{ id: string; owner: string; repo: string }>();
+  const statements: D1PreparedStatement[] = [];
+  for (const row of results) {
+    if (!budget.canFetch()) break;
+    try {
+      const releases = await github.listReleases(row.owner, row.repo);
+      const total = releases
+        .filter((release) => !release.draft)
+        .flatMap((release) => release.assets)
+        .reduce((sum, asset) => sum + (asset.download_count ?? 0), 0);
+      statements.push(
+        env.DB.prepare(
+          'INSERT INTO download_snapshots (plugin_id, day, total) VALUES (?, ?, ?) ON CONFLICT (plugin_id, day) DO UPDATE SET total = excluded.total',
+        ).bind(row.id, day, total),
+      );
+    } catch (error) {
+      if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) {
+        report.stoppedBy = `github_${error.kind}`;
+        break;
+      }
+      // そのプラグインに固有の失敗は記録せず、次回の起動で処理する。
+      if (error instanceof GitHubError) continue;
+      throw error;
+    }
+  }
+  if (statements.length === 0) return;
+  const cutoff = dayOf(new Date(today.getTime() - SNAPSHOT_RETENTION_DAYS * 86_400_000));
+  statements.push(env.DB.prepare('DELETE FROM download_snapshots WHERE day < ?').bind(cutoff));
+  budget.takeD1Query();
+  await env.DB.batch(statements);
+  report.downloadsRecorded = statements.length - 1;
+}
+
 export async function runCron(env: Env, budget = new Budget()): Promise<CronReport> {
-  const report: CronReport = { scanned: 0, synced: 0, failed: 0, translated: 0, subrequests: 0, d1Queries: 0 };
+  const report: CronReport = {
+    scanned: 0,
+    synced: 0,
+    failed: 0,
+    translated: 0,
+    downloadsRecorded: 0,
+    subrequests: 0,
+    d1Queries: 0,
+  };
   try {
     await runScans(env, budget, report);
     await runSync(env, budget, report);
+    if (!report.stoppedBy) await runDownloads(env, budget, report);
     report.translated = await runTranslations(env, budget);
   } catch (error) {
     if (!(error instanceof BudgetExceededError)) throw error;

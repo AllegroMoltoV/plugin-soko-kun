@@ -90,4 +90,23 @@ describe('Web', () => {
     await env.DB.prepare('UPDATE plugins SET images_hidden = 1').run();
     expect((await SELF.fetch(url)).status).toBe(404);
   });
+
+  it('週間ダウンロード数は 7 日以上前の記録がたまるまで右の列に出さない', async () => {
+    await register();
+    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    const id = `${OWNER}/${REPO}`.toLowerCase();
+    const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
+    const insert = (offset: number, total: number) =>
+      env.DB.prepare('INSERT INTO download_snapshots (plugin_id, day, total) VALUES (?, ?, ?)')
+        .bind(id, day(offset), total)
+        .run();
+    await insert(6, 100);
+    await insert(0, 140);
+    expect(await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text()).not.toContain('週間ダウンロード数');
+
+    await insert(7, 90);
+    const html = await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text();
+    expect(html).toContain('週間ダウンロード数');
+    expect(html).toMatch(/<ol class="weekly">.*?50<\/span>/s);
+  });
 });

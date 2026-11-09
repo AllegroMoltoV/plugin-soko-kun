@@ -34,6 +34,7 @@ export interface GitHubAsset {
   size: number;
   digest: string | null;
   browser_download_url: string;
+  download_count?: number;
 }
 
 export interface GitHubRelease {
@@ -151,6 +152,11 @@ export class GitHubClient {
       if (error instanceof GitHubError && error.kind === 'not_found') return { release: null, etag: null };
       throw error;
     }
+  }
+
+  // 新しい順に最大 100 件のリリースを返す。ダウンロード数の集計に使う。
+  async listReleases(owner: string, repo: string): Promise<GitHubRelease[]> {
+    return (await this.request(`${API}/repos/${path(owner, repo)}/releases?per_page=100`)).json();
   }
 
   // ディレクトリが無ければ null を返す。

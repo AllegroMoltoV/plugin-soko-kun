@@ -152,6 +152,10 @@ main { min-width: 0; background: var(--paper); border: 1px solid var(--line); pa
 .side ul.latest { list-style: none; padding-left: 0; }
 .side ul.latest li { margin: 4px 0; }
 .side ul.latest .meta { display: block; margin: 0; }
+.side ol.weekly { margin: 0; padding-left: 1.6em; }
+.side ol.weekly li { margin: 4px 0; }
+.side ol.weekly .meta { margin-left: 6px; font-size: 12px; }
+.note { color: var(--muted); font-size: 11px; }
 
 h1 { font-size: 17px; margin: 0 0 6px; line-height: 1.35; color: var(--heading); }
 h2.bar { font-size: 13px; margin: 14px 0 6px; padding: 3px 8px; color: var(--bar-text); background: var(--bar-bg); border: 1px solid var(--sub-dark); border-left: 5px solid var(--primary); }

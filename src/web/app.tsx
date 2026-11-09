@@ -123,6 +123,7 @@ app.get('/', async (c) => {
           listed={stats.listed}
           lastSyncedAt={stats.lastSyncedAt}
           latest={stats.latest}
+          weekly={stats.weekly}
           collapsible={false}
         />
       }
@@ -133,6 +134,7 @@ app.get('/', async (c) => {
           listed={stats.listed}
           lastSyncedAt={stats.lastSyncedAt}
           latest={stats.latest}
+          weekly={stats.weekly}
           collapsible={true}
         />
       }
@@ -192,6 +194,7 @@ app.get('/plugins/:owner/:repo', async (c) => {
             listed={stats.listed}
             lastSyncedAt={stats.lastSyncedAt}
             latest={stats.latest}
+            weekly={stats.weekly}
             collapsible={false}
           />
         </>
@@ -205,6 +208,7 @@ app.get('/plugins/:owner/:repo', async (c) => {
             listed={stats.listed}
             lastSyncedAt={stats.lastSyncedAt}
             latest={stats.latest}
+            weekly={stats.weekly}
             collapsible={true}
           />
         </>
@@ -242,6 +246,7 @@ for (const key of PAGE_KEYS) {
             listed={stats.listed}
             lastSyncedAt={stats.lastSyncedAt}
             latest={stats.latest}
+            weekly={stats.weekly}
             collapsible={false}
           />
         }
@@ -252,6 +257,7 @@ for (const key of PAGE_KEYS) {
             listed={stats.listed}
             lastSyncedAt={stats.lastSyncedAt}
             latest={stats.latest}
+            weekly={stats.weekly}
             collapsible={true}
           />
         }
@@ -288,6 +294,7 @@ app.post('/contact', async (c) => {
           listed={stats.listed}
           lastSyncedAt={stats.lastSyncedAt}
           latest={stats.latest}
+          weekly={stats.weekly}
           collapsible={false}
         />
       }
@@ -298,6 +305,7 @@ app.post('/contact', async (c) => {
           listed={stats.listed}
           lastSyncedAt={stats.lastSyncedAt}
           latest={stats.latest}
+          weekly={stats.weekly}
           collapsible={true}
         />
       }

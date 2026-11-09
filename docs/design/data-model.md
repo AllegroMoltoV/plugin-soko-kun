@@ -14,6 +14,7 @@ D1 のテーブルと、掲載状態の算出規則の仕様です。スキー�
 | `rate_limit` | レート制限の集計の窓 1 つにつき 1 行 |
 | `plugin_translations` | プラグインと翻訳先の言語の組 1 つにつき 1 行 |
 | `plugin_images` | プラグインと画像の種類の組 1 つにつき 1 行 |
+| `download_snapshots` | プラグインと日付の組 1 つにつき 1 行 |
 
 OAuth のクライアント・認可・トークンの情報は D1 ではなく KV の `OAUTH_KV` に置きます。KV の形式は `@cloudflare/workers-oauth-provider` が管理します。
 
@@ -184,9 +185,9 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 | 列 | 型 | 制約 | 内容 |
 | --- | --- | --- | --- |
 | `plugin_id` | TEXT | 主キーの一部、`plugins.id` を参照 | プラグイン ID |
-| `lang` | TEXT | 主キーの一部 | 翻訳先の言語。`ja`・`en`・`zh-Hans`・`ko`・`pt-BR`・`es-419` のいずれか。`zh-Hant` の画面は `zh-Hans` の翻訳を使う |
-| `source_hash` | TEXT | NOT NULL | 翻訳の元にした概要の SHA-256。概要が変わると一致しなくなり、翻訳し直す |
-| `text` | TEXT | NOT NULL | 翻訳した概要。外部データとして扱う |
+| `lang` | TEXT | 主キーの一部 | 翻訳先の言語。`ja`・`en`・`zh-Hans`・`zh-Hant`・`ko`・`pt-BR`・`es-419` のいずれか |
+| `source_hash` | TEXT | NOT NULL | 翻訳に使ったモデルの名前と概要を合わせた文字列の SHA-256。概要かモデルが変わると一致しなくなり、翻訳し直す |
+| `text` | TEXT | NOT NULL | 翻訳した概要。外部データとして扱う。訳を採用しなかった場合は空の文字列で、画面は原文を表示する |
 | `translated_at` | TEXT | NOT NULL | 翻訳した日時 |
 
 ## plugin_images
@@ -205,3 +206,13 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 | `fetched_at` | TEXT | NOT NULL | 取得した日時 |
 
 画像は `/plugins/<owner>/<repo>/logo` と `/plugins/<owner>/<repo>/image` で配信します。URL のクエリに blob の SHA を付け、画像が変わったときに閲覧者のキャッシュを使わせないようにします。配信するのは掲載中のプラグインで、`images_hidden` が 0 のときだけです。応答には `Content-Security-Policy: default-src 'none'` と `X-Content-Type-Options: nosniff` を付けます。
+
+## download_snapshots
+
+プラグインの GitHub でのダウンロード数を、1 日 1 回記録します。記録の規則は [検査と同期](scanning.md) に記載しています。
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `plugin_id` | TEXT | 主キーの一部、`plugins.id` を参照、親の削除で連鎖削除 | プラグイン ID |
+| `day` | TEXT | 主キーの一部 | 記録した日 (UTC)。`YYYY-MM-DD` の形 |
+| `total` | INTEGER | NOT NULL | 下書きを除くすべてのリリースの配布物の `download_count` の合計 |

@@ -2,7 +2,6 @@ import type { Child, FC } from 'hono/jsx';
 import type { PluginView } from '../domain/catalog';
 import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
-import type { TranslationLang } from '../translate';
 import type { Block, PageContent } from './content';
 import type { Dict, Lang } from './i18n';
 import { ContactButton, SearchButton, withLang } from './layout';
@@ -29,11 +28,9 @@ export const StatusBadge: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => (
 );
 
 // 概要は画面の言語の機械翻訳を表示し、自動翻訳である旨と原文へのリンクを添える。翻訳も外部データとしてエスケープする。
-// m2m100 は繁体字に対応しないため、zh-Hant の画面は簡体字の翻訳を使い、その旨を示す。
 export function summaryFor(view: PluginView, lang: Lang, showOriginal: boolean) {
   if (!view.summary) return null;
-  const key: TranslationLang = lang === 'zh-Hant' ? 'zh-Hans' : lang;
-  const translated = view.summaryLang !== key ? view.translations[key] : undefined;
+  const translated = view.summaryLang !== lang ? view.translations[lang] : undefined;
   if (!translated || showOriginal) return { text: view.summary, translated: false, available: Boolean(translated) };
   return { text: translated, translated: true, available: true };
 }
@@ -47,7 +44,6 @@ export const Summary: FC<{ view: PluginView; t: Dict; lang: Lang; showOriginal: 
 }) => {
   const summary = summaryFor(view, lang, showOriginal);
   if (!summary) return null;
-  const note = lang === 'zh-Hant' ? t.machineTranslatedHans : t.machineTranslated;
   return (
     <>
       <p class="summary" lang={summary.translated ? lang : 'und'}>
@@ -56,7 +52,7 @@ export const Summary: FC<{ view: PluginView; t: Dict; lang: Lang; showOriginal: 
       {path ? (
         summary.translated ? (
           <p class="untrusted-note">
-            {note} <a href={withLang(`${path}?orig=1`, lang)}>{t.showOriginal}</a>
+            {t.machineTranslated} <a href={withLang(`${path}?orig=1`, lang)}>{t.showOriginal}</a>
           </p>
         ) : summary.available ? (
           <p class="untrusted-note">
@@ -139,6 +135,9 @@ export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ 
           <Summary view={view} t={t} lang={lang} showOriginal={false} />
           <p class="meta">
             <span translate="no">{view.owner}</span> | {t.updated} {formatDate(view.updatedAt, lang)}
+            {view.downloads
+              ? ` | ${t.downloadsShort} ${new Intl.NumberFormat(lang).format(view.downloads.total)}`
+              : null}
           </p>
         </li>
       ))}
@@ -219,8 +218,9 @@ export const SideCommon: FC<{
   listed: number;
   lastSyncedAt: string | null;
   latest: PluginView[];
+  weekly: PluginView[];
   collapsible: boolean;
-}> = ({ t, lang, listed, lastSyncedAt, latest, collapsible }) => (
+}> = ({ t, lang, listed, lastSyncedAt, latest, weekly, collapsible }) => (
   <>
     {latest.length > 0 ? (
       <SideSection title={t.sideLatestTitle} collapsible={collapsible}>
@@ -236,6 +236,21 @@ export const SideCommon: FC<{
             </li>
           ))}
         </ul>
+      </SideSection>
+    ) : null}
+    {weekly.length > 0 ? (
+      <SideSection title={t.sideWeeklyTitle} collapsible={collapsible}>
+        <ol class="weekly">
+          {weekly.map((view) => (
+            <li>
+              <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
+                {view.repo}
+              </a>
+              <span class="meta">{new Intl.NumberFormat(lang).format(view.downloads?.weekly ?? 0)}</span>
+            </li>
+          ))}
+        </ol>
+        <p class="note">{t.downloadsNote}</p>
       </SideSection>
     ) : null}
     <SideSection title={t.sideAgentTitle} collapsible={collapsible}>
@@ -446,6 +461,17 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
               </a>
             </td>
           </tr>
+          {view.downloads ? (
+            <tr>
+              <th scope="row">{t.downloadsLabel}</th>
+              <td>
+                {new Intl.NumberFormat(lang).format(view.downloads.total)}{' '}
+                <span class="note">{t.downloadsAsOf.replace('{date}', formatDate(view.downloads.day, lang))}</span>
+                <br />
+                <span class="note">{t.downloadsNote}</span>
+              </td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
 

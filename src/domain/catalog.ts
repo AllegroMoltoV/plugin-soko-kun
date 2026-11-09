@@ -54,6 +54,8 @@ export interface PluginView {
   pendingReleases: Array<{ tag: string; publishedAt: string }>;
   // 管理者が画像を非表示にしたプラグインでは空にする。
   images: { logo?: ImageView; image?: ImageView };
+  // GitHub でのダウンロード数の最新の記録。週間の数は 7 日以上前の記録が無ければ null。
+  downloads: { total: number; day: string; weekly: number | null } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -97,11 +99,20 @@ interface ScanRow {
   scanned_at: string | null;
 }
 
+// 記録は日付の昇順。週間の数は、最新の記録と、その 7 日以上前の記録のうち最も新しいものとの差。
+function downloadsOf(list: Array<{ day: string; total: number }>): PluginView['downloads'] {
+  const latest = list.at(-1);
+  if (!latest) return null;
+  const weekAgo = new Date(Date.parse(`${latest.day}T00:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10);
+  const base = list.filter((entry) => entry.day <= weekAgo).at(-1);
+  return { total: latest.total, day: latest.day, weekly: base ? Math.max(0, latest.total - base.total) : null };
+}
+
 async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
   const where = pluginId ? 'WHERE p.id = ?' : '';
   const bind = (statement: D1PreparedStatement) => (pluginId ? statement.bind(pluginId) : statement);
   // SELECT を 1 回の batch にまとめ、D1 のクエリ 1 件として扱う。
-  const [plugins, releases, assets, scans, translations, images] = await env.DB.batch([
+  const [plugins, releases, assets, scans, translations, images, snapshots] = await env.DB.batch([
     bind(env.DB.prepare(`SELECT * FROM plugins p ${where}`)),
     bind(env.DB.prepare(`SELECT r.* FROM releases r JOIN plugins p ON p.id = r.plugin_id ${where}`)),
     bind(
@@ -126,7 +137,18 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
         `SELECT i.plugin_id, i.kind, i.blob_sha, i.width, i.height FROM plugin_images i JOIN plugins p ON p.id = i.plugin_id ${where}`,
       ),
     ),
+    bind(
+      env.DB.prepare(
+        `SELECT d.plugin_id, d.day, d.total FROM download_snapshots d JOIN plugins p ON p.id = d.plugin_id ${where} ORDER BY d.day`,
+      ),
+    ),
   ]);
+  const snapshotsByPlugin = new Map<string, Array<{ day: string; total: number }>>();
+  for (const row of (snapshots?.results ?? []) as Array<{ plugin_id: string; day: string; total: number }>) {
+    const list = snapshotsByPlugin.get(row.plugin_id) ?? [];
+    list.push({ day: row.day, total: row.total });
+    snapshotsByPlugin.set(row.plugin_id, list);
+  }
   const imagesByPlugin = new Map<string, { logo?: ImageView; image?: ImageView }>();
   for (const row of (images?.results ?? []) as Array<{
     plugin_id: string;
@@ -224,6 +246,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
         .filter((release): release is ReleaseRow => release !== undefined)
         .map((release) => ({ tag: release.tag, publishedAt: release.published_at })),
       images: plugin.images_hidden === 1 ? {} : (imagesByPlugin.get(plugin.id) ?? {}),
+      downloads: downloadsOf(snapshotsByPlugin.get(plugin.id) ?? []),
       createdAt: plugin.created_at,
       updatedAt: plugin.updated_at,
     };
@@ -268,12 +291,17 @@ export async function getPluginView(env: Env, id: string): Promise<PluginView | 
 
 export async function catalogStats(
   env: Env,
-): Promise<{ listed: number; lastSyncedAt: string | null; latest: PluginView[] }> {
+): Promise<{ listed: number; lastSyncedAt: string | null; latest: PluginView[]; weekly: PluginView[] }> {
   const views = (await loadViews(env)).filter((view) => view.status === 'listed');
   const row = await env.DB.prepare('SELECT max(last_synced_at) AS t FROM plugins').first<{ t: string | null }>();
   // 新着は、このプラットフォームに登録した日の新しい順に 5 件。
   const latest = [...views].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
-  return { listed: views.length, lastSyncedAt: row?.t ?? null, latest };
+  // 週間ダウンロード数の上位 5 件。週間の数を求められないものと 0 のものは出さない。
+  const weekly = views
+    .filter((view) => (view.downloads?.weekly ?? 0) > 0)
+    .sort((a, b) => (b.downloads?.weekly ?? 0) - (a.downloads?.weekly ?? 0) || a.repo.localeCompare(b.repo))
+    .slice(0, 5);
+  return { listed: views.length, lastSyncedAt: row?.t ?? null, latest, weekly };
 }
 
 // 掲載中で、画像を非表示にしていないプラグインの画像だけを返す。

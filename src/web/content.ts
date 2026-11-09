@@ -43,7 +43,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Connect an MCP client to the endpoint /mcp on this site. In Claude Code, run:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            'Searching and viewing details work without signing in. To submit a repository, sign in with GitHub from the MCP client (in Claude Code, run /mcp). The service requests no GitHub scopes and does not get write access to your repositories.',
+            'Searching and viewing details work without signing in to GitHub. To submit a repository, sign in with GitHub from the MCP client (in Claude Code, run /mcp). This platform itself never gets write access to your GitHub repositories.',
             'Example requests: "Find a pitch shift plugin that works on Windows", "Register the OBS plugin in this GitHub repository".',
           ],
         },
@@ -93,7 +93,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Connect your MCP client to {{ORIGIN}}/mcp. In Claude Code, run:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            'Sign in with your GitHub account from the MCP client. In Claude Code, run /mcp and choose plugin-soko-kun. This platform requests no GitHub scopes and gets no write access to your repositories.',
+            'Sign in with your GitHub account from the MCP client. In Claude Code, run /mcp and choose plugin-soko-kun. This platform itself never gets write access to your GitHub repositories.',
             'Ask the AI agent to submit your repository, for example: "Register the OBS plugin in https://github.com/<owner>/<repository>". You can also tell the agent the category, such as audio filter or dock.',
           ],
         },
@@ -321,7 +321,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'MCP クライアントをこのサイトの /mcp に接続してください。Claude Code では次を実行してください:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            '検索と詳細の取得はサインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインしてください (Claude Code では /mcp を実行)。このプラットフォームは GitHub のスコープを求めず、リポジトリへの書き込み権限を得ません。',
+            '検索と詳細取得については、GitHub サインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインしてください (Claude Code では /mcp を実行)。なおこのプラットフォーム自体が GitHub リポジトリへの書き込み権限を取得することはありません。',
             '話しかけ方の例:「Windows で動くピッチシフトのプラグインを探して」「この GitHub リポジトリの OBS プラグインを登録して」',
           ],
         },
@@ -371,7 +371,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'MCP クライアントを {{ORIGIN}}/mcp に接続してください。Claude Code では次を実行してください:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            'MCP クライアントから GitHub のアカウントでサインインしてください。Claude Code では /mcp を実行し、plugin-soko-kun を選んでください。このプラットフォームは GitHub のスコープを求めず、リポジトリへの書き込み権限を得ません。',
+            'MCP クライアントから GitHub のアカウントでサインインしてください。Claude Code では /mcp を実行し、plugin-soko-kun を選んでください。なおこのプラットフォーム自体が GitHub リポジトリへの書き込み権限を取得することはありません。',
             'AI エージェントに登録を頼んでください。話しかけ方の例は「https://github.com/<owner>/<repository> の OBS プラグインを登録して」です。音声フィルターやドックのように、カテゴリも伝えられます。',
           ],
         },
@@ -603,7 +603,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '将 MCP 客户端连接到本站的 /mcp。在 Claude Code 中运行：',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            '搜索和查看详情无需登录。提交仓库时，请在 MCP 客户端中使用 GitHub 登录（在 Claude Code 中运行 /mcp）。本服务不请求任何 GitHub 权限范围，也不会获得仓库的写入权限。',
+            '搜索和查看详情无需登录 GitHub。提交仓库时，请在 MCP 客户端中使用 GitHub 登录（在 Claude Code 中运行 /mcp）。本平台本身不会获得 GitHub 仓库的写入权限。',
             '示例：“帮我找一个能在 Windows 上使用的变调插件”“把这个 GitHub 仓库的 OBS 插件登记上去”',
           ],
         },
@@ -653,7 +653,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '请将 MCP 客户端连接到 {{ORIGIN}}/mcp。在 Claude Code 中请运行：',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            '请在 MCP 客户端中使用 GitHub 账号登录。在 Claude Code 中请运行 /mcp 并选择 plugin-soko-kun。本平台不请求任何 GitHub 权限范围，也不会获得仓库的写入权限。',
+            '请在 MCP 客户端中使用 GitHub 账号登录。在 Claude Code 中请运行 /mcp 并选择 plugin-soko-kun。本平台本身不会获得 GitHub 仓库的写入权限。',
             '请让 AI 代理帮您提交，例如：“把 https://github.com/<owner>/<repository> 的 OBS 插件登记上去”。您也可以告诉代理分类，例如音频滤镜或停靠窗口。',
           ],
         },
@@ -861,7 +861,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '將 MCP 用戶端連接到本站的 /mcp。在 Claude Code 中執行：',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            '搜尋與查看詳情無需登入。提交儲存庫時，請在 MCP 用戶端中以 GitHub 登入（在 Claude Code 中執行 /mcp）。本服務不要求任何 GitHub 權限範圍，也不會取得儲存庫的寫入權限。',
+            '搜尋與查看詳情無需登入 GitHub。提交儲存庫時，請在 MCP 用戶端中以 GitHub 登入（在 Claude Code 中執行 /mcp）。本平台本身不會取得 GitHub 儲存庫的寫入權限。',
             '範例：「幫我找一個能在 Windows 上使用的變調外掛」「把這個 GitHub 儲存庫的 OBS 外掛登記上去」',
           ],
         },
@@ -911,7 +911,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '請將 MCP 用戶端連接到 {{ORIGIN}}/mcp。在 Claude Code 中請執行：',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            '請在 MCP 用戶端中以 GitHub 帳號登入。在 Claude Code 中請執行 /mcp 並選擇 plugin-soko-kun。本平台不要求任何 GitHub 權限範圍，也不會取得儲存庫的寫入權限。',
+            '請在 MCP 用戶端中以 GitHub 帳號登入。在 Claude Code 中請執行 /mcp 並選擇 plugin-soko-kun。本平台本身不會取得 GitHub 儲存庫的寫入權限。',
             '請讓 AI 代理幫您提交，例如：「把 https://github.com/<owner>/<repository> 的 OBS 外掛登記上去」。您也可以告訴代理分類，例如音訊濾鏡或停駐視窗。',
           ],
         },
@@ -1119,7 +1119,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'MCP 클라이언트를 이 사이트의 /mcp에 연결합니다. Claude Code에서는 다음을 실행합니다:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            '검색과 상세 조회는 로그인 없이 사용할 수 있습니다. 저장소를 등록할 때는 MCP 클라이언트에서 GitHub로 로그인합니다(Claude Code에서는 /mcp 실행). 이 서비스는 GitHub 스코프를 요청하지 않으며 저장소에 대한 쓰기 권한을 얻지 않습니다.',
+            '검색과 상세 조회는 GitHub 로그인 없이 사용할 수 있습니다. 저장소를 등록할 때는 MCP 클라이언트에서 GitHub로 로그인합니다(Claude Code에서는 /mcp 실행). 이 플랫폼 자체가 GitHub 저장소에 대한 쓰기 권한을 얻는 일은 없습니다.',
             '예: "Windows에서 동작하는 피치 시프트 플러그인을 찾아 줘", "이 GitHub 저장소의 OBS 플러그인을 등록해 줘"',
           ],
         },
@@ -1169,7 +1169,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'MCP 클라이언트를 {{ORIGIN}}/mcp에 연결해 주세요. Claude Code에서는 다음을 실행해 주세요:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            'MCP 클라이언트에서 GitHub 계정으로 로그인해 주세요. Claude Code에서는 /mcp를 실행하고 plugin-soko-kun을 선택해 주세요. 이 플랫폼은 GitHub 스코프를 요청하지 않으며 저장소에 대한 쓰기 권한을 얻지 않습니다.',
+            'MCP 클라이언트에서 GitHub 계정으로 로그인해 주세요. Claude Code에서는 /mcp를 실행하고 plugin-soko-kun을 선택해 주세요. 이 플랫폼 자체가 GitHub 저장소에 대한 쓰기 권한을 얻는 일은 없습니다.',
             'AI 에이전트에게 등록을 부탁해 주세요. 예: "https://github.com/<owner>/<repository>의 OBS 플러그인을 등록해 줘". 오디오 필터나 도크처럼 카테고리도 전할 수 있습니다.',
           ],
         },
@@ -1392,7 +1392,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Conecte um cliente MCP ao endereço /mcp deste site. No Claude Code, execute:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            'Buscar e ver detalhes funciona sem login. Para enviar um repositório, entre com o GitHub pelo cliente MCP (no Claude Code, execute /mcp). O serviço não pede escopos do GitHub e não recebe acesso de escrita aos seus repositórios.',
+            'Buscar e ver detalhes funciona sem login no GitHub. Para enviar um repositório, entre com o GitHub pelo cliente MCP (no Claude Code, execute /mcp). Esta plataforma em si nunca recebe acesso de escrita aos seus repositórios do GitHub.',
             'Exemplos: "Encontre um plugin de pitch shift que funcione no Windows", "Registre o plugin do OBS deste repositório do GitHub".',
           ],
         },
@@ -1442,7 +1442,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Conecte seu cliente MCP a {{ORIGIN}}/mcp. No Claude Code, execute:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            'Entre com sua conta do GitHub pelo cliente MCP. No Claude Code, execute /mcp e escolha plugin-soko-kun. Esta plataforma não pede escopos do GitHub e não recebe acesso de escrita aos seus repositórios.',
+            'Entre com sua conta do GitHub pelo cliente MCP. No Claude Code, execute /mcp e escolha plugin-soko-kun. Esta plataforma em si nunca recebe acesso de escrita aos seus repositórios do GitHub.',
             'Peça ao agente de IA para enviar o repositório, por exemplo: "Registre o plugin do OBS em https://github.com/<owner>/<repository>". Você também pode informar a categoria, como filtro de áudio ou dock.',
           ],
         },
@@ -1676,7 +1676,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Conecta un cliente MCP a la dirección /mcp de este sitio. En Claude Code, ejecuta:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            'Buscar y ver detalles funciona sin iniciar sesión. Para enviar un repositorio, inicia sesión con GitHub desde el cliente MCP (en Claude Code, ejecuta /mcp). El servicio no pide alcances de GitHub ni obtiene acceso de escritura a tus repositorios.',
+            'Buscar y ver detalles funciona sin iniciar sesión en GitHub. Para enviar un repositorio, inicia sesión con GitHub desde el cliente MCP (en Claude Code, ejecuta /mcp). Esta plataforma en sí nunca obtiene acceso de escritura a tus repositorios de GitHub.',
             'Ejemplos: "Busca un plugin de pitch shift que funcione en Windows", "Registra el plugin de OBS de este repositorio de GitHub".',
           ],
         },
@@ -1726,7 +1726,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Conecta tu cliente MCP a {{ORIGIN}}/mcp. En Claude Code, ejecuta:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
-            'Inicia sesión con tu cuenta de GitHub desde el cliente MCP. En Claude Code, ejecuta /mcp y elige plugin-soko-kun. Esta plataforma no pide alcances de GitHub ni obtiene acceso de escritura a tus repositorios.',
+            'Inicia sesión con tu cuenta de GitHub desde el cliente MCP. En Claude Code, ejecuta /mcp y elige plugin-soko-kun. Esta plataforma en sí nunca obtiene acceso de escritura a tus repositorios de GitHub.',
             'Pide al agente de IA que envíe el repositorio, por ejemplo: "Registra el plugin de OBS de https://github.com/<owner>/<repository>". También puedes indicar la categoría, como filtro de audio o panel.',
           ],
         },
