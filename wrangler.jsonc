@@ -23,6 +23,21 @@
   "observability": { "enabled": true },
   // テスト用の環境。Workers AI は実環境へつながるため定義せず、翻訳は行わない。
   "env": {
+    // 本番の環境。binding は既定の環境から引き継がれないため、すべてここに書く。triggers と observability は引き継がれる。
+    "production": {
+      "vars": { "ORIGIN": "https://soko-kun.allegromoltov.jp" },
+      "routes": [{ "pattern": "soko-kun.allegromoltov.jp", "custom_domain": true }],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "plugin-soko-kun",
+          "database_id": "21df0ed2-9b7e-481b-94f0-414273af6fad",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "ai": { "binding": "AI" },
+      "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "a730202391984d0a863ca4e22ea5d772" }]
+    },
     "test": {
       "vars": { "ORIGIN": "http://localhost:8787" },
       "d1_databases": [
