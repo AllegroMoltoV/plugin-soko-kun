@@ -18,7 +18,7 @@
 | 8 | `license.spdx_id` があり、`NOASSERTION` でない | `no_license` |
 | 9 | `github_repo_id` が未登録である | `duplicate` |
 | 10 | `GET /repos/{owner}/{repo}/languages` が C または C++ を含む | `not_obs_plugin` |
-| 11 | contents API で取得したルートの `CMakeLists.txt` が libobs を参照する。`find_package(libobs)`、または `target_link_libraries` での `libobs` か `OBS::libobs` の指定を参照とみなす | `not_obs_plugin`。ファイルが無い場合も同じ |
+| 11 | contents API で取得したルートの `CMakeLists.txt` が libobs を参照する。`find_package(libobs)`、pkg-config での `pkg_check_modules` か `pkg_search_module` による `libobs` の指定、または `target_link_libraries` での `libobs` か `OBS::libobs` の指定を参照とみなす | `not_obs_plugin`。ファイルが無い場合も同じ |
 | 12 | `GET /repos/{owner}/{repo}/releases/latest` で、下書きでない公開済みのリリースを取得できる | `no_release` |
 | 13 | そのリリースが、`sha256:` で始まる `digest` を持つ配布物を 1 件以上含む | `no_verifiable_asset` |
 | 14 | タグ名が英数字・`.`・`-`・`_` の 100 文字以内である | `unsupported_tag` |
