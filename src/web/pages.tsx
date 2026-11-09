@@ -1,11 +1,11 @@
-import type { FC } from 'hono/jsx';
+import type { Child, FC } from 'hono/jsx';
 import type { PluginView } from '../domain/catalog';
 import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
 import type { TranslationLang } from '../translate';
-import type { PageContent } from './content';
+import type { Block, PageContent } from './content';
 import type { Dict, Lang } from './i18n';
-import { SearchButton, withLang } from './layout';
+import { ContactButton, SearchButton, withLang } from './layout';
 
 const formatDate = (iso: string | null | undefined, lang: Lang) =>
   iso ? new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date(iso)) : '-';
@@ -111,6 +111,16 @@ export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ 
       {items.map((view) => (
         <li>
           <div class="card-head">
+            {view.images.logo ? (
+              <img
+                class="logo"
+                src={`/plugins/${view.id}/logo?v=${view.images.logo.sha}`}
+                width={view.images.logo.width}
+                height={view.images.logo.height}
+                alt=""
+                loading="lazy"
+              />
+            ) : null}
             <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
               {view.repo}
             </a>
@@ -185,17 +195,35 @@ export const SearchForm: FC<{
   </search>
 );
 
+// 右の列の区画。幅の狭い画面用では、見出しを押すと開く部品にして、閉じた状態で表示する。
+const SideSection: FC<{ title: string; collapsible: boolean; children?: Child }> = ({
+  title,
+  collapsible,
+  children,
+}) =>
+  collapsible ? (
+    <details class="side-box">
+      <summary>{title}</summary>
+      <div class="side-body">{children}</div>
+    </details>
+  ) : (
+    <section class="side-box">
+      <h2>{title}</h2>
+      {children}
+    </section>
+  );
+
 export const SideCommon: FC<{
   t: Dict;
   lang: Lang;
   listed: number;
   lastSyncedAt: string | null;
   latest: PluginView[];
-}> = ({ t, lang, listed, lastSyncedAt, latest }) => (
+  collapsible: boolean;
+}> = ({ t, lang, listed, lastSyncedAt, latest, collapsible }) => (
   <>
     {latest.length > 0 ? (
-      <section>
-        <h2>{t.sideLatestTitle}</h2>
+      <SideSection title={t.sideLatestTitle} collapsible={collapsible}>
         <ul class="latest">
           {latest.map((view) => (
             <li>
@@ -208,55 +236,51 @@ export const SideCommon: FC<{
             </li>
           ))}
         </ul>
-      </section>
+      </SideSection>
     ) : null}
-    <section>
-      <h2>{t.sideAgentTitle}</h2>
+    <SideSection title={t.sideAgentTitle} collapsible={collapsible}>
       <p>{t.sideAgentBody}</p>
       <p class="example">{t.sideAgentExample}</p>
       <p>
         <a href={withLang('/about#mcp', lang)}>{t.sideAgentLink}</a>
       </p>
-    </section>
-    <section>
-      <h2>{t.sideListingTitle}</h2>
+    </SideSection>
+    <SideSection title={t.sideListingTitle} collapsible={collapsible}>
       <ul>
         {t.sideListingItems.map((item) => (
           <li>{item}</li>
         ))}
       </ul>
       <p>
-        <a href={withLang('/about', lang)}>{t.sidePolicy}</a> | <a href={withLang('/report', lang)}>{t.sideReport}</a>
+        <a href={withLang('/policy', lang)}>{t.sidePolicy}</a> | <a href={withLang('/report', lang)}>{t.sideReport}</a>
       </p>
-    </section>
-    <section>
-      <h2>{t.sideSubmitTitle}</h2>
+    </SideSection>
+    <SideSection title={t.sideSubmitTitle} collapsible={collapsible}>
       <p>{t.sideSubmitBody}</p>
       <p>
         <a href={withLang('/submit', lang)}>{t.sideSubmitLink}</a>
       </p>
-    </section>
-    <section>
-      <h2>{t.sideStatsTitle}</h2>
+    </SideSection>
+    <SideSection title={t.sideStatsTitle} collapsible={collapsible}>
       <p>
         {t.sideStatsListed(listed)}
         <br />
         {t.sideStatsSynced} {formatDateTime(lastSyncedAt, lang)}
       </p>
-    </section>
+    </SideSection>
   </>
 );
 
-export const SideRelated: FC<{ t: Dict; lang: Lang; sameAuthor: PluginView[]; sameCategory: PluginView[] }> = ({
-  t,
-  lang,
-  sameAuthor,
-  sameCategory,
-}) => (
+export const SideRelated: FC<{
+  t: Dict;
+  lang: Lang;
+  sameAuthor: PluginView[];
+  sameCategory: PluginView[];
+  collapsible: boolean;
+}> = ({ t, lang, sameAuthor, sameCategory, collapsible }) => (
   <>
     {sameAuthor.length > 0 ? (
-      <section>
-        <h2>{t.sameAuthor}</h2>
+      <SideSection title={t.sameAuthor} collapsible={collapsible}>
         <ul>
           {sameAuthor.map((view) => (
             <li>
@@ -266,11 +290,10 @@ export const SideRelated: FC<{ t: Dict; lang: Lang; sameAuthor: PluginView[]; sa
             </li>
           ))}
         </ul>
-      </section>
+      </SideSection>
     ) : null}
     {sameCategory.length > 0 ? (
-      <section>
-        <h2>{t.sameCategory}</h2>
+      <SideSection title={t.sameCategory} collapsible={collapsible}>
         <ul>
           {sameCategory.map((view) => (
             <li>
@@ -280,7 +303,7 @@ export const SideRelated: FC<{ t: Dict; lang: Lang; sameAuthor: PluginView[]; sa
             </li>
           ))}
         </ul>
-      </section>
+      </SideSection>
     ) : null}
   </>
 );
@@ -303,7 +326,18 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
         <a href={withLang('/', lang)}>{t.library}</a> &gt;{' '}
         <a href={withLang(`/?category=${view.category}`, lang)}>{t.categories[view.category]}</a>
       </p>
-      <h1 translate="no">{view.repo}</h1>
+      <div class="title">
+        {view.status === 'listed' && view.images.logo ? (
+          <img
+            class="logo"
+            src={`/plugins/${view.id}/logo?v=${view.images.logo.sha}`}
+            width={view.images.logo.width}
+            height={view.images.logo.height}
+            alt=""
+          />
+        ) : null}
+        <h1 translate="no">{view.repo}</h1>
+      </div>
       <ul class="tags">
         <li>
           <CategoryTag category={view.category} t={t} lang={lang} />
@@ -323,7 +357,10 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
     return (
       <>
         {head}
-        <p class="callout">{message}</p>
+        <p class="callout">
+          <span class="label">{t.cautionLabel}</span>
+          {message}
+        </p>
         {view.status === 'suspended' && view.suspendedReason ? (
           <p>
             {t.reasonLabel}: <span lang="und">{view.suspendedReason}</span>
@@ -342,6 +379,16 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
     <>
       {head}
       <Summary view={view} t={t} lang={lang} showOriginal={showOriginal} path={`/plugins/${view.id}`} />
+      {view.images.image ? (
+        <p class="shot">
+          <img
+            src={`/plugins/${view.id}/image?v=${view.images.image.sha}`}
+            width={view.images.image.width}
+            height={view.images.image.height}
+            alt={t.imageAlt.replace('{name}', view.repo)}
+          />
+        </p>
+      ) : null}
       {primary ? (
         <div class="download">
           <a class="button" href={primary.downloadUrl} rel="noopener noreferrer">
@@ -429,7 +476,10 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
       </ul>
       <p>{t.noDetectionNotSafe}</p>
       {view.pendingReleases[0] ? (
-        <p class="callout">{t.newerUnderCheck(view.pendingReleases[0].tag, release.tag)}</p>
+        <p class="callout">
+          <span class="label">{t.cautionLabel}</span>
+          {t.newerUnderCheck(view.pendingReleases[0].tag, release.tag)}
+        </p>
       ) : null}
 
       <h2 class="bar">{t.cautions}</h2>
@@ -445,6 +495,34 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
   );
 };
 
+const BlockView: FC<{ block: Block; origin: string; t: Dict; lang: Lang }> = ({ block, origin, t, lang }) => {
+  const fill = (text: string) => text.replaceAll('{{ORIGIN}}', origin);
+  if (typeof block === 'string') {
+    return (
+      <p>
+        <Linkified text={fill(block)} />
+      </p>
+    );
+  }
+  if ('contact' in block) return <ContactButton t={t} lang={lang} />;
+  if ('code' in block) {
+    return (
+      <pre class="code">
+        <code>{fill(block.code)}</code>
+      </pre>
+    );
+  }
+  return (
+    <ul class="blocks">
+      {block.list.map((item) => (
+        <li>
+          <Linkified text={fill(item)} />
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 export const StaticPage: FC<{
   content: PageContent;
   t: Dict;
@@ -452,21 +530,21 @@ export const StaticPage: FC<{
   path: string;
   anchorMcp: boolean;
   origin: string;
-}> = ({ content, t, lang, path, anchorMcp, origin }) => (
+  authoritative: Lang;
+}> = ({ content, t, lang, path, anchorMcp, origin, authoritative }) => (
   <>
     <h1>{content.title}</h1>
-    {lang !== 'en' ? (
-      <p class="callout">
-        {t.translationNote} <a href={withLang(path, 'en')}>{t.englishVersion}</a>
+    {lang !== authoritative ? (
+      <p class="translation-note">
+        {authoritative === 'ja' ? t.translationNoteJa : t.translationNote}{' '}
+        <a href={withLang(path, authoritative)}>{authoritative === 'ja' ? t.japaneseVersion : t.englishVersion}</a>
       </p>
     ) : null}
     {content.sections.map((section, index) => (
-      <section id={anchorMcp && index === 2 ? 'mcp' : undefined}>
+      <section id={anchorMcp && index === 1 ? 'mcp' : undefined}>
         <h2 class="bar">{section.heading}</h2>
-        {section.paragraphs.map((paragraph) => (
-          <p>
-            <Linkified text={paragraph.replaceAll('{{ORIGIN}}', origin)} />
-          </p>
+        {section.paragraphs.map((block) => (
+          <BlockView block={block} origin={origin} t={t} lang={lang} />
         ))}
       </section>
     ))}

@@ -25,9 +25,10 @@ GITHUB_CLIENT_ID=<ローカル用の GitHub OAuth App の Client ID>
 GITHUB_CLIENT_SECRET=<ローカル用の GitHub OAuth App の Client secret>
 VIRUSTOTAL_API_KEY=<VirusTotal の API キー>
 MALWAREBAZAAR_AUTH_KEY=<MalwareBazaar の Auth-Key>
+CONTACT_EMAIL=<開発者の連絡先のメールアドレス>
 ```
 
-`VIRUSTOTAL_API_KEY` と `MALWAREBAZAAR_AUTH_KEY` は省略できます。鍵が無いスキャナーは照会を行いません。その場合、登録したプラグインは検査待ちのまま残ります。
+`VIRUSTOTAL_API_KEY` と `MALWAREBAZAAR_AUTH_KEY` は省略できます。鍵が無いスキャナーは照会を行いません。その場合、登録したプラグインは検査待ちのまま残ります。`CONTACT_EMAIL` を省略すると、「連絡先を表示」ボタンは連絡先を準備中である旨を表示します。
 
 `ORIGIN` は `wrangler.jsonc` の `vars` で `http://localhost:8787` に設定しています。
 

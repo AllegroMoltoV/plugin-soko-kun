@@ -1,3 +1,4 @@
+import { raw } from 'hono/html';
 import type { Child, FC } from 'hono/jsx';
 import { CATEGORIES, type Category } from '../domain/metadata';
 import { type Dict, LANG_NAMES, LANGS, type Lang } from './i18n';
@@ -35,122 +36,149 @@ export const SearchButton: FC<{ label: string }> = ({ label }) => (
 const SITE_NAME = '配信プラグイン倉庫くん';
 const SITE_NAME_EN = 'Plugin Soko-kun';
 
-export const Layout: FC<{ meta: PageMeta; side: Child; children?: Child }> = ({ meta, side, children }) => {
+// 収集を防ぐため、アドレスは HTML に書かない。フォームの送信を受けたときだけサーバーが返す。
+export const ContactButton: FC<{ t: Dict; lang: Lang }> = ({ t, lang }) => (
+  <form class="contact" method="post" action={withLang('/contact', lang)}>
+    <button type="submit">{t.showContact}</button>
+  </form>
+);
+
+export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; children?: Child }> = ({
+  meta,
+  side,
+  sideNarrow,
+  children,
+}) => {
   const { lang, t } = meta;
+  // doctype が無いと互換モードで描画され、フォームの余白などが標準と変わる。
   return (
-    <html lang={lang}>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{`${meta.title} - ${SITE_NAME} (${SITE_NAME_EN})`}</title>
-        <meta name="description" content={meta.description} />
-        <link rel="stylesheet" href={`/style.css?v=${STYLE_VERSION}`} />
-        {LANGS.map((l) => (
-          <link rel="alternate" hreflang={l} href={`${meta.origin}${withLang(meta.path, l)}`} />
-        ))}
-        <link rel="alternate" hreflang="x-default" href={`${meta.origin}${withLang(meta.path, 'en')}`} />
-      </head>
-      <body>
-        <a class="skip" href="#main">
-          Skip to content
-        </a>
-        <header class="site">
-          <div class="wrap">
-            <a class="brand" href={withLang('/', lang)}>
-              <b translate="no">{SITE_NAME}</b>
-              <small>
-                <span translate="no">{SITE_NAME_EN}</span> - {t.tagline}
-              </small>
-            </a>
-            <search>
-              <form method="get" action="/">
-                <input type="hidden" name="lang" value={lang} />
-                <input
-                  type="search"
-                  name="q"
-                  value={meta.keyword ?? ''}
-                  placeholder={t.searchPlaceholder}
-                  aria-label={t.searchPlaceholder}
-                  maxlength={100}
-                />
-                <SearchButton label={t.searchButton} />
-              </form>
-            </search>
-            <details class="lang">
-              <summary aria-label={t.languageLabel}>{LANG_NAMES[lang]}</summary>
-              <ul>
-                {LANGS.map((l) => (
-                  <li>
-                    <a
-                      href={withLang(meta.path, l)}
-                      hreflang={l}
-                      lang={l}
-                      aria-current={l === lang ? 'true' : undefined}
-                    >
-                      {LANG_NAMES[l]}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          </div>
-        </header>
-        <nav class="cats" aria-label={t.categoryLabel}>
-          <ul>
-            {CATEGORIES.filter((c) => c !== 'other').map((c) => (
-              <li>
-                <a
-                  href={withLang(`/?category=${c}`, lang)}
-                  aria-current={meta.currentCategory === c ? 'page' : undefined}
-                >
-                  {t.categories[c]}
-                </a>
-              </li>
-            ))}
-            <li>
-              <a href={withLang('/', lang)}>{t.categoryAll}</a>
-            </li>
-          </ul>
-        </nav>
-        <div class="notice" role="note">
-          <p class="wrap">
-            <span class="long">{t.notice}</span>
-            <span class="short">
-              {t.noticeShort} <a href={withLang('/about', lang)}>{t.nav.about}</a>
-            </span>
-          </p>
-        </div>
-        <div class="wrap layout">
-          <main id="main">{children}</main>
-          <aside class="side">{side}</aside>
-        </div>
-        <footer class="site">
-          <div class="wrap">
+    <>
+      {raw('<!DOCTYPE html>')}
+      <html lang={lang}>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{`${meta.title} - ${SITE_NAME} (${SITE_NAME_EN})`}</title>
+          <meta name="description" content={meta.description} />
+          <link rel="stylesheet" href={`/style.css?v=${STYLE_VERSION}`} />
+          {LANGS.map((l) => (
+            <link rel="alternate" hreflang={l} href={`${meta.origin}${withLang(meta.path, l)}`} />
+          ))}
+          <link rel="alternate" hreflang="x-default" href={`${meta.origin}${withLang(meta.path, 'en')}`} />
+        </head>
+        <body>
+          <a class="skip" href="#main">
+            Skip to content
+          </a>
+          <header class="site">
+            <div class="wrap">
+              <a class="brand" href={withLang('/', lang)}>
+                <b translate="no">{SITE_NAME}</b>
+                <small>
+                  <span translate="no">{SITE_NAME_EN}</span> - {t.tagline}
+                </small>
+              </a>
+              <search>
+                <form method="get" action="/">
+                  <input type="hidden" name="lang" value={lang} />
+                  <input
+                    type="search"
+                    name="q"
+                    value={meta.keyword ?? ''}
+                    placeholder={t.searchPlaceholder}
+                    aria-label={t.searchPlaceholder}
+                    maxlength={100}
+                  />
+                  <SearchButton label={t.searchButton} />
+                </form>
+              </search>
+              <details class="lang">
+                <summary aria-label={t.languageLabel}>{LANG_NAMES[lang]}</summary>
+                <ul>
+                  {LANGS.map((l) => (
+                    <li>
+                      <a
+                        href={withLang(meta.path, l)}
+                        hreflang={l}
+                        lang={l}
+                        aria-current={l === lang ? 'true' : undefined}
+                      >
+                        {LANG_NAMES[l]}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </div>
+          </header>
+          <nav class="cats" aria-label={t.categoryLabel}>
             <ul>
               <li>
-                <a href={withLang('/about', lang)}>{t.nav.about}</a>
+                <a href={withLang('/', lang)}>{t.categoryAll}</a>
               </li>
-              <li>
-                <a href={withLang('/submit', lang)}>{t.nav.submit}</a>
-              </li>
-              <li>
-                <a href={withLang('/security', lang)}>{t.nav.security}</a>
-              </li>
-              <li>
-                <a href={withLang('/report', lang)}>{t.nav.report}</a>
-              </li>
-              <li>
-                <a href={withLang('/privacy', lang)}>{t.nav.privacy}</a>
-              </li>
-              <li>
-                <a href="https://github.com/AllegroMoltoV/plugin-soko-kun">{t.nav.source}</a>
-              </li>
+              {CATEGORIES.filter((c) => c !== 'other').map((c) => (
+                <li>
+                  <a
+                    href={withLang(`/?category=${c}`, lang)}
+                    aria-current={meta.currentCategory === c ? 'page' : undefined}
+                  >
+                    {t.categories[c]}
+                  </a>
+                </li>
+              ))}
             </ul>
-            <p>{t.notice}</p>
-            <p class="copyright">© 2026 AllegroMoltoV</p>
+          </nav>
+          <div class="notice" role="note">
+            <p class="wrap">
+              <span class="label">{t.cautionLabel}</span>
+              <span class="long">{t.notice}</span>
+              <span class="short">
+                {t.noticeShort} <a href={withLang('/about', lang)}>{t.nav.about}</a>
+              </span>
+            </p>
           </div>
-        </footer>
-      </body>
-    </html>
+          <div class="wrap layout">
+            <main id="main">{children}</main>
+            <aside class="side side-wide">{side}</aside>
+            <aside class="side side-narrow">{sideNarrow}</aside>
+          </div>
+          <footer class="site">
+            <div class="wrap">
+              <ul>
+                <li>
+                  <a href={withLang('/about', lang)}>{t.nav.about}</a>
+                </li>
+                <li>
+                  <a href={withLang('/policy', lang)}>{t.nav.policy}</a>
+                </li>
+                <li>
+                  <a href={withLang('/submit', lang)}>{t.nav.submit}</a>
+                </li>
+                <li>
+                  <a href={withLang('/security', lang)}>{t.nav.security}</a>
+                </li>
+                <li>
+                  <a href={withLang('/report', lang)}>{t.nav.report}</a>
+                </li>
+                <li>
+                  <a href={withLang('/terms', lang)}>{t.nav.terms}</a>
+                </li>
+                <li>
+                  <a href={withLang('/privacy', lang)}>{t.nav.privacy}</a>
+                </li>
+                <li>
+                  <a href="https://github.com/AllegroMoltoV/plugin-soko-kun">{t.nav.source}</a>
+                </li>
+              </ul>
+              <p>{t.notice}</p>
+              <div class="contact-line">
+                {t.contactLabel}: <ContactButton t={t} lang={lang} />
+              </div>
+              <p class="copyright">© 2026 AllegroMoltoV</p>
+            </div>
+          </footer>
+        </body>
+      </html>
+    </>
   );
 };

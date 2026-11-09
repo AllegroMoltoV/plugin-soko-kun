@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
-import { catalogStats, getPluginView, searchPlugins } from '../domain/catalog';
+import { catalogStats, getPluginImage, getPluginView, searchPlugins } from '../domain/catalog';
 import { CATEGORIES, type Category, OS_VALUES, type Os } from '../domain/metadata';
 import type { Env } from '../env';
-import { PAGES, type PageKey } from './content';
+import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
 import { DICTS, LANGS, type Lang, negotiate } from './i18n';
 import { Layout, type PageMeta } from './layout';
 import { PluginCards, PluginDetail, SearchForm, SideCommon, SideRelated, StaticPage } from './pages';
@@ -117,7 +117,24 @@ app.get('/', async (c) => {
     <Layout
       meta={meta(c, lang, filtered ? heading : t.searchHeading, t.notice, { keyword, currentCategory: category })}
       side={
-        <SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} latest={stats.latest} />
+        <SideCommon
+          t={t}
+          lang={lang}
+          listed={stats.listed}
+          lastSyncedAt={stats.lastSyncedAt}
+          latest={stats.latest}
+          collapsible={false}
+        />
+      }
+      sideNarrow={
+        <SideCommon
+          t={t}
+          lang={lang}
+          listed={stats.listed}
+          lastSyncedAt={stats.lastSyncedAt}
+          latest={stats.latest}
+          collapsible={true}
+        />
       }
     >
       <h1>{t.searchHeading}</h1>
@@ -137,6 +154,20 @@ app.get('/', async (c) => {
   );
 });
 
+// 画像は掲載中のプラグインのものだけを配信する。形式は保存の前に先頭のバイト列で確かめている。
+for (const kind of ['logo', 'image'] as const) {
+  app.get(`/plugins/:owner/:repo/${kind}`, async (c) => {
+    const image = await getPluginImage(c.env, `${c.req.param('owner')}/${c.req.param('repo')}`, kind);
+    if (!image) return c.notFound();
+    return c.body(image.bytes, 200, {
+      'Content-Type': image.contentType,
+      'Content-Disposition': 'inline',
+      // URL のクエリに blob の SHA を付けるため、画像が変われば別の URL になる。
+      'Cache-Control': 'public, max-age=86400',
+    });
+  });
+}
+
 app.get('/plugins/:owner/:repo', async (c) => {
   const lang = c.get('lang');
   const t = DICTS[lang];
@@ -154,8 +185,28 @@ app.get('/plugins/:owner/:repo', async (c) => {
       meta={meta(c, lang, view.repo, view.summary ?? t.notice, { currentCategory: view.category })}
       side={
         <>
-          <SideRelated t={t} lang={lang} sameAuthor={sameAuthor} sameCategory={sameCategory} />
-          <SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} latest={stats.latest} />
+          <SideRelated t={t} lang={lang} sameAuthor={sameAuthor} sameCategory={sameCategory} collapsible={false} />
+          <SideCommon
+            t={t}
+            lang={lang}
+            listed={stats.listed}
+            lastSyncedAt={stats.lastSyncedAt}
+            latest={stats.latest}
+            collapsible={false}
+          />
+        </>
+      }
+      sideNarrow={
+        <>
+          <SideRelated t={t} lang={lang} sameAuthor={sameAuthor} sameCategory={sameCategory} collapsible={true} />
+          <SideCommon
+            t={t}
+            lang={lang}
+            listed={stats.listed}
+            lastSyncedAt={stats.lastSyncedAt}
+            latest={stats.latest}
+            collapsible={true}
+          />
         </>
       }
     >
@@ -167,7 +218,7 @@ app.get('/plugins/:owner/:repo', async (c) => {
   return response;
 });
 
-for (const key of ['about', 'submit', 'security', 'report', 'privacy'] as const satisfies readonly PageKey[]) {
+for (const key of PAGE_KEYS) {
   app.get(`/${key}`, async (c) => {
     const lang = c.get('lang');
     const t = DICTS[lang];
@@ -175,9 +226,34 @@ for (const key of ['about', 'submit', 'security', 'report', 'privacy'] as const 
     const stats = await catalogStats(c.env);
     return c.html(
       <Layout
-        meta={meta(c, lang, content.title, content.sections[0]?.paragraphs[0] ?? t.notice)}
+        meta={meta(
+          c,
+          lang,
+          content.title,
+          (content.sections[0]?.paragraphs.find((b): b is string => typeof b === 'string') ?? t.notice).replaceAll(
+            '{{ORIGIN}}',
+            c.env.ORIGIN,
+          ),
+        )}
         side={
-          <SideCommon t={t} lang={lang} listed={stats.listed} lastSyncedAt={stats.lastSyncedAt} latest={stats.latest} />
+          <SideCommon
+            t={t}
+            lang={lang}
+            listed={stats.listed}
+            lastSyncedAt={stats.lastSyncedAt}
+            latest={stats.latest}
+            collapsible={false}
+          />
+        }
+        sideNarrow={
+          <SideCommon
+            t={t}
+            lang={lang}
+            listed={stats.listed}
+            lastSyncedAt={stats.lastSyncedAt}
+            latest={stats.latest}
+            collapsible={true}
+          />
         }
       >
         <StaticPage
@@ -187,11 +263,57 @@ for (const key of ['about', 'submit', 'security', 'report', 'privacy'] as const 
           path={`/${key}`}
           anchorMcp={key === 'about'}
           origin={c.env.ORIGIN}
+          authoritative={AUTHORITATIVE[key]}
         />
       </Layout>,
     );
   });
 }
+
+// 収集を防ぐため、アドレスはフォームの送信を受けたときだけ、@ を [at] に置き換えて返す。
+app.post('/contact', async (c) => {
+  const lang = c.get('lang');
+  const t = DICTS[lang];
+  const stats = await catalogStats(c.env);
+  const address = c.env.CONTACT_EMAIL?.replace('@', ' [at] ');
+  c.header('X-Robots-Tag', 'noindex');
+  c.header('Cache-Control', 'no-store');
+  return c.html(
+    <Layout
+      meta={meta(c, lang, t.contactLabel, t.contactLabel)}
+      side={
+        <SideCommon
+          t={t}
+          lang={lang}
+          listed={stats.listed}
+          lastSyncedAt={stats.lastSyncedAt}
+          latest={stats.latest}
+          collapsible={false}
+        />
+      }
+      sideNarrow={
+        <SideCommon
+          t={t}
+          lang={lang}
+          listed={stats.listed}
+          lastSyncedAt={stats.lastSyncedAt}
+          latest={stats.latest}
+          collapsible={true}
+        />
+      }
+    >
+      <h1>{t.contactLabel}</h1>
+      {address ? (
+        <>
+          <p class="contact-address">{address}</p>
+          <p>{t.contactHint}</p>
+        </>
+      ) : (
+        <p>{t.contactUnavailable}</p>
+      )}
+    </Layout>,
+  );
+});
 
 app.notFound((c) => {
   const lang = (c.get('lang') as Lang | undefined) ?? 'ja';

@@ -84,3 +84,28 @@ export function githubHandlers(fixture: RepoFixture = {}, calls: string[] = []) 
     }),
   ];
 }
+
+// リポジトリの .soko-kun/ に置いた画像。files を渡さなければ、画像の無いリポジトリとして 404 を返す。
+export function imageHandlers(files?: Record<string, Uint8Array>, calls: string[] = []) {
+  const contents = 'https://api.github.com/repos/:owner/:repo/contents/.soko-kun';
+  return [
+    http.get(contents, () => {
+      calls.push('images:list');
+      if (!files) return new HttpResponse(null, { status: 404 });
+      return HttpResponse.json(
+        Object.entries(files).map(([name, bytes]) => ({
+          name,
+          type: 'file',
+          size: bytes.length,
+          sha: `sha-${name}-${bytes.length}`,
+        })),
+      );
+    }),
+    http.get(`${contents}/:file`, ({ params }) => {
+      calls.push(`images:get:${params.file}`);
+      const bytes = files?.[String(params.file)];
+      if (!bytes) return new HttpResponse(null, { status: 404 });
+      return new HttpResponse(bytes, { headers: { 'Content-Length': String(bytes.length) } });
+    }),
+  ];
+}

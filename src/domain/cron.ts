@@ -2,6 +2,7 @@
 import { Budget, BudgetExceededError } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
+import { checkImage, expectedType, IMAGE_LIMITS, type ImageKind } from '../images';
 import { ScannerRateLimitedError, scanWithMalwareBazaar, scanWithVirusTotal } from '../scanners';
 import { runTranslations } from '../translate';
 import { inferOs } from './metadata';
@@ -81,10 +82,12 @@ interface SyncRow {
   owner: string;
   repo: string;
   releases_etag: string | null;
+  images_tag: string | null;
+  latest_tag: string | null;
 }
 
-// プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決。
-const SYNC_COST = 3;
+// プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決、画像の一覧とダウンロード 2 件。
+const SYNC_COST = 6;
 
 async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: SyncRow): Promise<void> {
   const timestamp = now();
@@ -116,11 +119,16 @@ async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: Sync
     ).bind(repo.owner.login, repo.name, repo.license?.spdx_id ?? null, row.id),
   ];
   const latest = await github.getLatestRelease(repo.owner.login, repo.name, row.releases_etag ?? undefined);
+  let latestTag = row.latest_tag;
   if (latest?.release) {
-    statements.push(
-      ...(await releaseStatements(env, budget, github, row.id, repo.owner.login, repo.name, latest.release)),
-    );
+    const saved = await releaseStatements(env, budget, github, row.id, repo.owner.login, repo.name, latest.release);
+    if (saved.length > 0) latestTag = latest.release.tag_name;
+    statements.push(...saved);
     statements.push(env.DB.prepare('UPDATE plugins SET releases_etag = ? WHERE id = ?').bind(latest.etag, row.id));
+  }
+  // 画像は最新リリースのタグの時点のものを使う。タグが変わったときだけ取得し直し、外部呼び出しを抑える。
+  if (latestTag && latestTag !== row.images_tag) {
+    statements.push(...(await imageStatements(env, budget, github, row.id, repo.owner.login, repo.name, latestTag)));
   }
   statements.push(
     env.DB.prepare('UPDATE plugins SET updated_at = ?, last_synced_at = ? WHERE id = ?').bind(
@@ -189,6 +197,56 @@ async function releaseStatements(
   return statements;
 }
 
+const IMAGE_DIR = '.soko-kun';
+
+async function imageStatements(
+  env: Env,
+  budget: Budget,
+  github: GitHubClient,
+  pluginId: string,
+  owner: string,
+  repo: string,
+  tag: string,
+): Promise<D1PreparedStatement[]> {
+  const entries = (await github.listDirectory(owner, repo, IMAGE_DIR, tag)) ?? [];
+  budget.takeD1Query();
+  const stored = await env.DB.prepare('SELECT kind, blob_sha FROM plugin_images WHERE plugin_id = ?')
+    .bind(pluginId)
+    .all<{ kind: ImageKind; blob_sha: string }>();
+  const storedSha = new Map(stored.results.map((row) => [row.kind, row.blob_sha]));
+  const statements: D1PreparedStatement[] = [];
+  const remove = (kind: ImageKind) =>
+    env.DB.prepare('DELETE FROM plugin_images WHERE plugin_id = ? AND kind = ?').bind(pluginId, kind);
+  for (const kind of ['logo', 'image'] as const) {
+    const entry = entries.find((item) => item.type === 'file' && expectedType(kind, item.name));
+    if (!entry) {
+      statements.push(remove(kind));
+      continue;
+    }
+    if (storedSha.get(kind) === entry.sha) continue;
+    // 一覧の大きさで上限を超えるものは、ダウンロードせずに外す。
+    const bytes =
+      entry.size <= IMAGE_LIMITS[kind].maxBytes
+        ? await github.getFileBytes(owner, repo, IMAGE_DIR, entry.name, tag, IMAGE_LIMITS[kind].maxBytes)
+        : null;
+    const info = bytes ? checkImage(kind, entry.name, bytes) : null;
+    if (!bytes || !info) {
+      statements.push(remove(kind));
+      continue;
+    }
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO plugin_images (plugin_id, kind, blob_sha, content_type, width, height, bytes, fetched_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (plugin_id, kind) DO UPDATE SET blob_sha = excluded.blob_sha, content_type = excluded.content_type,
+           width = excluded.width, height = excluded.height, bytes = excluded.bytes, fetched_at = excluded.fetched_at`,
+      ).bind(pluginId, kind, entry.sha, info.type, info.width, info.height, bytes, now()),
+    );
+  }
+  statements.push(env.DB.prepare('UPDATE plugins SET images_tag = ? WHERE id = ?').bind(tag, pluginId));
+  return statements;
+}
+
 export function resetScanStatements(env: Env, digest: string): D1PreparedStatement[] {
   return (['virustotal', 'malwarebazaar'] as const).map((scanner) =>
     env.DB.prepare(
@@ -207,7 +265,9 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
   budget.takeD1Query();
   const { results } = await env.DB.prepare(
     // 掲載終了のプラグインも同期し、GitHub で公開に戻れば掲載の判定へ戻す。一時的な 404 で恒久に外さないため。
-    'SELECT id, github_repo_id, owner, repo, releases_etag FROM plugins ORDER BY last_synced_at LIMIT 20',
+    `SELECT p.id, p.github_repo_id, p.owner, p.repo, p.releases_etag, p.images_tag,
+       (SELECT r.tag FROM releases r WHERE r.plugin_id = p.id ORDER BY r.published_at DESC LIMIT 1) AS latest_tag
+     FROM plugins p ORDER BY p.last_synced_at LIMIT 20`,
   ).all<SyncRow>();
   for (const row of results) {
     if (!budget.canFetch(SYNC_COST) || !budget.canQuery(3)) break;

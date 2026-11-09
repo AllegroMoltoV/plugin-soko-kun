@@ -28,6 +28,12 @@ export interface ReleaseView {
   assets: AssetView[];
 }
 
+export interface ImageView {
+  sha: string;
+  width: number;
+  height: number;
+}
+
 export interface PluginView {
   id: string;
   owner: string;
@@ -46,6 +52,8 @@ export interface PluginView {
   releasesUrl: string;
   listedRelease: ReleaseView | null;
   pendingReleases: Array<{ tag: string; publishedAt: string }>;
+  // 管理者が画像を非表示にしたプラグインでは空にする。
+  images: { logo?: ImageView; image?: ImageView };
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +68,7 @@ interface PluginRow {
   admin_suspended: number;
   suspended_reason: string | null;
   removed: number;
+  images_hidden: number;
   created_at: string;
   updated_at: string;
 }
@@ -91,8 +100,8 @@ interface ScanRow {
 async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
   const where = pluginId ? 'WHERE p.id = ?' : '';
   const bind = (statement: D1PreparedStatement) => (pluginId ? statement.bind(pluginId) : statement);
-  // 4 件の SELECT を 1 回の batch にまとめ、D1 のクエリ 1 件として扱う。
-  const [plugins, releases, assets, scans, translations] = await env.DB.batch([
+  // SELECT を 1 回の batch にまとめ、D1 のクエリ 1 件として扱う。
+  const [plugins, releases, assets, scans, translations, images] = await env.DB.batch([
     bind(env.DB.prepare(`SELECT * FROM plugins p ${where}`)),
     bind(env.DB.prepare(`SELECT r.* FROM releases r JOIN plugins p ON p.id = r.plugin_id ${where}`)),
     bind(
@@ -111,7 +120,25 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
         `SELECT t.plugin_id, t.lang, t.text FROM plugin_translations t JOIN plugins p ON p.id = t.plugin_id ${where}`,
       ),
     ),
+    // 画像の本体は配信のときだけ読む。
+    bind(
+      env.DB.prepare(
+        `SELECT i.plugin_id, i.kind, i.blob_sha, i.width, i.height FROM plugin_images i JOIN plugins p ON p.id = i.plugin_id ${where}`,
+      ),
+    ),
   ]);
+  const imagesByPlugin = new Map<string, { logo?: ImageView; image?: ImageView }>();
+  for (const row of (images?.results ?? []) as Array<{
+    plugin_id: string;
+    kind: 'logo' | 'image';
+    blob_sha: string;
+    width: number;
+    height: number;
+  }>) {
+    const entry = imagesByPlugin.get(row.plugin_id) ?? {};
+    entry[row.kind] = { sha: row.blob_sha, width: row.width, height: row.height };
+    imagesByPlugin.set(row.plugin_id, entry);
+  }
   const translationsByPlugin = new Map<string, Partial<Record<TranslationLang, string>>>();
   for (const row of (translations?.results ?? []) as Array<{
     plugin_id: string;
@@ -196,6 +223,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
         .map((id) => releaseById.get(id))
         .filter((release): release is ReleaseRow => release !== undefined)
         .map((release) => ({ tag: release.tag, publishedAt: release.published_at })),
+      images: plugin.images_hidden === 1 ? {} : (imagesByPlugin.get(plugin.id) ?? {}),
       createdAt: plugin.created_at,
       updatedAt: plugin.updated_at,
     };
@@ -246,4 +274,20 @@ export async function catalogStats(
   // 新着は、このプラットフォームに登録した日の新しい順に 5 件。
   const latest = [...views].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
   return { listed: views.length, lastSyncedAt: row?.t ?? null, latest };
+}
+
+// 掲載中で、画像を非表示にしていないプラグインの画像だけを返す。
+export async function getPluginImage(
+  env: Env,
+  id: string,
+  kind: 'logo' | 'image',
+): Promise<{ contentType: string; bytes: ArrayBuffer } | null> {
+  const view = await getPluginView(env, id);
+  if (view?.status !== 'listed' || !view.images[kind]) return null;
+  const row = await env.DB.prepare('SELECT content_type, bytes FROM plugin_images WHERE plugin_id = ? AND kind = ?')
+    .bind(view.id, kind)
+    .first<{ content_type: string; bytes: ArrayBuffer | number[] }>();
+  if (!row) return null;
+  const bytes = Array.isArray(row.bytes) ? new Uint8Array(row.bytes).buffer : row.bytes;
+  return { contentType: row.content_type, bytes };
 }

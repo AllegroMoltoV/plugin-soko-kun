@@ -4,7 +4,8 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { runCron } from '../../src/domain/cron';
 import { submitPlugin } from '../../src/domain/submit';
-import { githubHandlers, OWNER, REPO, REPO_ID, USER_TOKEN } from '../fixtures/github';
+import { githubHandlers, imageHandlers, OWNER, REPO, REPO_ID, USER_TOKEN } from '../fixtures/github';
+import { png, svg } from '../fixtures/images';
 import { network } from '../setup';
 
 const submitter = { githubUserId: 4242, githubToken: USER_TOKEN };
@@ -50,7 +51,7 @@ describe('runCron', () => {
   it('管理者が停止したプラグインは、同期と検査の後も停止のまま', async () => {
     await registerFixture();
     await env.DB.prepare('UPDATE plugins SET admin_suspended = 1').run();
-    network.use(repoById(), ...githubHandlers(), ...scannerHandlers({ vt: 0, mb: 0 }));
+    network.use(repoById(), ...githubHandlers(), ...imageHandlers(), ...scannerHandlers({ vt: 0, mb: 0 }));
     await runCron(env);
     const row = await env.DB.prepare('SELECT admin_suspended FROM plugins').first<{ admin_suspended: number }>();
     expect(row?.admin_suspended).toBe(1);
@@ -78,6 +79,7 @@ describe('runCron', () => {
     await env.DB.prepare("UPDATE scans SET result = 'clean', attempts = 1, scanned_at = '2026-11-01T00:00:00Z'").run();
     // 同じ内容のファイルを別のアセット ID で上げ直した新しいリリース
     network.use(
+      ...imageHandlers(),
       repoById(),
       http.get(`https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`, () =>
         HttpResponse.json({
@@ -126,6 +128,7 @@ describe('runCron', () => {
     }
     const counter = { vt: 0, mb: 0 };
     network.use(
+      ...imageHandlers(),
       ...scannerHandlers(counter),
       http.get('https://api.github.com/repositories/:id', ({ params }) =>
         HttpResponse.json({
@@ -164,6 +167,7 @@ describe('runCron の同期の失敗', () => {
         .run();
     }
     network.use(
+      ...imageHandlers(),
       http.get('https://api.github.com/repositories/920001', () => new HttpResponse(null, { status: 403 })),
       http.get('https://api.github.com/repositories/920002', () =>
         HttpResponse.json({
@@ -188,6 +192,7 @@ describe('runCron の同期の失敗', () => {
     await registerFixture();
     await env.DB.prepare('UPDATE plugins SET removed = 1').run();
     network.use(
+      ...imageHandlers(),
       repoById(),
       http.get(
         `https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`,
@@ -198,5 +203,26 @@ describe('runCron の同期の失敗', () => {
     await runCron(env);
     const row = await env.DB.prepare('SELECT removed FROM plugins').first<{ removed: number }>();
     expect(row?.removed).toBe(0);
+  });
+});
+
+describe('runCron の画像の取得', () => {
+  it('条件に合う画像だけを保存し、タグが変わらなければ取得し直さない', async () => {
+    await registerFixture();
+    const calls: string[] = [];
+    network.use(
+      repoById(),
+      ...githubHandlers(),
+      ...imageHandlers({ 'logo.png': png(64, 64), 'image.png': svg }, calls),
+      ...scannerHandlers({ vt: 0, mb: 0 }),
+    );
+    await runCron(env);
+    const { results } = await env.DB.prepare('SELECT kind, content_type, width FROM plugin_images').all();
+    expect(results).toEqual([{ kind: 'logo', content_type: 'image/png', width: 64 }]);
+
+    calls.length = 0;
+    await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
+    await runCron(env);
+    expect(calls).toEqual([]);
   });
 });

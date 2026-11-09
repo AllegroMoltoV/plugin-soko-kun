@@ -12,6 +12,7 @@ export default defineConfig({
           GITHUB_CLIENT_SECRET: 'test-client-secret',
           VIRUSTOTAL_API_KEY: 'test-virustotal-key',
           MALWAREBAZAAR_AUTH_KEY: 'test-malwarebazaar-key',
+          CONTACT_EMAIL: 'allegromoltov@soko-kun.example',
         },
       },
     })),

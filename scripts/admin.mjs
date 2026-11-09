@@ -5,6 +5,8 @@
 //   npm run admin -- show <owner/repo> [--remote]
 //   npm run admin -- approve-suspicious <owner/repo> [--remote]
 //   npm run admin -- set-category <owner/repo> <category> [--remote]
+//   npm run admin -- hide-images <owner/repo> [--remote]
+//   npm run admin -- show-images <owner/repo> [--remote]
 // --remote を付けないときはローカルの D1 を更新する。
 import { spawnSync } from 'node:child_process';
 
@@ -21,7 +23,9 @@ const args = process.argv.slice(2);
 const remote = args.includes('--remote');
 const [command, rawId, reason] = args.filter((a) => a !== '--remote');
 if (!command || !rawId)
-  fail('usage: admin <suspend|resume|show|approve-suspicious|set-category> <owner/repo> [reason|category] [--remote]');
+  fail(
+    'usage: admin <suspend|resume|show|approve-suspicious|set-category|hide-images|show-images> <owner/repo> [reason|category] [--remote]',
+  );
 
 const id = rawId.toLowerCase();
 if (!ID.test(id)) fail(`invalid plugin id: ${rawId}`);
@@ -44,8 +48,12 @@ if (command === 'suspend') {
   // 自動の推定が誤っていたカテゴリを、管理者が直す。
   if (!CATEGORIES.includes(reason)) fail(`category must be one of: ${CATEGORIES.join(', ')}`);
   sql = `UPDATE plugins SET category = ${quote(reason)}, updated_at = ${quote(now)} WHERE id = ${quote(id)}; SELECT id, category FROM plugins WHERE id = ${quote(id)};`;
+} else if (command === 'hide-images' || command === 'show-images') {
+  // 不適切な画像の通報を受けたとき、掲載を続けたまま画像だけを止める。
+  const hidden = command === 'hide-images' ? 1 : 0;
+  sql = `UPDATE plugins SET images_hidden = ${hidden}, updated_at = ${quote(now)} WHERE id = ${quote(id)}; SELECT id, images_hidden FROM plugins WHERE id = ${quote(id)};`;
 } else if (command === 'show') {
-  sql = `SELECT id, admin_suspended, suspended_reason, removed, last_synced_at FROM plugins WHERE id = ${quote(id)};`;
+  sql = `SELECT id, admin_suspended, suspended_reason, removed, images_hidden, last_synced_at FROM plugins WHERE id = ${quote(id)};`;
 } else {
   fail(`unknown command: ${command}`);
 }

@@ -8,4 +8,6 @@ export interface Env {
   GITHUB_CLIENT_SECRET: string;
   VIRUSTOTAL_API_KEY?: string;
   MALWAREBAZAAR_AUTH_KEY?: string;
+  // 開発者の連絡先。収集を防ぐためソースに書かず、「連絡先を表示」ボタンを押したときだけ返す。
+  CONTACT_EMAIL?: string;
 }

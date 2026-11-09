@@ -113,7 +113,16 @@ export interface Dict {
   sideStatsSynced: string;
   sameAuthor: string;
   sameCategory: string;
-  nav: { about: string; submit: string; security: string; report: string; privacy: string; source: string };
+  nav: {
+    about: string;
+    policy: string;
+    submit: string;
+    security: string;
+    report: string;
+    terms: string;
+    privacy: string;
+    source: string;
+  };
   translationNote: string;
   englishVersion: string;
   languageLabel: string;
@@ -129,6 +138,14 @@ export interface Dict {
   sideSubmitBody: string;
   sideSubmitLink: string;
   submitNav: string;
+  translationNoteJa: string;
+  japaneseVersion: string;
+  contactLabel: string;
+  cautionLabel: string;
+  showContact: string;
+  contactHint: string;
+  contactUnavailable: string;
+  imageAlt: string;
 }
 
 const en: Dict = {
@@ -216,15 +233,17 @@ const en: Dict = {
   sideReport: 'Report',
   sideStatsTitle: 'Warehouse status',
   sideStatsListed: (n) => `${n} plugins listed`,
-  sideStatsSynced: 'Last synced',
+  sideStatsSynced: 'GitHub info checked',
   sameAuthor: 'More from this author',
   sameCategory: 'New in this category',
   nav: {
-    about: 'About and listing policy',
+    about: 'What is Plugin Soko-kun?',
+    policy: 'Listing policy',
     submit: 'Submit a plugin',
     security: 'Security and disclaimer',
     report: 'Report',
-    privacy: 'Privacy',
+    privacy: 'Privacy policy',
+    terms: 'Terms of use',
     source: 'Source code on GitHub',
   },
   translationNote: 'This page is the authoritative version.',
@@ -242,6 +261,14 @@ const en: Dict = {
   sideSubmitBody: 'Authors of OBS Studio plugins can submit their GitHub repositories from an AI agent.',
   sideSubmitLink: 'How to submit',
   submitNav: 'Submit a plugin',
+  translationNoteJa: 'This translation is for reference, so check the exact content in the Japanese version.',
+  japaneseVersion: 'Japanese version',
+  contactLabel: 'Developer contact',
+  cautionLabel: 'Caution',
+  showContact: 'Show contact',
+  contactHint: 'Replace [at] with @ when you send email.',
+  contactUnavailable: 'The developer contact is being prepared.',
+  imageAlt: 'Image describing {name}',
 };
 
 const ja: Dict = {
@@ -329,15 +356,17 @@ const ja: Dict = {
   sideReport: '通報する',
   sideStatsTitle: '倉庫の状況',
   sideStatsListed: (n) => `掲載中 ${n} 件`,
-  sideStatsSynced: '最終同期',
+  sideStatsSynced: 'GitHub の情報の確認日時',
   sameAuthor: 'この作者のプラグイン',
   sameCategory: '同じカテゴリの新着',
   nav: {
-    about: '概要と掲載ポリシー',
+    about: '配信プラグイン倉庫くんとは？',
+    policy: '掲載ポリシー',
     submit: 'プラグインを登録する',
     security: 'セキュリティと免責',
     report: '通報',
-    privacy: 'プライバシー',
+    privacy: 'プライバシーポリシー',
+    terms: '利用規約',
     source: 'GitHub のソースコード',
   },
   translationNote: 'この翻訳は参考訳なので、正確な内容は英語版で確認してください。',
@@ -355,6 +384,14 @@ const ja: Dict = {
   sideSubmitBody: 'OBS Studio のプラグインの作者は、AI エージェントから GitHub リポジトリを登録できます。',
   sideSubmitLink: '登録の方法を見る',
   submitNav: 'プラグインを登録する',
+  translationNoteJa: 'この翻訳は参考訳なので、正確な内容は日本語版で確認してください。',
+  japaneseVersion: '日本語版',
+  contactLabel: '開発者の連絡先',
+  cautionLabel: '注意',
+  showContact: '連絡先を表示',
+  contactHint: 'メールを送るときは、[at] を @ に置き換えてください。',
+  contactUnavailable: '開発者の連絡先は準備中です。',
+  imageAlt: '{name} の説明の画像',
 };
 
 const zhHans: Dict = {
@@ -438,15 +475,17 @@ const zhHans: Dict = {
   sideReport: '举报',
   sideStatsTitle: '仓库状态',
   sideStatsListed: (n) => `已收录 ${n} 个`,
-  sideStatsSynced: '最后同步',
+  sideStatsSynced: 'GitHub 信息确认时间',
   sameAuthor: '该作者的其他插件',
   sameCategory: '同分类的新插件',
   nav: {
-    about: '简介与收录政策',
+    about: '什么是配信プラグイン倉庫くん？',
+    policy: '收录政策',
     submit: '提交插件',
     security: '安全与免责声明',
     report: '举报',
-    privacy: '隐私',
+    privacy: '隐私政策',
+    terms: '使用条款',
     source: 'GitHub 上的源代码',
   },
   translationNote: '本翻译仅供参考，准确内容请以英文版为准。',
@@ -464,6 +503,14 @@ const zhHans: Dict = {
   sideSubmitBody: 'OBS Studio 插件的作者可以通过 AI 代理提交 GitHub 仓库。',
   sideSubmitLink: '查看提交方法',
   submitNav: '提交插件',
+  translationNoteJa: '本翻译仅供参考，准确内容请以日文版为准。',
+  japaneseVersion: '日文版',
+  contactLabel: '开发者联系方式',
+  cautionLabel: '注意',
+  showContact: '显示联系方式',
+  contactHint: '发送邮件时，请将 [at] 替换为 @。',
+  contactUnavailable: '开发者联系方式正在准备中。',
+  imageAlt: '{name} 的说明图片',
 };
 
 const zhHant: Dict = {
@@ -542,15 +589,17 @@ const zhHant: Dict = {
   sideReport: '檢舉',
   sideStatsTitle: '倉庫狀態',
   sideStatsListed: (n) => `已收錄 ${n} 個`,
-  sideStatsSynced: '最後同步',
+  sideStatsSynced: 'GitHub 資訊確認時間',
   sameAuthor: '此作者的其他外掛',
   sameCategory: '同分類的新外掛',
   nav: {
-    about: '簡介與收錄政策',
+    about: '什麼是配信プラグイン倉庫くん？',
+    policy: '收錄政策',
     submit: '提交外掛',
     security: '安全與免責聲明',
     report: '檢舉',
-    privacy: '隱私',
+    privacy: '隱私政策',
+    terms: '使用條款',
     source: 'GitHub 上的原始碼',
   },
   translationNote: '本翻譯僅供參考，正確內容請以英文版為準。',
@@ -568,6 +617,14 @@ const zhHant: Dict = {
   sideSubmitBody: 'OBS Studio 外掛的作者可以透過 AI 代理提交 GitHub 儲存庫。',
   sideSubmitLink: '查看提交方法',
   submitNav: '提交外掛',
+  translationNoteJa: '本翻譯僅供參考，正確內容請以日文版為準。',
+  japaneseVersion: '日文版',
+  contactLabel: '開發者聯絡方式',
+  cautionLabel: '注意',
+  showContact: '顯示聯絡方式',
+  contactHint: '寄送郵件時，請將 [at] 替換為 @。',
+  contactUnavailable: '開發者聯絡方式正在準備中。',
+  imageAlt: '{name} 的說明圖片',
 };
 
 const ko: Dict = {
@@ -654,15 +711,17 @@ const ko: Dict = {
   sideReport: '신고하기',
   sideStatsTitle: '창고 현황',
   sideStatsListed: (n) => `게재 중 ${n}개`,
-  sideStatsSynced: '마지막 동기화',
+  sideStatsSynced: 'GitHub 정보 확인 일시',
   sameAuthor: '이 작성자의 플러그인',
   sameCategory: '같은 카테고리의 신규',
   nav: {
-    about: '개요와 게재 정책',
+    about: '配信プラグイン倉庫くん이란?',
+    policy: '게재 정책',
     submit: '플러그인 등록하기',
     security: '보안과 면책',
     report: '신고',
-    privacy: '개인정보',
+    privacy: '개인정보처리방침',
+    terms: '이용약관',
     source: 'GitHub의 소스 코드',
   },
   translationNote: '이 번역은 참고용이므로, 정확한 내용은 영어판에서 확인해 주세요.',
@@ -680,6 +739,14 @@ const ko: Dict = {
   sideSubmitBody: 'OBS Studio 플러그인 작성자는 AI 에이전트에서 GitHub 저장소를 등록할 수 있습니다.',
   sideSubmitLink: '등록 방법 보기',
   submitNav: '플러그인 등록하기',
+  translationNoteJa: '이 번역은 참고용이므로, 정확한 내용은 일본어판에서 확인해 주세요.',
+  japaneseVersion: '일본어판',
+  contactLabel: '개발자 연락처',
+  cautionLabel: '주의',
+  showContact: '연락처 표시',
+  contactHint: '메일을 보낼 때는 [at]을 @로 바꿔 주세요.',
+  contactUnavailable: '개발자 연락처는 준비 중입니다.',
+  imageAlt: '{name} 설명 이미지',
 };
 
 const ptBR: Dict = {
@@ -765,15 +832,17 @@ const ptBR: Dict = {
   sideReport: 'Denunciar',
   sideStatsTitle: 'Status do depósito',
   sideStatsListed: (n) => `${n} plugins listados`,
-  sideStatsSynced: 'Última sincronização',
+  sideStatsSynced: 'Informações do GitHub verificadas em',
   sameAuthor: 'Mais deste autor',
   sameCategory: 'Novos nesta categoria',
   nav: {
-    about: 'Sobre e política de listagem',
+    about: 'O que é o Plugin Soko-kun?',
+    policy: 'Política de listagem',
     submit: 'Enviar um plugin',
     security: 'Segurança e isenção',
     report: 'Denunciar',
-    privacy: 'Privacidade',
+    privacy: 'Política de privacidade',
+    terms: 'Termos de uso',
     source: 'Código-fonte no GitHub',
   },
   translationNote: 'Esta tradução é apenas uma referência; por isso, confira o conteúdo exato na versão em inglês.',
@@ -791,6 +860,14 @@ const ptBR: Dict = {
   sideSubmitBody: 'Autores de plugins do OBS Studio podem enviar seus repositórios do GitHub por um agente de IA.',
   sideSubmitLink: 'Como enviar',
   submitNav: 'Enviar um plugin',
+  translationNoteJa: 'Esta tradução é apenas uma referência; por isso, confira o conteúdo exato na versão em japonês.',
+  japaneseVersion: 'Versão em japonês',
+  contactLabel: 'Contato do desenvolvedor',
+  cautionLabel: 'Atenção',
+  showContact: 'Mostrar contato',
+  contactHint: 'Ao enviar o e-mail, substitua [at] por @.',
+  contactUnavailable: 'O contato do desenvolvedor está em preparação.',
+  imageAlt: 'Imagem de descrição de {name}',
 };
 
 const es419: Dict = {
@@ -876,15 +953,17 @@ const es419: Dict = {
   sideReport: 'Reportar',
   sideStatsTitle: 'Estado del depósito',
   sideStatsListed: (n) => `${n} plugins en la lista`,
-  sideStatsSynced: 'Última sincronización',
+  sideStatsSynced: 'Información de GitHub verificada el',
   sameAuthor: 'Más de este autor',
   sameCategory: 'Nuevos en esta categoría',
   nav: {
-    about: 'Acerca de y política de la lista',
+    about: '¿Qué es Plugin Soko-kun?',
+    policy: 'Política de la lista',
     submit: 'Enviar un plugin',
     security: 'Seguridad y descargo',
     report: 'Reportar',
-    privacy: 'Privacidad',
+    privacy: 'Política de privacidad',
+    terms: 'Términos de uso',
     source: 'Código fuente en GitHub',
   },
   translationNote:
@@ -904,6 +983,15 @@ const es419: Dict = {
     'Los autores de plugins de OBS Studio pueden enviar sus repositorios de GitHub desde un agente de IA.',
   sideSubmitLink: 'Cómo enviar',
   submitNav: 'Enviar un plugin',
+  translationNoteJa:
+    'Esta traducción es solo de referencia; por eso, consulta el contenido exacto en la versión en japonés.',
+  japaneseVersion: 'Versión en japonés',
+  contactLabel: 'Contacto del desarrollador',
+  cautionLabel: 'Atención',
+  showContact: 'Mostrar contacto',
+  contactHint: 'Al enviar el correo, reemplaza [at] por @.',
+  contactUnavailable: 'El contacto del desarrollador está en preparación.',
+  imageAlt: 'Imagen descriptiva de {name}',
 };
 
 export const DICTS: Record<Lang, Dict> = {

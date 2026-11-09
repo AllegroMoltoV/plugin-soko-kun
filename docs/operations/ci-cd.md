@@ -95,6 +95,7 @@ npx wrangler secret put GITHUB_CLIENT_ID --env production
 npx wrangler secret put GITHUB_CLIENT_SECRET --env production
 npx wrangler secret put VIRUSTOTAL_API_KEY --env production
 npx wrangler secret put MALWAREBAZAAR_AUTH_KEY --env production
+npx wrangler secret put CONTACT_EMAIL --env production
 ```
 
 本番用の GitHub OAuth App の Authorization callback URL には、`<ORIGIN>/callback` を指定します。

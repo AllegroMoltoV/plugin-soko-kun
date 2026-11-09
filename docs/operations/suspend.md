@@ -17,12 +17,16 @@
 | 停止 | `npm run admin -- suspend <owner/repo> "<理由>"` |
 | 再開 | `npm run admin -- resume <owner/repo>` |
 | 状態の確認 | `npm run admin -- show <owner/repo>` |
+| 画像の非表示 | `npm run admin -- hide-images <owner/repo>` |
+| 画像の再表示 | `npm run admin -- show-images <owner/repo>` |
 
 いずれのコマンドも、`--remote` を付けると本番の D1 を更新します。付けない場合はローカルの D1 を更新します。`<owner/repo>` はプラグイン ID で、大文字と小文字を区別しません。
 
 停止の理由は 1〜200 文字で、制御文字を含められません。理由は、停止中の詳細ページに公開されます。通報者の名前や非公開の調査内容を理由に書かないでください。
 
-`show` は、`admin_suspended`・`suspended_reason`・`removed`・`last_synced_at` を表示します。
+`show` は、`admin_suspended`・`suspended_reason`・`removed`・`images_hidden`・`last_synced_at` を表示します。
+
+`hide-images` は、掲載を続けたままロゴと説明の画像だけを止めます。不適切な画像の通報を受けたときに使います。
 
 ## 停止
 

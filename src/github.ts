@@ -153,6 +153,47 @@ export class GitHubClient {
     }
   }
 
+  // ディレクトリが無ければ null を返す。
+  async listDirectory(
+    owner: string,
+    repo: string,
+    dir: string,
+    ref: string,
+  ): Promise<Array<{ name: string; sha: string; size: number; type: string }> | null> {
+    try {
+      const response = await this.request(
+        `${API}/repos/${path(owner, repo)}/contents/${path(dir)}?ref=${encodeURIComponent(path(ref))}`,
+      );
+      const body = await response.json();
+      return Array.isArray(body) ? body : null;
+    } catch (error) {
+      if (error instanceof GitHubError && error.kind === 'not_found') return null;
+      throw error;
+    }
+  }
+
+  // 上限を超える応答は読み切らずに null を返す。
+  async getFileBytes(
+    owner: string,
+    repo: string,
+    dir: string,
+    file: string,
+    ref: string,
+    maxBytes: number,
+  ): Promise<Uint8Array | null> {
+    const response = await this.request(
+      `${API}/repos/${path(owner, repo)}/contents/${path(dir, file)}?ref=${encodeURIComponent(path(ref))}`,
+      'application/vnd.github.raw+json',
+    );
+    const length = Number(response.headers.get('Content-Length') ?? '0');
+    if (length > maxBytes) {
+      await response.body?.cancel();
+      return null;
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return bytes.length > maxBytes ? null : bytes;
+  }
+
   async getCommitSha(owner: string, repo: string, ref: string): Promise<string> {
     const response = await this.request(`${API}/repos/${path(owner, repo)}/commits/${path(ref)}`);
     const body = (await response.json()) as { sha: string };

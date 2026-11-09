@@ -3,6 +3,7 @@ import { env, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { submitPlugin } from '../src/domain/submit';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from './fixtures/github';
+import { png } from './fixtures/images';
 import { network } from './setup';
 
 const ORIGIN = 'http://localhost:8787';
@@ -55,5 +56,38 @@ describe('Web', () => {
     const html = await (await SELF.fetch(`${ORIGIN}/plugins/${OWNER}/${REPO}?lang=ja`)).text();
     expect(html).toContain('訳&lt;script&gt;alert(2)&lt;/script&gt;');
     expect(html).not.toContain('<script>alert(2)</script>');
+  });
+
+  it('連絡先のアドレスをページに書かず、フォームの送信を受けたときだけ [at] の形で返す', async () => {
+    for (const path of ['/', '/report', '/terms', '/privacy', '/contact']) {
+      const html = await (await SELF.fetch(`${ORIGIN}${path}?lang=ja`)).text();
+      expect(html).not.toContain('soko-kun.example');
+    }
+    const response = await SELF.fetch(`${ORIGIN}/contact?lang=ja`, { method: 'POST' });
+    const html = await response.text();
+    expect(response.status).toBe(200);
+    expect(html).toContain('allegromoltov [at] soko-kun.example');
+    expect(html).not.toContain('allegromoltov@soko-kun.example');
+  });
+
+  it('画像は掲載中で、非表示にしていないプラグインのものだけを配信する', async () => {
+    await register();
+    await env.DB.prepare(
+      "INSERT INTO plugin_images (plugin_id, kind, blob_sha, content_type, width, height, bytes, fetched_at) VALUES (?, 'logo', 'x', 'image/png', 64, 64, ?, '2026-11-09T00:00:00Z')",
+    )
+      .bind(`${OWNER}/${REPO}`.toLowerCase(), png(64, 64))
+      .run();
+    const url = `${ORIGIN}/plugins/${OWNER}/${REPO}/logo`;
+    expect((await SELF.fetch(url)).status).toBe(404);
+
+    await env.DB.prepare("UPDATE scans SET result = 'clean'").run();
+    const listed = await SELF.fetch(url);
+    expect(listed.status).toBe(200);
+    expect(listed.headers.get('Content-Type')).toBe('image/png');
+    expect(listed.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    await listed.arrayBuffer();
+
+    await env.DB.prepare('UPDATE plugins SET images_hidden = 1').run();
+    expect((await SELF.fetch(url)).status).toBe(404);
   });
 });

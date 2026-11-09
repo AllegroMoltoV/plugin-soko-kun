@@ -12,6 +12,8 @@ D1 のテーブルと、掲載状態の算出規則の仕様です。スキー�
 | `scans` | `digest` とスキャナーの組 1 つにつき 1 行 |
 | `submit_log` | `submit_plugin` の要求 1 件につき 1 行 |
 | `rate_limit` | レート制限の集計の窓 1 つにつき 1 行 |
+| `plugin_translations` | プラグインと翻訳先の言語の組 1 つにつき 1 行 |
+| `plugin_images` | プラグインと画像の種類の組 1 つにつき 1 行 |
 
 OAuth のクライアント・認可・トークンの情報は D1 ではなく KV の `OAUTH_KV` に置きます。KV の形式は `@cloudflare/workers-oauth-provider` が管理します。
 
@@ -31,6 +33,8 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `removed` | INTEGER | NOT NULL、既定値 0 | 1 のとき、GitHub でリポジトリが削除または非公開になった |
 | `submitter_github_id` | INTEGER | NOT NULL | 登録者の GitHub のユーザー ID |
 | `releases_etag` | TEXT | | リリース一覧の取得で使う ETag |
+| `images_tag` | TEXT | | 最後に画像を取得したときのリリースのタグ。最新リリースのタグと異なるときに画像を取得し直す |
+| `images_hidden` | INTEGER | NOT NULL、既定値 0 | 1 のとき、管理者の判断で画像を表示も配信もしない |
 | `created_at` | TEXT | NOT NULL | 登録日時 |
 | `updated_at` | TEXT | NOT NULL | 更新日時 |
 | `last_synced_at` | TEXT | NOT NULL | 最後に同期した日時。同期の順序に使う |
@@ -185,3 +189,19 @@ VirusTotal の `suspicious` は、停止の条件にも確定の条件にも当�
 | `text` | TEXT | NOT NULL | 翻訳した概要。外部データとして扱う |
 | `translated_at` | TEXT | NOT NULL | 翻訳した日時 |
 
+## plugin_images
+
+プラグインのロゴと説明の画像を保存します。取得の規則は [検査と同期](scanning.md) に、自分のドメインから配信する判断は [ADR 0011](../decisions/0011-plugin-images-hosted-by-worker.md) に記載しています。
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `plugin_id` | TEXT | 主キーの一部、`plugins.id` を参照、親の削除で連鎖削除 | プラグイン ID |
+| `kind` | TEXT | 主キーの一部、`logo`・`image` のいずれか | 画像の種類 |
+| `blob_sha` | TEXT | NOT NULL | GitHub の blob の SHA。変わったときだけダウンロードし直す |
+| `content_type` | TEXT | NOT NULL | `image/png`・`image/jpeg`・`image/gif`・`image/webp` のいずれか。先頭のバイト列から判定した値 |
+| `width` | INTEGER | NOT NULL | 幅の px 数 |
+| `height` | INTEGER | NOT NULL | 高さの px 数 |
+| `bytes` | BLOB | NOT NULL | 画像の本体。外部データ |
+| `fetched_at` | TEXT | NOT NULL | 取得した日時 |
+
+画像は `/plugins/<owner>/<repo>/logo` と `/plugins/<owner>/<repo>/image` で配信します。URL のクエリに blob の SHA を付け、画像が変わったときに閲覧者のキャッシュを使わせないようにします。配信するのは掲載中のプラグインで、`images_hidden` が 0 のときだけです。応答には `Content-Security-Policy: default-src 'none'` と `X-Content-Type-Options: nosniff` を付けます。
