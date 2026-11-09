@@ -60,9 +60,35 @@ Dependabot は、毎週、次の 2 種類の更新の PR を作ります。
 
 Dependabot の PR も CI を通してからマージします。
 
-## 本番の前に依頼者が設定する項目
+## Worker の設定
 
-次の項目は、リポジトリと Cloudflare の管理画面での設定です。Claude Code や CI からは設定しません。本番の配備の前に、すべて設定します。
+`deploy.yml` と管理用スクリプトの `--remote` は、`wrangler.jsonc` の `production` 環境を使います。`production` 環境には、本番の `ORIGIN`・D1 の `database_id`・KV の `id`・Workers AI の binding (`ai`)・独自ドメインの `routes` を設定します。環境ごとの設定には既定の環境の binding が引き継がれないため、`ai` も `production` 環境に書く必要があります。Cron の `triggers` と `observability` は、既定の環境から引き継がれます。
+
+Worker の秘密情報は、`wrangler secret put` で本番の Worker に設定します。名前と用途は [認証と認可](../design/auth.md) に記載しています。
+
+```sh
+npx wrangler secret put GITHUB_CLIENT_ID --env production
+npx wrangler secret put GITHUB_CLIENT_SECRET --env production
+npx wrangler secret put MALWAREBAZAAR_AUTH_KEY --env production
+npx wrangler secret put CONTACT_EMAIL --env production
+```
+
+本番用の GitHub OAuth App の Authorization callback URL には、`<ORIGIN>/callback` を指定します。
+
+## 初回の配備
+
+GitHub の個人アカウントの private リポジトリでは、environment の承認のルールと environment の secret を使えません。そのため、リポジトリを public にする前の初回の配備は、依頼者の承認を得て、ローカルの `wrangler` で行います。`wrangler` は、`wrangler login` で得た OAuth トークンで認証します。
+
+```sh
+npx wrangler d1 migrations apply DB --remote --env production
+npx wrangler deploy --env production
+```
+
+配備のあと、`<ORIGIN>/` と `<ORIGIN>/mcp` が応答することを確かめます。
+
+## public にした後に依頼者が設定する項目
+
+次の項目は、リポジトリと Cloudflare の管理画面での設定です。Claude Code や CI からは設定しません。リポジトリを public にしたら、2 回目以降の配備の前に、すべて設定します。
 
 ### リポジトリの設定
 
@@ -84,22 +110,7 @@ Dependabot の PR も CI を通してからマージします。
 
 `deploy.yml` は、`CLOUDFLARE_API_TOKEN` を `secrets` から、`CLOUDFLARE_ACCOUNT_ID` を `vars` から読みます。
 
-### Worker の設定
-
-`deploy.yml` と管理用スクリプトの `--remote` は、`wrangler.jsonc` の `production` 環境を使います。`production` 環境には、本番の `ORIGIN`・D1 の `database_id`・KV の `id` と、Workers AI の binding (`ai`) を設定します。環境ごとの設定には既定の環境の binding が引き継がれないため、`ai` も `production` 環境に書く必要があります。
-
-Worker の秘密情報は、`wrangler secret put` で本番の Worker に設定します。名前と用途は [認証と認可](../design/auth.md) に記載しています。
-
-```sh
-npx wrangler secret put GITHUB_CLIENT_ID --env production
-npx wrangler secret put GITHUB_CLIENT_SECRET --env production
-npx wrangler secret put MALWAREBAZAAR_AUTH_KEY --env production
-npx wrangler secret put CONTACT_EMAIL --env production
-```
-
-本番用の GitHub OAuth App の Authorization callback URL には、`<ORIGIN>/callback` を指定します。
-
-## 配備の実行
+## 2 回目以降の配備
 
 1. GitHub の Actions の画面で `Deploy` を選び、`main` を指定して実行します。
 2. environment `production` の承認を求められたら、依頼者が内容を確認して承認します。
