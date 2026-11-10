@@ -25,3 +25,18 @@ Registry への書き込みには、`AllegroMoltoV` の GitHub アカウント�
 5. `https://registry.modelcontextprotocol.io/v0/servers?search=plugin-soko-kun` で、登録された内容を確かめます。
 
 エンドポイント、説明、版を変えたときは、`server.json` を直し、`version` を上げてから、同じ手順で登録し直します。
+
+版を上げたときは、同じ版の GitHub のリリースを `v0.1.1` の形のタグで作ります。リリースの説明には README の更新履歴の文を使います。
+
+## Glama
+
+MCP サーバーの一覧サイトの Glama (https://glama.ai) には、本サービスが 2 か所に載っています。
+
+| 掲載 | URL | 内容 |
+| --- | --- | --- |
+| コネクター | https://glama.ai/mcp/connectors/jp.allegromoltov.soko-kun/plugin-soko-kun | 本番のエンドポイントに接続して確かめた掲載。所有は DNS の TXT レコード `_glama-claim.soko-kun.allegromoltov.jp` で示している |
+| サーバー | https://glama.ai/mcp/servers/AllegroMoltoV/plugin-soko-kun | Glama が GitHub のリポジトリから作った掲載。コネクターへ案内される |
+
+リポジトリの直下の `glama.json` は、サーバーの掲載の保守者を示すファイルです。`maintainers` に `AllegroMoltoV` を書きます。
+
+サーバーの掲載では、Glama のリリースを作りません。Glama のリリースは、Glama がサーバーを Docker で起動して作ります。本サービスは Cloudflare Workers の上でだけ動くため、起動できません。そのため、サーバーの掲載の品質の評価は付きません。ツールの品質の評価は、コネクターの掲載に付きます。
