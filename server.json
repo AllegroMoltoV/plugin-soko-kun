@@ -3,8 +3,20 @@
   "name": "io.github.AllegroMoltoV/plugin-soko-kun",
   "title": "Plugin Soko-kun",
   "description": "Search, inspect, and submit third-party OBS Studio plugins in a free, unofficial registry.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "websiteUrl": "https://soko-kun.allegromoltov.jp",
+  "icons": [
+    {
+      "src": "https://soko-kun.allegromoltov.jp/logo.png",
+      "mimeType": "image/png",
+      "sizes": ["256x256"]
+    },
+    {
+      "src": "https://soko-kun.allegromoltov.jp/logo.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": ["any"]
+    }
+  ],
   "repository": {
     "url": "https://github.com/AllegroMoltoV/plugin-soko-kun",
     "source": "github"
