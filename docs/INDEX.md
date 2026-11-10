@@ -42,5 +42,6 @@
 | プラグインの掲載を止める、再開する、通報に対応する | [掲載停止と再開](operations/suspend.md) |
 | D1 のデータを保存する、過去の時点へ戻す | [バックアップと復元](operations/backup.md) |
 | ワークフローの権限を知る、本番の設定をそろえて配備する | [CI と配備](operations/ci-cd.md) |
+| 公式の MCP Registry に登録する、登録を更新する | [公式 MCP Registry への登録](operations/mcp-registry.md) |
 
 作業の記録 (調査報告、実行ログ、計画、依頼者との確認事項) は公開せず、git の追跡対象外に置きます。その索引は `.prompts/INDEX.md` にあります。
