@@ -41,6 +41,7 @@ To report a vulnerability in this service, use [private vulnerability reporting]
 | `.github/` | CI, CodeQL, deploy workflows, Dependabot, funding, and the security policy |
 | `wrangler.jsonc` | Cloudflare Workers configuration |
 | `server.json` | Entry for the official MCP Registry |
+| `glama.json` | Maintainer of the Glama server listing |
 | `docs/` | Design documents, glossary, and decision records (in Japanese) |
 | `LICENSE` | MIT License |
 
@@ -85,6 +86,7 @@ codex mcp add plugin-soko-kun --url https://soko-kun.allegromoltov.jp/mcp
 | `.github/` | CI、CodeQL、配備のワークフロー、Dependabot、寄付の設定、セキュリティの方針 |
 | `wrangler.jsonc` | Cloudflare Workers の設定 |
 | `server.json` | 公式の MCP Registry への登録の定義 |
+| `glama.json` | Glama のサーバーの掲載の保守者 |
 | `docs/` | 設計文書、用語集、決定事項の記録 |
 | `LICENSE` | MIT License |
 
