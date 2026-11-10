@@ -1,6 +1,15 @@
 // 機械翻訳の危険側の境界: 概要に書かれた指示に従って、原文に無い URL を出した訳を表示しない。
 import { describe, expect, it } from 'vitest';
-import { acceptTranslation } from '../src/translate';
+import { acceptTranslation, sha256, TRANSLATION_MODEL, translationHash } from '../src/translate';
+
+describe('translationHash', () => {
+  // 指示を直したあとに、前の指示で作った崩れた訳を表示し続けないための境界。
+  it('モデルと原文だけで作った以前のハッシュと一致しない', async () => {
+    const summary = 'OBS Studio plugin that restyles chat / チャットの見た目を変える OBS Studio のプラグイン';
+    const old = await sha256(`${TRANSLATION_MODEL}\n${summary}`);
+    expect(await translationHash(summary, 'ja', 'pt-BR')).not.toBe(old);
+  });
+});
 
 describe('acceptTranslation', () => {
   it('原文に無い URL を含む訳を採用しない', () => {
