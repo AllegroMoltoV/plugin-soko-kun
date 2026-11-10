@@ -182,7 +182,7 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 | --- | --- | --- | --- |
 | `plugin_id` | TEXT | 主キーの一部、`plugins.id` を参照、親の削除で連鎖削除 | プラグイン ID |
 | `lang` | TEXT | 主キーの一部 | 翻訳先の言語。`ja`・`en`・`zh-Hans`・`zh-Hant`・`ko`・`pt-BR`・`es-419` のいずれか |
-| `source_hash` | TEXT | NOT NULL | 翻訳に使ったモデルの名前と概要を合わせた文字列の SHA-256。概要かモデルが変わると一致しなくなり、翻訳し直す |
+| `source_hash` | TEXT | NOT NULL | 翻訳に使ったモデルの名前・翻訳の指示・概要を合わせた文字列の SHA-256。概要・モデル・指示のどれかが変わると一致しなくなり、翻訳し直す |
 | `text` | TEXT | NOT NULL | 翻訳した概要。外部データとして扱う。訳を採用しなかった場合は空の文字列で、画面は原文を表示する |
 | `translated_at` | TEXT | NOT NULL | 翻訳した日時 |
 
