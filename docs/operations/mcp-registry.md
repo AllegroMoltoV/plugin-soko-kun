@@ -12,6 +12,7 @@ MCP クライアントの利用者が本サービスを見つけられるよう�
 | `description` | Registry の上限の 100 文字以内。宣伝の語を並べない |
 | `version` | 本サービスの版。README の更新履歴と `package.json` の `version` にそろえる |
 | `remotes` | `streamable-http` と `https://soko-kun.allegromoltov.jp/mcp` |
+| `icons` | `/logo.png` (256 x 256 px) と `/logo.svg`。MCP の `serverInfo` のアイコンと同じもの |
 
 ## 登録と更新の手順
 

@@ -7,6 +7,7 @@ import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
 import { DICTS, LANGS, type Lang, negotiate } from './i18n';
 import { Layout, type PageMeta, toJsonLd, websiteJsonLd, withLang } from './layout';
 import { LOGO_SVG } from './logo';
+import { LOGO_PNG } from './logo-png';
 import { OG_PNG } from './og-image';
 import { PluginCards, PluginDetail, SearchForm, SideCommon, SideRelated, StaticPage, summaryFor } from './pages';
 import { STYLE_CSS } from './style';
@@ -128,6 +129,10 @@ app.get('/style.css', (c) =>
 
 app.get('/og.png', (c) =>
   c.body(OG_PNG, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }),
+);
+
+app.get('/logo.png', (c) =>
+  c.body(LOGO_PNG, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }),
 );
 
 app.get('/logo.svg', (c) =>

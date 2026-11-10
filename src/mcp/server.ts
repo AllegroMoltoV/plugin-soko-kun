@@ -103,11 +103,23 @@ function detailItem(env: Env, view: PluginView) {
 const json = (value: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(value) }] });
 
 export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
-  const server = new McpServer({ name: 'plugin-soko-kun', version: '0.1.0' });
+  const server = new McpServer({
+    name: 'plugin-soko-kun',
+    title: 'Plugin Soko-kun',
+    version: '0.1.1',
+    websiteUrl: env.ORIGIN,
+    icons: [
+      { src: `${env.ORIGIN}/logo.png`, mimeType: 'image/png', sizes: ['256x256'] },
+      { src: `${env.ORIGIN}/logo.svg`, mimeType: 'image/svg+xml', sizes: ['any'] },
+    ],
+  });
 
   server.registerTool(
     'search_plugins',
     {
+      title: 'Search OBS Studio plugins',
+      // 自前の D1 を読むだけで、外部への書き込みも外部への問い合わせもしない。
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       description: `Search third-party plugins for OBS Studio listed in Plugin Soko-kun. Only plugins whose latest checked release passed automated checks are returned. ${UNTRUSTED_NOTE}`,
       inputSchema: {
         keyword: z
@@ -117,8 +129,16 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
           .describe(
             'Words to match against plugin names and summaries. Summaries are also matched in their machine translations into the other supported languages (ja, en, zh-Hans, zh-Hant, ko, pt-BR, es-419). Partial match.',
           ),
-        os: z.enum(OS_VALUES).optional(),
-        category: z.enum(CATEGORIES).optional(),
+        os: z
+          .enum(OS_VALUES)
+          .optional()
+          .describe('Return only plugins that have a release file for this OS. If omitted, all OSes are included.'),
+        category: z
+          .enum(CATEGORIES)
+          .optional()
+          .describe(
+            'Return only plugins in this category: audio-filter, video-filter, source (adds video or audio to the scene), transition, dock-ui (adds docks or panels to the OBS window), output (streaming and recording), other. If omitted, all categories are included.',
+          ),
       },
     },
     async ({ keyword, os, category }) => {
@@ -134,8 +154,17 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
   server.registerTool(
     'get_plugin',
     {
+      title: 'Get an OBS Studio plugin',
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       description: `Get details of a plugin by its id (owner/repository). Download links are included only for listed plugins. ${UNTRUSTED_NOTE}`,
-      inputSchema: { id: z.string().regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/) },
+      inputSchema: {
+        id: z
+          .string()
+          .regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/)
+          .describe(
+            'Plugin id in the form owner/repository, as returned by search_plugins (for example, allegromoltov/obs-simple-pitchshift).',
+          ),
+      },
     },
     async ({ id }) => {
       const view = await getPluginView(env, id);
@@ -149,10 +178,19 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
     server.registerTool(
       'submit_plugin',
       {
+        title: 'Submit an OBS Studio plugin',
+        // 登録を書き込むが既存のものは消さない。同じリポジトリの再登録は duplicate で拒否するため、繰り返しても結果は増えない。
+        // GitHub に問い合わせて条件を確かめる。
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
         description:
           'Register a public GitHub repository of an OBS Studio plugin that you administer. Requires signing in with GitHub (in Claude Code, run /mcp and sign in). The plugin is listed automatically after automated checks pass.',
         inputSchema: {
-          repositoryUrl: z.string().max(200).describe('https://github.com/<owner>/<repository>'),
+          repositoryUrl: z
+            .string()
+            .max(200)
+            .describe(
+              'URL of a public GitHub repository that you administer, in the form https://github.com/<owner>/<repository>.',
+            ),
           category: z
             .enum(CATEGORIES)
             .optional()
