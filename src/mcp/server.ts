@@ -106,7 +106,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
   const server = new McpServer({
     name: 'plugin-soko-kun',
     title: 'Plugin Soko-kun',
-    version: '0.1.1',
+    version: '0.1.2',
     websiteUrl: env.ORIGIN,
     icons: [
       { src: `${env.ORIGIN}/logo.png`, mimeType: 'image/png', sizes: ['256x256'] },
