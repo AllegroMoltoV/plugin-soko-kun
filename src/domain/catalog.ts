@@ -34,6 +34,9 @@ export interface ImageView {
   sha: string;
   width: number;
   height: number;
+  type: string;
+  // 説明の画像の表示用の WebP。元の画像と同じ SHA から作ったものだけを持つ。
+  preview?: { width: number; height: number };
 }
 
 export interface PluginView {
@@ -137,7 +140,11 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     // 画像の本体は配信のときだけ読む。
     bind(
       env.DB.prepare(
-        `SELECT i.plugin_id, i.kind, i.blob_sha, i.width, i.height FROM plugin_images i JOIN plugins p ON p.id = i.plugin_id ${where}`,
+        `SELECT i.plugin_id, i.kind, i.blob_sha, i.width, i.height, i.content_type,
+           v.width AS preview_width, v.height AS preview_height
+         FROM plugin_images i JOIN plugins p ON p.id = i.plugin_id
+         LEFT JOIN plugin_image_previews v ON v.plugin_id = i.plugin_id AND i.kind = 'image' AND v.source_sha = i.blob_sha
+         ${where}`,
       ),
     ),
     bind(
@@ -159,9 +166,20 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     blob_sha: string;
     width: number;
     height: number;
+    content_type: string;
+    preview_width: number | null;
+    preview_height: number | null;
   }>) {
     const entry = imagesByPlugin.get(row.plugin_id) ?? {};
-    entry[row.kind] = { sha: row.blob_sha, width: row.width, height: row.height };
+    entry[row.kind] = {
+      sha: row.blob_sha,
+      width: row.width,
+      height: row.height,
+      type: row.content_type,
+      ...(row.preview_width && row.preview_height
+        ? { preview: { width: row.preview_width, height: row.preview_height } }
+        : {}),
+    };
     imagesByPlugin.set(row.plugin_id, entry);
   }
   const translationsByPlugin = new Map<string, Partial<Record<TranslationLang, string>>>();
@@ -335,4 +353,20 @@ export async function getPluginImage(
   if (!row) return null;
   const bytes = Array.isArray(row.bytes) ? new Uint8Array(row.bytes).buffer : row.bytes;
   return { contentType: row.content_type, bytes };
+}
+
+// 説明の画像の表示用の WebP。説明の画像と同じ条件で、元の画像と同じ SHA から作ったものだけを返す。
+export async function getPluginPreview(
+  env: Env,
+  id: string,
+): Promise<{ contentType: string; bytes: ArrayBuffer } | null> {
+  const view = await getPluginView(env, id);
+  const image = view?.images.image;
+  if (view?.status !== 'listed' || !image?.preview) return null;
+  const row = await env.DB.prepare('SELECT bytes FROM plugin_image_previews WHERE plugin_id = ? AND source_sha = ?')
+    .bind(view.id, image.sha)
+    .first<{ bytes: ArrayBuffer | number[] }>();
+  if (!row) return null;
+  const bytes = Array.isArray(row.bytes) ? new Uint8Array(row.bytes).buffer : row.bytes;
+  return { contentType: 'image/webp', bytes };
 }

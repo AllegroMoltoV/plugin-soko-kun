@@ -1,6 +1,13 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
-import { catalogStats, getPluginImage, getPluginView, type PluginView, searchPlugins } from '../domain/catalog';
+import {
+  catalogStats,
+  getPluginImage,
+  getPluginPreview,
+  getPluginView,
+  type PluginView,
+  searchPlugins,
+} from '../domain/catalog';
 import { CATEGORIES, type Category, OS_VALUES, type Os } from '../domain/metadata';
 import type { Env } from '../env';
 import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
@@ -227,9 +234,10 @@ app.get('/', async (c) => {
 });
 
 // 画像は掲載中のプラグインのものだけを配信する。形式は保存の前に先頭のバイト列で確かめている。
-for (const kind of ['logo', 'image'] as const) {
+for (const kind of ['logo', 'image', 'preview'] as const) {
   app.get(`/plugins/:owner/:repo/${kind}`, async (c) => {
-    const image = await getPluginImage(c.env, `${c.req.param('owner')}/${c.req.param('repo')}`, kind);
+    const id = `${c.req.param('owner')}/${c.req.param('repo')}`;
+    const image = kind === 'preview' ? await getPluginPreview(c.env, id) : await getPluginImage(c.env, id, kind);
     if (!image) return c.notFound();
     return c.body(image.bytes, 200, {
       'Content-Type': image.contentType,

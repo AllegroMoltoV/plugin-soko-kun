@@ -148,6 +148,7 @@ export interface Dict {
   contactHint: string;
   contactUnavailable: string;
   imageAlt: string;
+  playAnimation: string;
   downloadsLabel: string;
   downloadsShort: string;
   downloadsAsOf: string;
@@ -277,6 +278,7 @@ const en: Dict = {
   contactHint: 'Replace [at] with @ when you send email.',
   contactUnavailable: 'The developer contact is being prepared.',
   imageAlt: 'Image describing {name}',
+  playAnimation: 'Play animation',
   downloadsLabel: 'Downloads (GitHub)',
   downloadsShort: 'Downloads',
   downloadsAsOf: 'as of {date}',
@@ -406,6 +408,7 @@ const ja: Dict = {
   contactHint: 'メールを送るときは、[at] を @ に置き換えてください。',
   contactUnavailable: '開発者の連絡先は準備中です。',
   imageAlt: '{name} の説明の画像',
+  playAnimation: 'アニメーションを再生',
   downloadsLabel: 'ダウンロード数 (GitHub)',
   downloadsShort: 'ダウンロード数',
   downloadsAsOf: '{date} 時点',
@@ -532,6 +535,7 @@ const zhHans: Dict = {
   contactHint: '发送邮件时，请将 [at] 替换为 @。',
   contactUnavailable: '开发者联系方式正在准备中。',
   imageAlt: '{name} 的说明图片',
+  playAnimation: '播放动画',
   downloadsLabel: '下载次数 (GitHub)',
   downloadsShort: '下载次数',
   downloadsAsOf: '截至 {date}',
@@ -653,6 +657,7 @@ const zhHant: Dict = {
   contactHint: '寄送郵件時，請將 [at] 替換為 @。',
   contactUnavailable: '開發者聯絡方式正在準備中。',
   imageAlt: '{name} 的說明圖片',
+  playAnimation: '播放動畫',
   downloadsLabel: '下載次數 (GitHub)',
   downloadsShort: '下載次數',
   downloadsAsOf: '截至 {date}',
@@ -781,6 +786,7 @@ const ko: Dict = {
   contactHint: '메일을 보낼 때는 [at]을 @로 바꿔 주세요.',
   contactUnavailable: '개발자 연락처는 준비 중입니다.',
   imageAlt: '{name} 설명 이미지',
+  playAnimation: '애니메이션 재생',
   downloadsLabel: '다운로드 수 (GitHub)',
   downloadsShort: '다운로드 수',
   downloadsAsOf: '{date} 기준',
@@ -908,6 +914,7 @@ const ptBR: Dict = {
   contactHint: 'Ao enviar o e-mail, substitua [at] por @.',
   contactUnavailable: 'O contato do desenvolvedor está em preparação.',
   imageAlt: 'Imagem de descrição de {name}',
+  playAnimation: 'Reproduzir animação',
   downloadsLabel: 'Downloads (GitHub)',
   downloadsShort: 'Downloads',
   downloadsAsOf: 'em {date}',
@@ -1038,6 +1045,7 @@ const es419: Dict = {
   contactHint: 'Al enviar el correo, reemplaza [at] por @.',
   contactUnavailable: 'El contacto del desarrollador está en preparación.',
   imageAlt: 'Imagen descriptiva de {name}',
+  playAnimation: 'Reproducir animación',
   downloadsLabel: 'Descargas (GitHub)',
   downloadsShort: 'Descargas',
   downloadsAsOf: 'al {date}',
