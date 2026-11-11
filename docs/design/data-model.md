@@ -14,6 +14,7 @@ D1 のテーブルと、掲載状態の算出規則の仕様です。スキー�
 | `rate_limit` | レート制限の集計の窓 1 つにつき 1 行 |
 | `plugin_translations` | プラグインと翻訳先の言語の組 1 つにつき 1 行 |
 | `plugin_images` | プラグインと画像の種類の組 1 つにつき 1 行 |
+| `plugin_image_previews` | 説明の画像を持つプラグイン 1 つにつき 1 行 |
 | `download_snapshots` | プラグインと日付の組 1 つにつき 1 行 |
 
 OAuth のクライアント・認可・トークンの情報は D1 ではなく KV の `OAUTH_KV` に置きます。KV の形式は `@cloudflare/workers-oauth-provider` が管理します。
@@ -202,6 +203,21 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 | `fetched_at` | TEXT | NOT NULL | 取得した日時 |
 
 画像は `/plugins/<owner>/<repo>/logo` と `/plugins/<owner>/<repo>/image` で配信します。URL のクエリに blob の SHA を付け、画像が変わったときに閲覧者のキャッシュを使わせないようにします。配信するのは掲載中のプラグインで、`images_hidden` が 0 のときだけです。応答には、ほかの画面と同じ `Content-Security-Policy` (`default-src 'none'` を基本とする) と `X-Content-Type-Options: nosniff` を付けます。
+
+## plugin_image_previews
+
+説明の画像から定期処理が作った、表示用の WebP の画像を保存します。作り方は [検査と同期](scanning.md) に記載しています。`plugin_images` の `kind` には `CHECK` の制約があり種類を足せないため、別の表にします。
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `plugin_id` | TEXT | 主キー、`plugins.id` を参照、親の削除で連鎖削除 | プラグイン ID |
+| `source_sha` | TEXT | NOT NULL | 元にした説明の画像の blob の SHA。`plugin_images` の値と違えば作り直す |
+| `width` | INTEGER | NOT NULL | 幅の px 数 |
+| `height` | INTEGER | NOT NULL | 高さの px 数 |
+| `bytes` | BLOB | NOT NULL | WebP の画像の本体 |
+| `made_at` | TEXT | NOT NULL | 作った日時 |
+
+表示用の画像は `/plugins/<owner>/<repo>/preview` で配信します。配信の条件と応答ヘッダーは、説明の画像と同じです。元の画像の SHA が保存済みの値と違う行は配信しません。
 
 ## download_snapshots
 

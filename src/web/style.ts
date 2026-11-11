@@ -188,7 +188,14 @@ ol.cards li { border-bottom: 1px dotted var(--line); padding: 8px 2px; }
 .title img.logo { width: 64px; height: 64px; object-fit: contain; flex: none; }
 .title h1 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 p.shot { margin: 10px 0; }
-p.shot img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); }
+p.shot img, details.shot img, details.shot .placeholder { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); }
+details.shot { margin: 10px 0; }
+details.shot summary { position: relative; display: block; list-style: none; cursor: pointer; }
+details.shot summary::-webkit-details-marker { display: none; }
+details.shot .placeholder { width: 100%; background: repeating-linear-gradient(45deg, var(--button-light), var(--button-light) 6px, var(--button-bottom) 6px, var(--button-bottom) 12px); }
+details.shot .play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 6px 14px; font-size: 13px; font-weight: bold; color: #fff; background: rgba(0, 0, 0, 0.7); border: 1px solid #fff; white-space: nowrap; }
+details.shot summary:hover .play, details.shot summary:focus-visible .play { background: rgba(0, 0, 0, 0.85); }
+details.shot[open] summary { display: none; }
 .summary { margin: 3px 0; }
 .meta { color: var(--muted); font-size: 11px; margin: 2px 0; }
 .pager { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; }

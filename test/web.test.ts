@@ -94,6 +94,32 @@ describe('Web', () => {
     expect((await SELF.fetch(url)).status).toBe(404);
   });
 
+  // 閉じた details の中の img は loading="lazy" のときだけ読み込まれない。外れると、開く前に GIF を読み込んで重くなる。
+  it('説明の GIF は閉じた details の中に loading="lazy" で置き、表示用の静止画を先に見せる', async () => {
+    await register();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
+    const id = `${OWNER}/${REPO}`.toLowerCase();
+    await env.DB.prepare(
+      "INSERT INTO plugin_images (plugin_id, kind, blob_sha, content_type, width, height, bytes, fetched_at) VALUES (?, 'image', 'g1', 'image/gif', 640, 360, ?, '2026-11-09T00:00:00Z')",
+    )
+      .bind(id, new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x80, 0x02, 0x68, 0x01]))
+      .run();
+    const page = async () => (await SELF.fetch(`${ORIGIN}/plugins/${OWNER}/${REPO}?lang=ja`)).text();
+
+    const before = await page();
+    expect(before).toMatch(/<details class="shot anim"><summary><svg class="placeholder"/);
+    expect(before).toMatch(/<img src="\/plugins\/[^"]+\/image\?v=g1"[^>]*loading="lazy"/);
+
+    await env.DB.prepare(
+      "INSERT INTO plugin_image_previews (plugin_id, source_sha, width, height, bytes, made_at) VALUES (?, 'g1', 640, 360, ?, '2026-11-09T00:00:00Z')",
+    )
+      .bind(id, new Uint8Array([1]))
+      .run();
+    const after = await page();
+    expect(after).toMatch(/<summary><img src="\/plugins\/[^"]+\/preview\?v=g1"/);
+    expect(after).toMatch(/<img src="\/plugins\/[^"]+\/image\?v=g1"[^>]*loading="lazy"/);
+  });
+
   it('週間 DL 数ランキングは 7 日以上前の記録がたまるまで右の列に出さない', async () => {
     await register();
     await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();

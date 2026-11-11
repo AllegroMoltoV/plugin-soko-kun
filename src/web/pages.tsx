@@ -1,5 +1,5 @@
 import type { Child, FC } from 'hono/jsx';
-import type { PluginView } from '../domain/catalog';
+import type { ImageView, PluginView } from '../domain/catalog';
 import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
 import type { Block, PageContent } from './content';
@@ -329,6 +329,43 @@ const checkLabel = (t: Dict, result: ScanResult | undefined) => {
   return t.check[result];
 };
 
+// 説明の画像は表示用の WebP で出し、詳細ページを軽くする。GIF は閉じた details の中に置き、開いたときだけ読み込ませる。
+// 閉じた details の中の img は loading="lazy" のときだけ読み込まれないため、GIF には必ず付ける。
+const Shot: FC<{ view: PluginView; image: ImageView; t: Dict }> = ({ view, image, t }) => {
+  const alt = t.imageAlt.replace('{name}', view.repo);
+  const original = `/plugins/${view.id}/image?v=${image.sha}`;
+  const preview = image.preview ? (
+    <img
+      src={`/plugins/${view.id}/preview?v=${image.sha}`}
+      width={image.preview.width}
+      height={image.preview.height}
+      alt={alt}
+    />
+  ) : null;
+  if (image.type !== 'image/gif') {
+    return <p class="shot">{preview ?? <img src={original} width={image.width} height={image.height} alt={alt} />}</p>;
+  }
+  return (
+    <details class="shot anim">
+      <summary>
+        {preview ?? (
+          // CSP が style 属性を許さないため、縦横比は SVG の viewBox で保つ。
+          <svg
+            class="placeholder"
+            viewBox={`0 0 ${image.width} ${image.height}`}
+            width={image.width}
+            height={image.height}
+            role="img"
+            aria-label={alt}
+          />
+        )}
+        <span class="play">▶ {t.playAnimation}</span>
+      </summary>
+      <img src={original} width={image.width} height={image.height} alt={alt} loading="lazy" />
+    </details>
+  );
+};
+
 export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOriginal: boolean }> = ({
   view,
   t,
@@ -394,16 +431,7 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
     <>
       {head}
       <Summary view={view} t={t} lang={lang} showOriginal={showOriginal} path={`/plugins/${view.id}`} />
-      {view.images.image ? (
-        <p class="shot">
-          <img
-            src={`/plugins/${view.id}/image?v=${view.images.image.sha}`}
-            width={view.images.image.width}
-            height={view.images.image.height}
-            alt={t.imageAlt.replace('{name}', view.repo)}
-          />
-        </p>
-      ) : null}
+      {view.images.image ? <Shot view={view} image={view.images.image} t={t} /> : null}
       {primary ? (
         <div class="download">
           <a class="button" href={primary.downloadUrl} rel="noopener noreferrer">
