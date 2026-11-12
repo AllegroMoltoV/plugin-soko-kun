@@ -47,6 +47,10 @@ To report a vulnerability in this service, use [private vulnerability reporting]
 
 For local development, see [docs/operations/local-development.md](docs/operations/local-development.md) (in Japanese).
 
+### AI disclosure
+
+Anthropic Claude Code was used for almost the entire development of this service, including research, source code, Cloudflare configuration, tests, and documentation. OpenAI Codex was used to verify sign-in and submission from Codex. The author decided the requirements and design policies, reviewed the web pages and documents, and approved each deployment and external operation one by one. The author did not perform a rigorous line-by-line human review of the source code.
+
 ## 日本語
 
 配信プラグイン倉庫くんは、OBS Studio 向けのサードパーティ製プラグインを検索・登録できる、独立したオープンなレジストリです。MCP を主な操作手段とし、Claude Code や Codex などの AI エージェントからプラグインを探したり、GitHub リポジトリを登録したりできます。閲覧専用の Web カタログを https://soko-kun.allegromoltov.jp で提供しています。
@@ -91,6 +95,10 @@ codex mcp add plugin-soko-kun --url https://soko-kun.allegromoltov.jp/mcp
 | `LICENSE` | MIT License |
 
 ローカルでの開発の手順は [docs/operations/local-development.md](docs/operations/local-development.md) にあります。
+
+### AI 利用開示
+
+本サービスの開発では、調査、ソースコード、Cloudflare の設定、テスト、文書を含むほぼすべての工程で Anthropic Claude Code を使用しました。Codex からのサインインと登録の確認には OpenAI Codex を使用しました。要件と設計の方針は作者が決めました。作者は Web の画面と文書を確認し、配備と外部への操作を 1 回ずつ承認しました。ソースコードを 1 行ずつ読む厳密な人間のレビューは行っていません。
 
 ## 更新履歴
 
