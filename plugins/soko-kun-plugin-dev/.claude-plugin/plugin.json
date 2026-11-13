@@ -1,0 +1,13 @@
+{
+  "name": "soko-kun-plugin-dev",
+  "displayName": "Soko-kun Plugin Dev",
+  "description": "A skill for building OBS Studio plugins with Claude Code: planning, scaffolding from obs-plugintemplate, verification in OBS and in CI, releases with build provenance attestations, and listing on Plugin Soko-kun",
+  "author": {
+    "name": "AllegroMoltoV",
+    "url": "https://github.com/AllegroMoltoV"
+  },
+  "homepage": "https://soko-kun.allegromoltov.jp",
+  "repository": "https://github.com/AllegroMoltoV/plugin-soko-kun",
+  "license": "MIT",
+  "keywords": ["obs-studio", "obs-plugin", "streaming", "soko-kun"]
+}

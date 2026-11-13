@@ -1,0 +1,15 @@
+{
+  "name": "plugin-soko-kun",
+  "description": "Claude Code plugins from Plugin Soko-kun, a registry of OBS Studio plugins",
+  "owner": {
+    "name": "AllegroMoltoV",
+    "url": "https://github.com/AllegroMoltoV"
+  },
+  "plugins": [
+    {
+      "name": "soko-kun-plugin-dev",
+      "source": "./plugins/soko-kun-plugin-dev",
+      "description": "A skill for building OBS Studio plugins with Claude Code and listing them on Plugin Soko-kun"
+    }
+  ]
+}
