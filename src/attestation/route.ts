@@ -5,7 +5,7 @@ import { verifyActionsToken } from './oidc';
 
 const MAX_PENDING = 50;
 const MAX_RESULTS = 100;
-const MAX_ATTEMPTS = 5;
+export const MAX_ATTESTATION_ATTEMPTS = 5;
 const WORKFLOW_PATH = /^\.github\/workflows\/[A-Za-z0-9._-]{1,100}\.ya?ml$/;
 const REASON = /^[a-z_]{1,40}$/;
 
@@ -58,7 +58,7 @@ export async function handleAttestations(request: Request, env: Env): Promise<Re
        WHERE p.removed = 0 AND (t.result = 'pending' OR (t.result = 'error' AND t.attempts < ?))
        ORDER BY t.checked_at IS NOT NULL, t.checked_at LIMIT ?`,
     )
-      .bind(MAX_ATTEMPTS, MAX_PENDING)
+      .bind(MAX_ATTESTATION_ATTEMPTS, MAX_PENDING)
       .all<PendingAsset>();
     return Response.json({
       assets: results.map((row) => ({

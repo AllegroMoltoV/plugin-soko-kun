@@ -9,6 +9,9 @@ export class BudgetExceededError extends Error {
 export class Budget {
   private subrequestsUsed = 0;
   private d1QueriesUsed = 0;
+  // 後の処理のために取り分けた件数。release するまで、ほかの処理からは使えない。
+  private subrequestsReserved = 0;
+  private d1QueriesReserved = 0;
 
   constructor(
     readonly maxSubrequests = 45,
@@ -23,8 +26,18 @@ export class Budget {
     return this.d1QueriesUsed;
   }
 
+  reserve(subrequests: number, d1Queries: number): void {
+    this.subrequestsReserved = subrequests;
+    this.d1QueriesReserved = d1Queries;
+  }
+
+  release(): void {
+    this.subrequestsReserved = 0;
+    this.d1QueriesReserved = 0;
+  }
+
   canFetch(count = 1): boolean {
-    return this.subrequestsUsed + count <= this.maxSubrequests;
+    return this.subrequestsUsed + count <= this.maxSubrequests - this.subrequestsReserved;
   }
 
   takeSubrequest(): void {
@@ -33,7 +46,7 @@ export class Budget {
   }
 
   canQuery(count = 1): boolean {
-    return this.d1QueriesUsed + count <= this.maxD1Queries;
+    return this.d1QueriesUsed + count <= this.maxD1Queries - this.d1QueriesReserved;
   }
 
   takeD1Query(): void {

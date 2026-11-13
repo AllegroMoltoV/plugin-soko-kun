@@ -1,5 +1,7 @@
 // 15 分ごとの定期処理。無料プランの 1 回の上限に収めるため、予算を使い切ったら次回へ持ち越す。
-import { Budget, BudgetExceededError } from '../budget';
+
+import { MAX_ATTESTATION_ATTEMPTS } from '../attestation/route';
+import { Budget, BudgetExceededError, budgetedFetch } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
 import { checkImage, expectedType, IMAGE_LIMITS, type ImageKind } from '../images';
@@ -26,6 +28,7 @@ export interface CronReport {
   d1Queries: number;
   releasesChecked?: number;
   stoppedBy?: string;
+  verifyDispatch?: VerifyDispatch;
 }
 
 function now(): string {
@@ -494,6 +497,47 @@ export async function recordListings(env: Env, budget: Budget): Promise<void> {
   await env.DB.batch(statements);
 }
 
+const VERIFY_DISPATCH_URL =
+  'https://api.github.com/repos/AllegroMoltoV/plugin-soko-kun/actions/workflows/verify.yaml/dispatches';
+
+export type VerifyDispatch = 'dispatched' | 'skipped_no_token' | 'skipped_no_pending' | `failed_${string}`;
+
+// 証明の検証のワークフローを起動する (ADR 0014)。GitHub の schedule は起動しないことがあるため、Worker から起動する。
+// 対象の条件は、ワークフローが読む GET /internal/attestations/pending と同じにする。
+async function dispatchVerify(env: Env, budget: Budget): Promise<VerifyDispatch> {
+  const token = env.GITHUB_DISPATCH_TOKEN;
+  if (!token) return 'skipped_no_token';
+  budget.takeD1Query();
+  const pending = await env.DB.prepare(
+    `SELECT 1 FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
+     JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id
+     WHERE p.removed = 0 AND (t.result = 'pending' OR (t.result = 'error' AND t.attempts < ?)) LIMIT 1`,
+  )
+    .bind(MAX_ATTESTATION_ATTEMPTS)
+    .first();
+  if (!pending) return 'skipped_no_pending';
+  try {
+    const response = await budgetedFetch(budget, VERIFY_DISPATCH_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'plugin-soko-kun',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    await response.body?.cancel();
+    if (response.ok) return 'dispatched';
+    console.error(`verify.yaml dispatch failed: ${response.status}`);
+    return `failed_${response.status}`;
+  } catch (error) {
+    console.error(`verify.yaml dispatch failed: ${error instanceof Error ? error.message : String(error)}`);
+    return 'failed_network';
+  }
+}
+
 export async function runCron(env: Env, budget = new Budget()): Promise<CronReport> {
   const report: CronReport = {
     scanned: 0,
@@ -505,6 +549,8 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
     subrequests: 0,
     d1Queries: 0,
   };
+  // 後段のループが予算を使い切っても、最後に証明の検証のワークフローを起動できるよう取り分けておく。
+  budget.reserve(1, 1);
   try {
     await runScans(env, budget, report);
     await runSync(env, budget, report);
@@ -524,6 +570,8 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
     if (!(error instanceof BudgetExceededError)) throw error;
     report.stoppedBy = `budget_${error.kind}`;
   }
+  budget.release();
+  report.verifyDispatch = await dispatchVerify(env, budget);
   report.subrequests = budget.subrequests;
   report.d1Queries = budget.d1Queries;
   return report;
