@@ -25,7 +25,7 @@ function detailUrl(env: Env, view: PluginView): string {
 function summaryItem(env: Env, view: PluginView) {
   return {
     id: view.id,
-    name: view.repo,
+    name: view.name,
     author: view.owner,
     githubUrl: view.githubUrl,
     os: view.os,
@@ -45,27 +45,38 @@ function lastScannedAt(view: PluginView): string | null {
   return times.sort().at(-1) ?? null;
 }
 
+// 止めた版の警告。すでにダウンロードした人に、版と配布物と掲載の期間を知らせる。
+function suspendedReleases(view: PluginView) {
+  return view.suspendedReleases.map((release) => ({
+    tag: release.tag,
+    reason: release.reason,
+    listedFrom: release.listedFrom,
+    listedUntil: release.listedUntil,
+    files: release.assets.map((asset) => ({ name: asset.name, sha256: asset.digest.replace(/^sha256:/, '') })),
+    untrusted: { note: release.note },
+  }));
+}
+
 function detailItem(env: Env, view: PluginView) {
-  // 掲載中でないプラグインは、状態と理由だけを返し、ダウンロードの案内を出さない。
+  // 停止と掲載終了のプラグインは、状態と理由だけを返し、ダウンロードの案内を出さない。
+  // 検査待ちのプラグインは、呼び出し側で未登録と同じ not_found にする。
   if (view.status !== 'listed' || !view.listedRelease) {
     return {
       id: view.id,
-      name: view.repo,
+      name: view.name,
       author: view.owner,
       githubUrl: view.githubUrl,
       status: view.status,
       reason: view.reason ?? null,
-      note:
-        view.status === 'pending'
-          ? 'The release is waiting for automated checks. Download links are shown only after the checks pass.'
-          : 'This plugin is not listed. Download links are not provided.',
+      note: 'This plugin is not listed. Download links are not provided.',
+      suspendedReleases: suspendedReleases(view),
       detailUrl: detailUrl(env, view),
     };
   }
   const release = view.listedRelease;
   return {
     id: view.id,
-    name: view.repo,
+    name: view.name,
     author: view.owner,
     githubUrl: view.githubUrl,
     releasesUrl: view.releasesUrl,
@@ -89,7 +100,7 @@ function detailItem(env: Env, view: PluginView) {
         checks: asset.scans,
       })),
     },
-    newerReleasesUnderCheck: view.pendingReleases,
+    suspendedReleases: suspendedReleases(view),
     notes: [
       DISCLAIMER,
       'Checks look up the SHA-256 published by GitHub in MalwareBazaar, a database of known malware samples. No detection does not mean the file is safe.',
@@ -168,7 +179,10 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
     },
     async ({ id }) => {
       const view = await getPluginView(env, id);
-      if (!view) return { ...json({ error: 'not_found', message: 'No plugin with this id.' }), isError: true };
+      // 検査待ちのプラグインは、エンドユーザーに分かりにくい状態を見せないよう、未登録と同じに扱う。
+      if (!view || view.status === 'pending') {
+        return { ...json({ error: 'not_found', message: 'No plugin with this id.' }), isError: true };
+      }
       return json(detailItem(env, view));
     },
   );

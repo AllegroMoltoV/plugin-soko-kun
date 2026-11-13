@@ -5,7 +5,7 @@ import type { Env } from '../env';
 import { GitHubClient, GitHubError } from '../github';
 import { checkDiff } from '../review/diff-rules';
 import { type Finding, runReview } from '../review/llm';
-import { getPluginView } from './catalog';
+import { getPluginViewByInternalId } from './catalog';
 import { OS_VALUES } from './metadata';
 import { MAX_REVIEW_ATTEMPTS } from './status';
 
@@ -142,7 +142,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   let diff: string | null = null;
   if (row.diff_state === 'pending' || row.review_state !== 'done') {
     budget.takeD1Query();
-    const view = await getPluginView(env, row.plugin_id);
+    const view = await getPluginViewByInternalId(env, row.plugin_id);
     const base = view?.listedRelease ?? null;
     if (base && base.tag !== row.tag) {
       try {

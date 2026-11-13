@@ -1,5 +1,5 @@
 import type { Child, FC } from 'hono/jsx';
-import type { ImageView, PluginView } from '../domain/catalog';
+import type { ImageView, PluginView, SuspendedReleaseView } from '../domain/catalog';
 import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
 import type { Block, PageContent } from './content';
@@ -118,7 +118,7 @@ export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ 
               />
             ) : null}
             <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
-              {view.repo}
+              {view.name}
             </a>
             <span class="ver">{view.listedRelease?.tag}</span>
           </div>
@@ -228,7 +228,7 @@ export const SideCommon: FC<{
           {latest.map((view) => (
             <li>
               <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
-                {view.repo}
+                {view.name}
               </a>
               <span class="meta">
                 {t.categories[view.category]} | {formatDate(view.createdAt, lang)}
@@ -244,7 +244,7 @@ export const SideCommon: FC<{
           {weekly.map((view) => (
             <li>
               <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
-                {view.repo}
+                {view.name}
               </a>
               <span class="meta">{new Intl.NumberFormat(lang).format(view.downloads?.weekly ?? 0)}</span>
             </li>
@@ -300,7 +300,7 @@ export const SideRelated: FC<{
           {sameAuthor.map((view) => (
             <li>
               <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
-                {view.repo}
+                {view.name}
               </a>
             </li>
           ))}
@@ -313,7 +313,7 @@ export const SideRelated: FC<{
           {sameCategory.map((view) => (
             <li>
               <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
-                {view.repo}
+                {view.name}
               </a>
             </li>
           ))}
@@ -332,7 +332,7 @@ const checkLabel = (t: Dict, result: ScanResult | undefined) => {
 // 説明の画像は表示用の WebP で出し、詳細ページを軽くする。GIF は閉じた details の中に置き、開いたときだけ読み込ませる。
 // 閉じた details の中の img は loading="lazy" のときだけ読み込まれないため、GIF には必ず付ける。
 const Shot: FC<{ view: PluginView; image: ImageView; t: Dict }> = ({ view, image, t }) => {
-  const alt = t.imageAlt.replace('{name}', view.repo);
+  const alt = t.imageAlt.replace('{name}', view.name);
   const original = `/plugins/${view.id}/image?v=${image.sha}`;
   const preview = image.preview ? (
     <img
@@ -366,6 +366,78 @@ const Shot: FC<{ view: PluginView; image: ImageView; t: Dict }> = ({ view, image
   );
 };
 
+// 止めた版の警告。すでにダウンロードした人に、版と配布物と掲載の期間を知らせる。
+export const SuspendedReleases: FC<{ releases: SuspendedReleaseView[]; t: Dict; lang: Lang }> = ({
+  releases,
+  t,
+  lang,
+}) =>
+  releases.length === 0 ? null : (
+    <section class="callout suspended-releases">
+      <h2>{t.suspendedReleasesTitle}</h2>
+      <ul>
+        {releases.map((release) => (
+          <SuspendedReleaseItem release={release} t={t} lang={lang} />
+        ))}
+      </ul>
+    </section>
+  );
+
+const SuspendedReleaseItem: FC<{ release: SuspendedReleaseView; t: Dict; lang: Lang }> = ({ release, t, lang }) => (
+  <li>
+    <b translate="no">{t.suspendedReleaseLabel(release.tag)}</b>: {t.suspendedReasons[release.reason]}
+    {release.note ? (
+      <p>
+        <span lang="und">{release.note}</span>
+      </p>
+    ) : null}
+    {release.listedFrom ? (
+      <p>
+        {t.listedPeriod(
+          formatDateTime(release.listedFrom, lang),
+          release.listedUntil ? formatDateTime(release.listedUntil, lang) : null,
+        )}
+      </p>
+    ) : null}
+    <ul>
+      {release.assets.map((asset) => (
+        <li>
+          <span translate="no">{asset.name}</span>
+          <div class="hash">SHA-256: {asset.digest.replace(/^sha256:/, '')}</div>
+        </li>
+      ))}
+    </ul>
+  </li>
+);
+
+// 告知ページ。止めた版を、止めた日時の新しい順に並べる。
+export const NoticesPage: FC<{
+  items: Array<{ view: PluginView; release: SuspendedReleaseView }>;
+  t: Dict;
+  lang: Lang;
+}> = ({ items, t, lang }) => (
+  <>
+    <h1>{t.noticesTitle}</h1>
+    <p>{t.noticesIntro}</p>
+    {items.length === 0 ? (
+      <p>{t.noticesEmpty}</p>
+    ) : (
+      <ul class="notices">
+        {items.map(({ view, release }) => (
+          <li>
+            <a href={withLang(`/plugins/${view.id}`, lang)} translate="no">
+              {view.name}
+            </a>
+            <ul>
+              <SuspendedReleaseItem release={release} t={t} lang={lang} />
+            </ul>
+          </li>
+        ))}
+      </ul>
+    )}
+  </>
+);
+
 export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOriginal: boolean }> = ({
   view,
   t,
@@ -388,7 +460,7 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
             alt=""
           />
         ) : null}
-        <h1 translate="no">{view.repo}</h1>
+        <h1 translate="no">{view.name}</h1>
       </div>
       <ul class="tags">
         <li>
@@ -404,8 +476,8 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
   );
 
   if (view.status !== 'listed' || !view.listedRelease) {
-    const message =
-      view.status === 'pending' ? t.pendingDetail : view.status === 'removed' ? t.removedDetail : t.suspendedDetail;
+    // 検査待ちのプラグインは詳細ページを 404 にするため、ここに来るのは停止と掲載終了だけ。
+    const message = view.status === 'removed' ? t.removedDetail : t.suspendedDetail;
     return (
       <>
         {head}
@@ -418,6 +490,7 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
             {t.reasonLabel}: <span lang="und">{view.suspendedReason}</span>
           </p>
         ) : null}
+        <SuspendedReleases releases={view.suspendedReleases} t={t} lang={lang} />
         <p>
           <a href={withLang('/report', lang)}>{t.reportPlugin}</a>
         </p>
@@ -524,12 +597,7 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
         ))}
       </ul>
       <p>{t.noDetectionNotSafe}</p>
-      {view.pendingReleases[0] ? (
-        <p class="callout">
-          <span class="label">{t.cautionLabel}</span>
-          {t.newerUnderCheck(view.pendingReleases[0].tag, release.tag)}
-        </p>
-      ) : null}
+      <SuspendedReleases releases={view.suspendedReleases} t={t} lang={lang} />
 
       <h2 class="bar">{t.cautions}</h2>
       <ul>

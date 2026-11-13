@@ -74,12 +74,13 @@ describe('アクセス権限', () => {
     expect(payload.total).toBe(0);
   });
 
-  it('検査待ちのプラグインの詳細にダウンロード URL を含めない', async () => {
+  it('検査待ちのプラグインは未登録と同じ not_found にし、ダウンロード URL も状態も返さない', async () => {
     await registerPendingFixture();
     const response = await SELF.fetch(toolCall('get_plugin', { id: `${OWNER}/${REPO}` }));
     const text = JSON.stringify((await toolResult(response)).payload);
-    expect(text).toContain('"status":"pending"');
+    expect(text).toContain('"error":"not_found"');
     expect(text).not.toContain('releases/download');
+    expect(text).not.toContain('pending');
   });
 
   it('検査を通ったプラグインは検索でき、外部データは untrusted に入る', async () => {

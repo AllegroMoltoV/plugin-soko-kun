@@ -477,7 +477,7 @@ export async function recordListings(env: Env, budget: Budget): Promise<void> {
     statements.push(
       env.DB.prepare(
         'UPDATE listing_periods SET ended_at = ? WHERE plugin_id = ? AND ended_at IS NULL AND github_release_id != ?',
-      ).bind(timestamp, view.id, listed?.githubReleaseId ?? -1),
+      ).bind(timestamp, view.internalId, listed?.githubReleaseId ?? -1),
     );
     for (const asset of listed?.assets ?? []) {
       statements.push(
@@ -485,7 +485,7 @@ export async function recordListings(env: Env, budget: Budget): Promise<void> {
           `INSERT INTO listing_periods (plugin_id, github_release_id, digest, tag, asset_name, started_at)
            VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT (github_release_id, digest) DO UPDATE SET ended_at = NULL`,
-        ).bind(view.id, listed?.githubReleaseId, asset.digest, listed?.tag, asset.name, timestamp),
+        ).bind(view.internalId, listed?.githubReleaseId, asset.digest, listed?.tag, asset.name, timestamp),
       );
     }
   }

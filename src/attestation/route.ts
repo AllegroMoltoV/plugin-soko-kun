@@ -37,7 +37,9 @@ function parseResults(body: unknown): ResultInput[] | null {
     if (entry.result !== 'passed' && entry.result !== 'failed' && entry.result !== 'error') return null;
     const reason = typeof entry.reason === 'string' && REASON.test(entry.reason) ? entry.reason : null;
     const signerWorkflow =
-      typeof entry.signerWorkflow === 'string' && WORKFLOW_PATH.test(entry.signerWorkflow) ? entry.signerWorkflow : null;
+      typeof entry.signerWorkflow === 'string' && WORKFLOW_PATH.test(entry.signerWorkflow)
+        ? entry.signerWorkflow
+        : null;
     results.push({ assetId: entry.assetId, result: entry.result, reason, signerWorkflow });
   }
   return results;
