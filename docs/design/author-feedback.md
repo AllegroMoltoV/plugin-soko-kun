@@ -142,7 +142,7 @@ sequenceDiagram
 
 ### 項目の意味
 
-版の state は次の 5 つです。
+版の state は次の 6 つです。
 
 | state | 意味 | エンドユーザーから見えるもの |
 | --- | --- | --- |
@@ -151,6 +151,7 @@ sequenceDiagram
 | held | 管理者の確認待ち。blockers に理由 | 前の掲載中の版 |
 | rejected | 掲載の条件を満たさない (証明の失敗、不変でない、exe の配布物など)。blockers に理由と直し方 | 前の掲載中の版 |
 | suspended | 管理者が版を止めた、またはマルウェアを検出した | 前の掲載中の版と、止めた版の警告。マルウェアの検出ではプラグイン全体の掲載停止の警告 |
+| superseded | 条件を満たしているが、より新しい版を掲載している。includeOlderVersions が true のときだけ返す | 掲載中の新しい版 |
 
 blockers の waitsFor は、作者が直すものなら "author"、管理者の確認を待つものなら "admin" です。作者の LLM は、"author" のものだけを作者に直すよう勧めれば済みます。
 
