@@ -4,7 +4,7 @@ import { type AuthProps, protectedResource } from '../auth';
 import type { Env } from '../env';
 import { buildMcpServer } from './server';
 
-const AUTH_REQUIRED_TOOLS = new Set(['submit_plugin']);
+const AUTH_REQUIRED_TOOLS = new Set(['submit_plugin', 'list_my_plugins']);
 
 type Classification = 'public' | 'auth' | 'mismatch';
 

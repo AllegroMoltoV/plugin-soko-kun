@@ -222,6 +222,9 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
                   <a href={withLang('/privacy', lang)}>{t.nav.privacy}</a>
                 </li>
                 <li>
+                  <a href={withLang('/notices', lang)}>{t.nav.notices}</a>
+                </li>
+                <li>
                   <a href="https://github.com/AllegroMoltoV/plugin-soko-kun">{t.nav.source}</a>
                 </li>
               </ul>

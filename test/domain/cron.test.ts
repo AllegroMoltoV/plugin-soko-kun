@@ -2,9 +2,21 @@
 import { env } from 'cloudflare:test';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { runCron } from '../../src/domain/cron';
+import { Budget } from '../../src/budget';
+import { recordListings, runCron } from '../../src/domain/cron';
+import { runReleaseChecks } from '../../src/domain/release-checks';
 import { submitPlugin } from '../../src/domain/submit';
-import { downloadHandlers, githubHandlers, imageHandlers, OWNER, REPO, REPO_ID, USER_TOKEN } from '../fixtures/github';
+import { markListable } from '../fixtures/checks';
+import {
+  downloadHandlers,
+  githubHandlers,
+  imageHandlers,
+  OWNER,
+  REPO,
+  REPO_ID,
+  releaseCheckHandlers,
+  USER_TOKEN,
+} from '../fixtures/github';
 import { png, svg } from '../fixtures/images';
 import { network } from '../setup';
 
@@ -51,6 +63,7 @@ describe('runCron', () => {
       ...imageHandlers(),
       ...downloadHandlers(),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     const row = await env.DB.prepare('SELECT admin_suspended FROM plugins').first<{ admin_suspended: number }>();
@@ -105,6 +118,7 @@ describe('runCron', () => {
         }),
       ),
       http.get(`https://api.github.com/repos/${OWNER}/${REPO}/commits/v1.2.0`, () => HttpResponse.json({ sha: 'abc' })),
+      ...releaseCheckHandlers(),
     );
     await runCron(env, undefined);
     const scan = await env.DB.prepare(`SELECT result FROM scans WHERE digest = ? AND scanner = 'malwarebazaar'`)
@@ -148,6 +162,7 @@ describe('runCron', () => {
         'https://api.github.com/repos/:owner/:repo/releases/latest',
         () => new HttpResponse(null, { status: 304 }),
       ),
+      ...releaseCheckHandlers(),
     );
     const report = await runCron(env);
     expect(report.subrequests).toBeLessThanOrEqual(45);
@@ -188,6 +203,7 @@ describe('runCron の同期の失敗', () => {
         `https://api.github.com/repos/${OWNER}/q2/releases/latest`,
         () => new HttpResponse(null, { status: 304 }),
       ),
+      ...releaseCheckHandlers(),
     );
     const report = await runCron(env);
     expect(report).toMatchObject({ synced: 1, failed: 1 });
@@ -205,6 +221,7 @@ describe('runCron の同期の失敗', () => {
         () => new HttpResponse(null, { status: 304 }),
       ),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     const row = await env.DB.prepare('SELECT removed FROM plugins').first<{ removed: number }>();
@@ -222,6 +239,7 @@ describe('runCron の画像の取得', () => {
       ...imageHandlers({ 'logo.png': png(64, 64), 'image.png': svg }, calls),
       ...downloadHandlers(),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     const { results } = await env.DB.prepare('SELECT kind, content_type, width FROM plugin_images').all();
@@ -250,11 +268,13 @@ describe('runCron のビルドに使った OBS の版', () => {
       ...downloadHandlers(),
       ...scannerHandlers({ mb: 0 }),
       buildspec('31.1.1'),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     expect(await env.DB.prepare('SELECT obs_build_version FROM releases').first('obs_build_version')).toBe('31.1.1');
 
-    // 同じリリースでは取得し直さない。
+    // 同じリリースでは取得し直さない。新しい版の検査も buildspec.json を読むため、この確認では検査を済ませておく。
+    await env.DB.prepare('UPDATE release_checks SET legacy = 1').run();
     calls.length = 0;
     await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
     await runCron(env);
@@ -279,6 +299,7 @@ describe('runCron のダウンロード数の記録', () => {
       ...imageHandlers(),
       ...downloadHandlers([120, 30], calls),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     const { results } = await env.DB.prepare('SELECT total FROM download_snapshots').all();
@@ -293,6 +314,9 @@ describe('runCron のダウンロード数の記録', () => {
 describe('runCron の概要の更新', () => {
   it('description が変われば概要を更新し、空なら登録時の概要を残す', async () => {
     await registerFixture();
+    // 掲載中のプラグインにする。確認待ちの版がある間は概要を追従させないため。
+    await markListable(env.DB);
+    await recordListings(env, new Budget());
     const summary = () =>
       env.DB.prepare('SELECT summary FROM plugins')
         .first<{ summary: string }>()
@@ -305,6 +329,7 @@ describe('runCron の概要の更新', () => {
         ...imageHandlers(),
         ...downloadHandlers(),
         ...scannerHandlers({ mb: 0 }),
+        ...releaseCheckHandlers(),
       );
       await runCron(env);
       network.resetHandlers();
@@ -313,5 +338,51 @@ describe('runCron の概要の更新', () => {
     expect(await summary()).toBe('A new pitch shift filter');
     await run('');
     expect(await summary()).toBe('A new pitch shift filter');
+  });
+
+  it('確認待ちの版がある間は、description を概要に追従させない', async () => {
+    await registerFixture();
+    await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
+    network.use(
+      repoById(200, { description: 'Download the fixed build from https://example.com' }),
+      ...githubHandlers(),
+      ...imageHandlers(),
+      ...downloadHandlers(),
+      ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
+    );
+    await runCron(env);
+    const row = await env.DB.prepare('SELECT summary FROM plugins').first<{ summary: string }>();
+    expect(row?.summary).not.toContain('example.com');
+  });
+});
+
+describe('掲載の期間と止めた版の記録', () => {
+  it('掲載した配布物の期間を記録し、マルウェアを検出したら版を記録して期間を閉じる。プラグインを消しても記録は残す', async () => {
+    await registerFixture();
+    await markListable(env.DB);
+    await recordListings(env, new Budget());
+    const open = await env.DB.prepare('SELECT count(*) AS n FROM listing_periods WHERE ended_at IS NULL').first('n');
+    expect(open).toBe(2);
+
+    await env.DB.prepare("UPDATE scans SET result = 'malicious'").run();
+    await recordListings(env, new Budget());
+    expect(await env.DB.prepare('SELECT reason FROM release_suspensions').first('reason')).toBe('malicious');
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM listing_periods WHERE ended_at IS NULL').first('n')).toBe(0);
+
+    await env.DB.prepare('DELETE FROM plugins').run();
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM listing_periods').first('n')).toBe(2);
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM release_suspensions').first('n')).toBe(1);
+  });
+});
+
+describe('新しい版の検査の無料枠の待ち', () => {
+  it('無料枠が戻る時刻までは、レビューだけが残った版を選ばず、試行の回数も進めない', async () => {
+    await registerFixture();
+    await env.DB.prepare(
+      "UPDATE release_checks SET config_state = 'missing', diff_state = 'skipped', review_wait_until = '2999-01-01T00:00:00Z'",
+    ).run();
+    expect(await runReleaseChecks(env, new Budget())).toBe(0);
+    expect(await env.DB.prepare('SELECT review_attempts FROM release_checks').first('review_attempts')).toBe(0);
   });
 });

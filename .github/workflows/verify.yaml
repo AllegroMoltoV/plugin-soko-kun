@@ -1,0 +1,88 @@
+name: Verify attestations
+
+# 掲載を待つ配布物の証明を検証し、結果を倉庫くんへ送る (docs/decisions/0014-attestation-verification-in-actions.md)。
+# 倉庫くんは、このリポジトリの main で動くこのワークフローの OIDC のトークンだけを受け付ける。
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: verify-attestations
+  cancel-in-progress: false
+
+env:
+  SOKO_KUN_ORIGIN: https://soko-kun.allegromoltov.jp
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Verify pending release files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          token() {
+            curl -fsS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=soko-kun" | jq -r '.value'
+          }
+          curl -fsS -H "Authorization: Bearer $(token)" "${SOKO_KUN_ORIGIN}/internal/attestations/pending" > pending.json
+          count=$(jq '.assets | length' pending.json)
+          echo "pending: ${count}"
+          if [ "${count}" -eq 0 ]; then exit 0; fi
+
+          work=$(mktemp -d)
+          echo '[]' > results.json
+          for i in $(seq 0 $((count - 1))); do
+            item=$(jq -c ".assets[${i}]" pending.json)
+            asset_id=$(jq -r '.assetId' <<< "${item}")
+            url=$(jq -r '.downloadUrl' <<< "${item}")
+            digest=$(jq -r '.digest' <<< "${item}")
+            repository=$(jq -r '.repository' <<< "${item}")
+            tag=$(jq -r '.tag' <<< "${item}")
+            commit=$(jq -r '.commitSha' <<< "${item}")
+            signer=$(jq -r '.signerWorkflow // empty' <<< "${item}")
+            file="${work}/asset-${asset_id}"
+            result=error
+            reason=download_failed
+            signer_found=""
+
+            # 配布物は実行せず、ハッシュと証明だけを確かめる。
+            if curl -fsSL --max-filesize 1073741824 -o "${file}" "${url}"; then
+              actual="sha256:$(sha256sum "${file}" | cut -d' ' -f1)"
+              if [ "${actual}" != "${digest}" ]; then
+                result=failed
+                reason=digest_mismatch
+              else
+                args=(attestation verify "${file}" --repo "${repository}" --source-ref "refs/tags/${tag}" --source-digest "${commit}" --format json)
+                if [ -n "${signer}" ]; then args+=(--signer-workflow "${repository}/${signer}"); fi
+                if gh "${args[@]}" > "${work}/out.json" 2> "${work}/err.txt"; then
+                  # buildSignerURI は https://github.com/<owner>/<repo>/<workflow のパス>@<ref> の形。
+                  uri=$(jq -r '.[0].verificationResult.signature.certificate.buildSignerURI // empty' "${work}/out.json")
+                  signer_found=$(sed -E 's#^https://github\.com/[^/]+/[^/]+/##; s#@.*$##' <<< "${uri}")
+                  result=passed
+                  reason=""
+                else
+                  result=failed
+                  reason=verification_failed
+                  sed 's/^/  /' "${work}/err.txt" | head -5
+                fi
+              fi
+            fi
+            rm -f "${file}"
+            echo "${repository} ${tag} asset ${asset_id}: ${result} ${reason}"
+            jq --argjson id "${asset_id}" --arg result "${result}" --arg reason "${reason}" --arg signer "${signer_found}" \
+              '. + [{assetId: $id, result: $result} + (if $reason == "" then {} else {reason: $reason} end) + (if $signer == "" then {} else {signerWorkflow: $signer} end)]' \
+              results.json > results.next && mv results.next results.json
+          done
+
+          jq '{results: .}' results.json > body.json
+          curl -fsS -X POST -H "Authorization: Bearer $(token)" -H 'Content-Type: application/json' \
+            --data @body.json "${SOKO_KUN_ORIGIN}/internal/attestations/results"

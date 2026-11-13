@@ -94,14 +94,19 @@ export interface Dict {
   check: Record<'malicious' | 'not_found' | 'pending' | 'error', string>;
   malwarebazaarNotFound: string;
   noDetectionNotSafe: string;
-  newerUnderCheck: (newer: string, listed: string) => string;
   cautions: string;
   cautionItems: string[];
   reportPlugin: string;
-  pendingDetail: string;
   suspendedDetail: string;
   removedDetail: string;
   reasonLabel: string;
+  suspendedReleasesTitle: string;
+  suspendedReleaseLabel: (tag: string) => string;
+  suspendedReasons: Record<'admin' | 'malicious', string>;
+  listedPeriod: (from: string, until: string | null) => string;
+  noticesTitle: string;
+  noticesIntro: string;
+  noticesEmpty: string;
   sideAgentTitle: string;
   sideAgentBody: string;
   sideAgentExample: string;
@@ -125,6 +130,7 @@ export interface Dict {
     privacy: string;
     source: string;
     sponsor: string;
+    notices: string;
   };
   translationNote: string;
   englishVersion: string;
@@ -215,18 +221,23 @@ const en: Dict = {
   },
   malwarebazaarNotFound: 'Not a known malware sample',
   noDetectionNotSafe: 'A file with no detections is not necessarily safe, so use it carefully.',
-  newerUnderCheck: (newer, listed) =>
-    `Version ${newer} is under check, so ${listed} stays listed until the checks finish.`,
   cautions: 'Notes',
   cautionItems: [
     'The author published these files on GitHub, so read the author’s instructions before installing.',
     'Compare the SHA-256 of the downloaded file with the value shown here.',
   ],
   reportPlugin: 'Report this plugin',
-  pendingDetail: 'This plugin is waiting for automated checks, so download it after the checks finish.',
   suspendedDetail: 'This platform has suspended this plugin, so it does not show download links.',
   removedDetail: 'This plugin is no longer public on GitHub, so it cannot be downloaded.',
   reasonLabel: 'Reason',
+  suspendedReleasesTitle: 'Suspended versions',
+  suspendedReleaseLabel: (tag) => `Version ${tag}`,
+  suspendedReasons: { admin: 'Suspended by the operator', malicious: 'Malware detected' },
+  listedPeriod: (from, until) => `Listed here from ${from} to ${until ?? 'now'}`,
+  noticesTitle: 'Notices',
+  noticesIntro:
+    'These are versions that this platform suspended. If you downloaded one of these files during the listed period, delete the plugin folder from the OBS Studio plugins folder and scan your PC.',
+  noticesEmpty: 'There are no notices.',
   sideAgentTitle: 'Use from AI agents',
   sideAgentBody:
     'Connect Claude Code or Codex over MCP to search for plugins in conversation. Authors of OBS Studio plugins can also submit their plugins in conversation.',
@@ -255,6 +266,7 @@ const en: Dict = {
     terms: 'Terms of use',
     source: 'Source code on GitHub',
     sponsor: 'Support development',
+    notices: 'Notices',
   },
   translationNote: 'This page is the authoritative version.',
   englishVersion: 'English version',
@@ -345,18 +357,23 @@ const ja: Dict = {
   },
   malwarebazaarNotFound: '既知のマルウェアに該当なし',
   noDetectionNotSafe: '検査で何も検出されなくても安全とは限らないので、注意して利用してください。',
-  newerUnderCheck: (newer, listed) =>
-    `新しいバージョン ${newer} は検査中なので、検査が終わるまで ${listed} を掲載します。`,
   cautions: '注意事項',
   cautionItems: [
     '配布物は作者が GitHub で公開したものなので、作者の説明を読んでから導入してください。',
     'ダウンロードしたファイルの SHA-256 をここに示した値と照合してください。',
   ],
   reportPlugin: 'このプラグインを通報する',
-  pendingDetail: 'このプラグインは自動検査を待っているので、検査が終わってからダウンロードしてください。',
   suspendedDetail: 'このプラットフォームはこのプラグインの掲載を停止しているので、ダウンロードの案内を表示しません。',
   removedDetail: 'このプラグインは GitHub で公開されなくなったので、ダウンロードできません。',
   reasonLabel: '理由',
+  suspendedReleasesTitle: '止めた版',
+  suspendedReleaseLabel: (tag) => `版 ${tag}`,
+  suspendedReasons: { admin: '運営者が掲載を止めました', malicious: 'マルウェアを検出しました' },
+  listedPeriod: (from, until) => `このプラットフォームでの掲載: ${from} から ${until ?? '現在'} まで`,
+  noticesTitle: '告知',
+  noticesIntro:
+    'このプラットフォームが掲載を止めた版の一覧です。掲載の期間にこれらのファイルをダウンロードした場合は、OBS Studio のプラグインのフォルダーから該当のプラグインのフォルダーを削除し、PC をスキャンしてください。',
+  noticesEmpty: '告知はありません。',
   sideAgentTitle: 'AI エージェントから使う',
   sideAgentBody:
     'Claude Code や Codex を MCP で接続すると、会話でプラグインを探せます。OBS Studio のプラグインの作者は、会話でプラグインを登録することもできます。',
@@ -385,6 +402,7 @@ const ja: Dict = {
     terms: '利用規約',
     source: 'GitHub のソースコード',
     sponsor: '開発を支援する',
+    notices: '告知',
   },
   translationNote: 'この翻訳は参考訳なので、正確な内容は英語版で確認してください。',
   englishVersion: '英語版',
@@ -473,17 +491,23 @@ const zhHans: Dict = {
   },
   malwarebazaarNotFound: '不属于已知恶意软件',
   noDetectionNotSafe: '即使检查未检出任何问题，文件也不一定安全，请谨慎使用。',
-  newerUnderCheck: (newer, listed) => `新版本 ${newer} 正在检查中，检查完成前将继续收录 ${listed}。`,
   cautions: '注意事项',
   cautionItems: [
     '文件由作者在 GitHub 上发布，请阅读作者的说明后再安装。',
     '请将下载文件的 SHA-256 与此处显示的值进行比对。',
   ],
   reportPlugin: '举报此插件',
-  pendingDetail: '此插件正在等待自动检查，请在检查完成后再下载。',
   suspendedDetail: '本平台已暂停收录此插件，因此不显示下载链接。',
   removedDetail: '此插件已不在 GitHub 上公开，因此无法下载。',
   reasonLabel: '原因',
+  suspendedReleasesTitle: '已停止的版本',
+  suspendedReleaseLabel: (tag) => `版本 ${tag}`,
+  suspendedReasons: { admin: '运营者已停止收录', malicious: '检测到恶意软件' },
+  listedPeriod: (from, until) => `在本平台的收录期间：${from} 至 ${until ?? '现在'}`,
+  noticesTitle: '公告',
+  noticesIntro:
+    '以下是本平台已停止收录的版本。如果您在收录期间下载了这些文件，请从 OBS Studio 的插件文件夹中删除该插件的文件夹，并扫描您的电脑。',
+  noticesEmpty: '暂无公告。',
   sideAgentTitle: '通过 AI 代理使用',
   sideAgentBody:
     '通过 MCP 连接 Claude Code 或 Codex，即可在对话中查找插件。OBS Studio 插件的作者也可以在对话中提交插件。',
@@ -512,6 +536,7 @@ const zhHans: Dict = {
     terms: '使用条款',
     source: 'GitHub 上的源代码',
     sponsor: '支持开发',
+    notices: '公告',
   },
   translationNote: '本翻译仅供参考，准确内容请以英文版为准。',
   englishVersion: '英文版',
@@ -595,17 +620,23 @@ const zhHant: Dict = {
   },
   malwarebazaarNotFound: '不屬於已知惡意軟體',
   noDetectionNotSafe: '即使檢查未檢出任何問題，檔案也不一定安全，請謹慎使用。',
-  newerUnderCheck: (newer, listed) => `新版本 ${newer} 正在檢查中，檢查完成前將繼續收錄 ${listed}。`,
   cautions: '注意事項',
   cautionItems: [
     '檔案由作者在 GitHub 上發布，請閱讀作者的說明後再安裝。',
     '請將下載檔案的 SHA-256 與此處顯示的值進行比對。',
   ],
   reportPlugin: '檢舉此外掛',
-  pendingDetail: '此外掛正在等待自動檢查，請在檢查完成後再下載。',
   suspendedDetail: '本平台已暫停收錄此外掛，因此不顯示下載連結。',
   removedDetail: '此外掛已不在 GitHub 上公開，因此無法下載。',
   reasonLabel: '原因',
+  suspendedReleasesTitle: '已停止的版本',
+  suspendedReleaseLabel: (tag) => `版本 ${tag}`,
+  suspendedReasons: { admin: '營運者已停止收錄', malicious: '偵測到惡意軟體' },
+  listedPeriod: (from, until) => `在本平台的收錄期間：${from} 至 ${until ?? '現在'}`,
+  noticesTitle: '公告',
+  noticesIntro:
+    '以下是本平台已停止收錄的版本。如果您在收錄期間下載了這些檔案，請從 OBS Studio 的外掛資料夾中刪除該外掛的資料夾，並掃描您的電腦。',
+  noticesEmpty: '目前沒有公告。',
   sideAgentTitle: '透過 AI 代理使用',
   sideAgentBody:
     '透過 MCP 連接 Claude Code 或 Codex，即可在對話中尋找外掛。OBS Studio 外掛的作者也可以在對話中提交外掛。',
@@ -634,6 +665,7 @@ const zhHant: Dict = {
     terms: '使用條款',
     source: 'GitHub 上的原始碼',
     sponsor: '支持開發',
+    notices: '公告',
   },
   translationNote: '本翻譯僅供參考，正確內容請以英文版為準。',
   englishVersion: '英文版',
@@ -723,18 +755,23 @@ const ko: Dict = {
   },
   malwarebazaarNotFound: '알려진 악성코드에 해당 없음',
   noDetectionNotSafe: '검사에서 아무것도 검출되지 않아도 안전하다고 단정할 수 없으므로 주의해서 이용해 주세요.',
-  newerUnderCheck: (newer, listed) =>
-    `새 버전 ${newer}은(는) 검사 중이므로, 검사가 끝날 때까지 ${listed}을(를) 게재합니다.`,
   cautions: '주의 사항',
   cautionItems: [
     '배포 파일은 작성자가 GitHub에 공개한 것이므로, 작성자의 설명을 읽은 뒤에 설치해 주세요.',
     '다운로드한 파일의 SHA-256을 여기 표시된 값과 비교해 주세요.',
   ],
   reportPlugin: '이 플러그인 신고하기',
-  pendingDetail: '이 플러그인은 자동 검사를 기다리고 있으므로, 검사가 끝난 뒤에 다운로드해 주세요.',
   suspendedDetail: '이 플랫폼은 이 플러그인의 게재를 중지했으므로 다운로드 안내를 표시하지 않습니다.',
   removedDetail: '이 플러그인은 더 이상 GitHub에 공개되어 있지 않으므로 다운로드할 수 없습니다.',
   reasonLabel: '이유',
+  suspendedReleasesTitle: '게재를 중지한 버전',
+  suspendedReleaseLabel: (tag) => `버전 ${tag}`,
+  suspendedReasons: { admin: '운영자가 게재를 중지했습니다', malicious: '악성 코드가 검출되었습니다' },
+  listedPeriod: (from, until) => `이 플랫폼의 게재 기간: ${from}부터 ${until ?? '현재'}까지`,
+  noticesTitle: '공지',
+  noticesIntro:
+    '이 플랫폼이 게재를 중지한 버전 목록입니다. 게재 기간에 이 파일을 다운로드했다면 OBS Studio의 플러그인 폴더에서 해당 플러그인 폴더를 삭제하고 PC를 검사해 주세요.',
+  noticesEmpty: '공지가 없습니다.',
   sideAgentTitle: 'AI 에이전트에서 사용하기',
   sideAgentBody:
     'Claude Code나 Codex를 MCP로 연결하면 대화로 플러그인을 찾을 수 있습니다. OBS Studio 플러그인 작성자는 대화로 플러그인을 등록할 수도 있습니다.',
@@ -763,6 +800,7 @@ const ko: Dict = {
     terms: '이용약관',
     source: 'GitHub의 소스 코드',
     sponsor: '개발 후원하기',
+    notices: '공지',
   },
   translationNote: '이 번역은 참고용이므로, 정확한 내용은 영어판에서 확인해 주세요.',
   englishVersion: '영어판',
@@ -851,18 +889,23 @@ const ptBR: Dict = {
   },
   malwarebazaarNotFound: 'Não é uma amostra de malware conhecida',
   noDetectionNotSafe: 'Um arquivo sem detecções não é necessariamente seguro; por isso, use-o com cuidado.',
-  newerUnderCheck: (newer, listed) =>
-    `A versão ${newer} está em verificação; por isso, ${listed} continua listada até a verificação terminar.`,
   cautions: 'Observações',
   cautionItems: [
     'O autor publicou estes arquivos no GitHub; por isso, leia as instruções do autor antes de instalar.',
     'Compare o SHA-256 do arquivo baixado com o valor mostrado aqui.',
   ],
   reportPlugin: 'Denunciar este plugin',
-  pendingDetail: 'Este plugin aguarda as verificações automáticas; por isso, baixe-o depois que elas terminarem.',
   suspendedDetail: 'Esta plataforma suspendeu este plugin e, por isso, não mostra links de download.',
   removedDetail: 'Este plugin não está mais público no GitHub e, por isso, não pode ser baixado.',
   reasonLabel: 'Motivo',
+  suspendedReleasesTitle: 'Versões suspensas',
+  suspendedReleaseLabel: (tag) => `Versão ${tag}`,
+  suspendedReasons: { admin: 'Suspensa pelo operador', malicious: 'Malware detectado' },
+  listedPeriod: (from, until) => `Listada aqui de ${from} até ${until ?? 'agora'}`,
+  noticesTitle: 'Avisos',
+  noticesIntro:
+    'Estas são as versões que esta plataforma suspendeu. Se você baixou um destes arquivos durante o período listado, apague a pasta do plugin da pasta de plugins do OBS Studio e verifique seu PC.',
+  noticesEmpty: 'Não há avisos.',
   sideAgentTitle: 'Use com agentes de IA',
   sideAgentBody:
     'Conecte o Claude Code ou o Codex via MCP para buscar plugins conversando. Os autores de plugins do OBS Studio também podem enviar seus plugins conversando.',
@@ -891,6 +934,7 @@ const ptBR: Dict = {
     terms: 'Termos de uso',
     source: 'Código-fonte no GitHub',
     sponsor: 'Apoiar o desenvolvimento',
+    notices: 'Avisos',
   },
   translationNote: 'Esta tradução é apenas uma referência; por isso, confira o conteúdo exato na versão em inglês.',
   englishVersion: 'Versão em inglês',
@@ -979,18 +1023,23 @@ const es419: Dict = {
   },
   malwarebazaarNotFound: 'No es una muestra de malware conocida',
   noDetectionNotSafe: 'Un archivo sin detecciones no es necesariamente seguro; por eso, úsalo con cuidado.',
-  newerUnderCheck: (newer, listed) =>
-    `La versión ${newer} está en revisión; por eso, ${listed} sigue en la lista hasta que termine la revisión.`,
   cautions: 'Notas',
   cautionItems: [
     'El autor publicó estos archivos en GitHub; por eso, lee sus instrucciones antes de instalar.',
     'Compara el SHA-256 del archivo descargado con el valor que se muestra aquí.',
   ],
   reportPlugin: 'Reportar este plugin',
-  pendingDetail: 'Este plugin espera las revisiones automáticas; por eso, descárgalo cuando terminen.',
   suspendedDetail: 'Esta plataforma suspendió este plugin y, por eso, no muestra enlaces de descarga.',
   removedDetail: 'Este plugin ya no es público en GitHub y, por eso, no se puede descargar.',
   reasonLabel: 'Motivo',
+  suspendedReleasesTitle: 'Versiones suspendidas',
+  suspendedReleaseLabel: (tag) => `Versión ${tag}`,
+  suspendedReasons: { admin: 'Suspendida por el operador', malicious: 'Se detectó malware' },
+  listedPeriod: (from, until) => `En la lista de esta plataforma desde ${from} hasta ${until ?? 'ahora'}`,
+  noticesTitle: 'Avisos',
+  noticesIntro:
+    'Estas son las versiones que esta plataforma suspendió. Si descargaste uno de estos archivos durante el período indicado, borra la carpeta del plugin de la carpeta de plugins de OBS Studio y analiza tu PC.',
+  noticesEmpty: 'No hay avisos.',
   sideAgentTitle: 'Úsalo con agentes de IA',
   sideAgentBody:
     'Conecta Claude Code o Codex por MCP para buscar plugins conversando. Los autores de plugins de OBS Studio también pueden enviar sus plugins conversando.',
@@ -1019,6 +1068,7 @@ const es419: Dict = {
     terms: 'Términos de uso',
     source: 'Código fuente en GitHub',
     sponsor: 'Apoyar el desarrollo',
+    notices: 'Avisos',
   },
   translationNote:
     'Esta traducción es solo de referencia; por eso, consulta el contenido exacto en la versión en inglés.',

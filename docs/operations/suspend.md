@@ -20,12 +20,17 @@
 | 画像の非表示 | `npm run admin -- hide-images <owner/repo>` |
 | 画像の再表示 | `npm run admin -- show-images <owner/repo>` |
 | カテゴリの変更 | `npm run admin -- set-category <owner/repo> <category>` |
+| 確認待ちの版の一覧 | `npm run admin -- pending` |
+| 確認待ちの版の承認 | `npm run admin -- approve-release <owner/repo> <tag>` |
+| 版の停止 | `npm run admin -- suspend-release <owner/repo> <tag> "<告知の文>"` |
 
 いずれのコマンドも、`--remote` を付けると本番の D1 を更新します。付けない場合はローカルの D1 を更新します。`<owner/repo>` はプラグイン ID で、大文字と小文字を区別しません。
 
 停止の理由は 1〜200 文字で、制御文字を含められません。理由は、停止中の詳細ページに公開されます。通報者の名前や非公開の調査内容を理由に書かないでください。
 
-`show` は、`admin_suspended`・`suspended_reason`・`removed`・`images_hidden`・`last_synced_at` を表示します。
+`show` は、`admin_suspended`・`suspended_reason`・`removed`・`images_hidden`・`last_synced_at` と、`listing_periods` の掲載の期間、`release_suspensions` の止めた版を表示します。
+
+`pending` は、掲載の条件を満たしていない新しい版を、理由とともに表示します。管理者の確認を待つ理由は、乗っ取りの兆候に当たったファイル、LLM のレビューの重大な指摘とその該当の箇所、レビューの失敗です。証明の検証を待っている版も、検証のワークフローが止まっていないことを確かめられるよう、待っている時間とともに表示します。`approve-release` は、乗っ取りの兆候とレビューの指摘による確認待ちを解きます。証明・不変・配布の形の条件は解けません。`suspend-release` は版を止め、告知の文とともに `release_suspensions` に記録します。同じ版にもう一度実行すると、告知の文を書き換えます。告知の文は公開されます。侵害が疑われるときの手順は [侵害の対応](incident-response.md) に記載します。
 
 `hide-images` は、掲載を続けたままロゴと説明の画像だけを止めます。不適切な画像の通報を受けたときに使います。
 

@@ -45,6 +45,8 @@ export interface GitHubRelease {
   prerelease: boolean;
   published_at: string | null;
   html_url: string;
+  // 不変のリリース (immutable release) のとき true。古い応答には無いことがある。
+  immutable?: boolean;
   assets: GitHubAsset[];
 }
 
@@ -168,7 +170,7 @@ export class GitHubClient {
   ): Promise<Array<{ name: string; sha: string; size: number; type: string }> | null> {
     try {
       const response = await this.request(
-        `${API}/repos/${path(owner, repo)}/contents/${path(dir)}?ref=${encodeURIComponent(path(ref))}`,
+        `${API}/repos/${path(owner, repo)}/contents/${path(...dir.split('/'))}?ref=${encodeURIComponent(path(ref))}`,
       );
       const body = await response.json();
       return Array.isArray(body) ? body : null;
@@ -188,7 +190,7 @@ export class GitHubClient {
     maxBytes: number,
   ): Promise<Uint8Array | null> {
     const response = await this.request(
-      `${API}/repos/${path(owner, repo)}/contents/${dir ? path(dir, file) : path(file)}?ref=${encodeURIComponent(path(ref))}`,
+      `${API}/repos/${path(owner, repo)}/contents/${dir ? path(...dir.split('/'), file) : path(file)}?ref=${encodeURIComponent(path(ref))}`,
       'application/vnd.github.raw+json',
     );
     const length = Number(response.headers.get('Content-Length') ?? '0');
@@ -198,6 +200,67 @@ export class GitHubClient {
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
     return bytes.length > maxBytes ? null : bytes;
+  }
+
+  // ファイルが無ければ null、上限を超えれば 'too_large' を返す。文字列は UTF-8 として読む。
+  async getTextFile(
+    owner: string,
+    repo: string,
+    dir: string,
+    file: string,
+    ref: string,
+    maxBytes: number,
+  ): Promise<string | 'too_large' | null> {
+    try {
+      const bytes = await this.getFileBytes(owner, repo, dir, file, ref, maxBytes);
+      return bytes === null ? 'too_large' : new TextDecoder().decode(bytes);
+    } catch (error) {
+      if (error instanceof GitHubError && error.kind === 'not_found') return null;
+      throw error;
+    }
+  }
+
+  // 2 つのタグの間の差分を diff の形式で受け、先頭の maxChars 文字だけを読んで接続を切る。
+  // JSON の compare は大きな差分で解析の CPU 時間が 10 ms を超えるため使わない (2026-11-13 の測定)。
+  async getCompareDiff(
+    owner: string,
+    repo: string,
+    base: string,
+    head: string,
+    maxChars: number,
+  ): Promise<{ text: string; truncated: boolean }> {
+    const response = await this.request(
+      `${API}/repos/${path(owner, repo)}/compare/${path(base)}...${path(head)}`,
+      'application/vnd.github.diff',
+    );
+    const reader = response.body?.getReader();
+    if (!reader) return { text: '', truncated: false };
+    const decoder = new TextDecoder();
+    let text = '';
+    let done = false;
+    while (text.length <= maxChars) {
+      const chunk = await reader.read();
+      if (chunk.done) {
+        done = true;
+        break;
+      }
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+    if (!done) await reader.cancel();
+    return { text: text.slice(0, maxChars), truncated: !done || text.length > maxChars };
+  }
+
+  // その digest の配布物に、このリポジトリで作った証明が 1 件以上あるときに true。署名の検証はしない。
+  async hasAttestation(owner: string, repo: string, digest: string): Promise<boolean> {
+    if (!/^sha256:[0-9a-f]{64}$/.test(digest)) return false;
+    try {
+      const response = await this.request(`${API}/repos/${path(owner, repo)}/attestations/${digest}`);
+      const body = (await response.json()) as { attestations?: unknown[] };
+      return Array.isArray(body.attestations) && body.attestations.length > 0;
+    } catch (error) {
+      if (error instanceof GitHubError && error.kind === 'not_found') return false;
+      throw error;
+    }
   }
 
   async getCommitSha(owner: string, repo: string, ref: string): Promise<string> {

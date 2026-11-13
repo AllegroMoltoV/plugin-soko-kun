@@ -2,7 +2,18 @@
 import type { Env } from '../env';
 import { detectLang, type TranslationLang } from '../translate';
 import type { Category, Os } from './metadata';
-import { computeStatus, type PluginStatus, type ReleaseForStatus, type Scanner, type ScanResult } from './status';
+import {
+  type AttestationResult,
+  type ConfigState,
+  computeStatus,
+  type DiffState,
+  type PluginStatus,
+  type ReleaseChecks,
+  type ReleaseForStatus,
+  type ReviewState,
+  type Scanner,
+  type ScanResult,
+} from './status';
 
 export interface ScanView {
   result: ScanResult;
@@ -20,6 +31,7 @@ export interface AssetView {
 }
 
 export interface ReleaseView {
+  githubReleaseId: number;
   tag: string;
   name: string | null;
   commitSha: string;
@@ -39,8 +51,24 @@ export interface ImageView {
   preview?: { width: number; height: number };
 }
 
+export interface SuspendedReleaseView {
+  tag: string;
+  reason: 'admin' | 'malicious';
+  // 管理者が書いた告知の文。公開してよい内容だけを書く運用。
+  note: string | null;
+  suspendedAt: string;
+  assets: Array<{ name: string; digest: string }>;
+  listedFrom: string | null;
+  listedUntil: string | null;
+}
+
 export interface PluginView {
+  // URL と MCP で示す ID。現在の owner/repo を小文字にしたもので、名前を変えると変わる。
   id: string;
+  // 内部のプラグイン ID。登録したときの owner/repo で、名前の変更では変えない。
+  internalId: string;
+  // 表示名。.soko-kun/config.json の name、無ければリポジトリ名。外部データ。
+  name: string;
   owner: string;
   repo: string;
   summary: string | null;
@@ -61,6 +89,8 @@ export interface PluginView {
   images: { logo?: ImageView; image?: ImageView };
   // GitHub でのダウンロード数の最新の記録。週間の数は 7 日以上前の記録が無ければ null。
   downloads: { total: number; day: string; weekly: number | null } | null;
+  // 止めた版。掲載中でも、止めた版があれば警告に使う。
+  suspendedReleases: SuspendedReleaseView[];
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +106,8 @@ interface PluginRow {
   suspended_reason: string | null;
   removed: number;
   images_hidden: number;
+  display_name: string | null;
+  declared_os: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -90,12 +122,24 @@ interface ReleaseRow {
   obs_build_version: string | null;
 }
 interface AssetRow {
+  github_asset_id: number;
   release_id: number;
   name: string;
   size: number;
   digest: string;
   download_url: string;
   os: Os | null;
+}
+interface CheckRow {
+  github_release_id: number;
+  legacy: number;
+  immutable: number;
+  diff_state: DiffState;
+  config_state: ConfigState;
+  review_state: ReviewState;
+  review_attempts: number;
+  review_serious: number;
+  admin_approved_at: string | null;
 }
 interface ScanRow {
   digest: string;
@@ -118,7 +162,19 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
   const where = pluginId ? 'WHERE p.id = ?' : '';
   const bind = (statement: D1PreparedStatement) => (pluginId ? statement.bind(pluginId) : statement);
   // SELECT を 1 回の batch にまとめ、D1 のクエリ 1 件として扱う。
-  const [plugins, releases, assets, scans, translations, images, snapshots] = await env.DB.batch([
+  const [
+    plugins,
+    releases,
+    assets,
+    scans,
+    translations,
+    images,
+    snapshots,
+    checks,
+    attestations,
+    suspensions,
+    periods,
+  ] = await env.DB.batch([
     bind(env.DB.prepare(`SELECT * FROM plugins p ${where}`)),
     bind(env.DB.prepare(`SELECT r.* FROM releases r JOIN plugins p ON p.id = r.plugin_id ${where}`)),
     bind(
@@ -150,6 +206,31 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     bind(
       env.DB.prepare(
         `SELECT d.plugin_id, d.day, d.total FROM download_snapshots d JOIN plugins p ON p.id = d.plugin_id ${where} ORDER BY d.day`,
+      ),
+    ),
+    bind(
+      env.DB.prepare(
+        `SELECT c.* FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id
+         JOIN plugins p ON p.id = r.plugin_id ${where}`,
+      ),
+    ),
+    bind(
+      env.DB.prepare(
+        `SELECT t.github_asset_id, t.result FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
+         JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id ${where}`,
+      ),
+    ),
+    bind(
+      env.DB.prepare(
+        `SELECT s.plugin_id, s.github_release_id, s.tag, s.reason, s.note, s.suspended_at
+           FROM release_suspensions s JOIN plugins p ON p.id = s.plugin_id ${where} ORDER BY s.suspended_at DESC`,
+      ),
+    ),
+    bind(
+      env.DB.prepare(
+        `SELECT l.github_release_id, l.digest, l.asset_name, l.started_at, l.ended_at FROM listing_periods l
+           JOIN release_suspensions s ON s.github_release_id = l.github_release_id
+           JOIN plugins p ON p.id = s.plugin_id ${where}`,
       ),
     ),
   ]);
@@ -207,6 +288,67 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     releasesByPlugin.set(row.plugin_id, list);
   }
 
+  const checksByRelease = new Map<number, ReleaseChecks>();
+  for (const row of (checks?.results ?? []) as CheckRow[]) {
+    checksByRelease.set(row.github_release_id, {
+      legacy: row.legacy === 1,
+      immutable: row.immutable === 1,
+      diffState: row.diff_state,
+      configState: row.config_state,
+      reviewState: row.review_state,
+      reviewAttempts: row.review_attempts,
+      reviewSerious: row.review_serious,
+      adminApproved: row.admin_approved_at !== null,
+    });
+  }
+  const attestationByAsset = new Map<number, AttestationResult>();
+  for (const row of (attestations?.results ?? []) as Array<{ github_asset_id: number; result: AttestationResult }>) {
+    attestationByAsset.set(row.github_asset_id, row.result);
+  }
+  const suspensionRows = (suspensions?.results ?? []) as Array<{
+    plugin_id: string;
+    github_release_id: number;
+    tag: string;
+    reason: 'admin' | 'malicious';
+    note: string | null;
+    suspended_at: string;
+  }>;
+  const suspendedReleases = new Set(suspensionRows.map((row) => row.github_release_id));
+  const periodsByRelease = new Map<
+    number,
+    Array<{ digest: string; asset_name: string; started_at: string; ended_at: string | null }>
+  >();
+  for (const row of (periods?.results ?? []) as Array<{
+    github_release_id: number;
+    digest: string;
+    asset_name: string;
+    started_at: string;
+    ended_at: string | null;
+  }>) {
+    const list = periodsByRelease.get(row.github_release_id) ?? [];
+    list.push(row);
+    periodsByRelease.set(row.github_release_id, list);
+  }
+  const suspendedByPlugin = new Map<string, SuspendedReleaseView[]>();
+  for (const row of suspensionRows) {
+    const list = periodsByRelease.get(row.github_release_id) ?? [];
+    const started = list.map((period) => period.started_at).sort();
+    const ended = list
+      .map((period) => period.ended_at)
+      .filter((value): value is string => value !== null)
+      .sort();
+    const entry: SuspendedReleaseView = {
+      tag: row.tag,
+      reason: row.reason,
+      note: row.note,
+      suspendedAt: row.suspended_at,
+      assets: list.map((period) => ({ name: period.asset_name, digest: period.digest })),
+      listedFrom: started[0] ?? null,
+      listedUntil: list.some((period) => period.ended_at === null) ? null : (ended.at(-1) ?? null),
+    };
+    suspendedByPlugin.set(row.plugin_id, [...(suspendedByPlugin.get(row.plugin_id) ?? []), entry]);
+  }
+
   const toScan = (digest: string, scanner: Scanner): ScanView | null => {
     const row = scanMap.get(`${digest}:${scanner}`);
     return row ? { result: row.result, detail: row.detail, scannedAt: row.scanned_at } : null;
@@ -217,7 +359,14 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     const forStatus: ReleaseForStatus[] = pluginReleases.map((release) => ({
       githubReleaseId: release.github_release_id,
       publishedAt: release.published_at,
-      digests: (assetsByRelease.get(release.github_release_id) ?? []).map((asset) => asset.digest),
+      assets: (assetsByRelease.get(release.github_release_id) ?? []).map((asset) => ({
+        name: asset.name,
+        digest: asset.digest,
+        os: asset.os,
+        attestation: attestationByAsset.get(asset.github_asset_id),
+      })),
+      checks: checksByRelease.get(release.github_release_id),
+      suspended: suspendedReleases.has(release.github_release_id),
     }));
     const status = computeStatus(
       { adminSuspended: plugin.admin_suspended === 1, removed: plugin.removed === 1 },
@@ -225,10 +374,16 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
       (digest, scanner) => scanMap.get(`${digest}:${scanner}`)?.result,
     );
     const listed = pluginReleases.find((release) => release.github_release_id === status.listedReleaseId);
-    const listedAssets = listed ? (assetsByRelease.get(listed.github_release_id) ?? []) : [];
+    // 作者が OS を宣言していれば、宣言した OS の配布物だけを載せる。OS を推定できないソースの配布物は残す。
+    const declaredOs = parseDeclaredOs(plugin.declared_os);
+    const listedAssets = (listed ? (assetsByRelease.get(listed.github_release_id) ?? []) : []).filter(
+      (asset) => !declaredOs || asset.os === null || declaredOs.includes(asset.os),
+    );
     const releaseById = new Map(pluginReleases.map((release) => [release.github_release_id, release]));
     return {
-      id: plugin.id,
+      id: `${plugin.owner}/${plugin.repo}`.toLowerCase(),
+      internalId: plugin.id,
+      name: plugin.display_name ?? plugin.repo,
       owner: plugin.owner,
       repo: plugin.repo,
       summary: plugin.summary,
@@ -244,6 +399,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
       releasesUrl: `https://github.com/${plugin.owner}/${plugin.repo}/releases`,
       listedRelease: listed
         ? {
+            githubReleaseId: listed.github_release_id,
             tag: listed.tag,
             name: listed.name,
             commitSha: listed.commit_sha,
@@ -268,10 +424,21 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
         .map((release) => ({ tag: release.tag, publishedAt: release.published_at })),
       images: plugin.images_hidden === 1 ? {} : (imagesByPlugin.get(plugin.id) ?? {}),
       downloads: downloadsOf(snapshotsByPlugin.get(plugin.id) ?? []),
+      suspendedReleases: suspendedByPlugin.get(plugin.id) ?? [],
       createdAt: plugin.created_at,
       updatedAt: plugin.updated_at,
     };
   });
+}
+
+function parseDeclaredOs(value: string | null): string[] | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : null;
+  } catch {
+    return null;
+  }
 }
 
 const normalize = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
@@ -308,8 +475,23 @@ export async function searchPlugins(env: Env, query: SearchQuery): Promise<{ tot
   return { total: matched.length, items: matched.slice(offset, offset + limit) };
 }
 
-export async function getPluginView(env: Env, id: string): Promise<PluginView | null> {
-  const [view] = await loadViews(env, id.toLowerCase());
+// URL と MCP の ID (現在の owner/repo) か、名前を変える前の ID からプラグインを引く。
+// 呼び出し側は、返ったプラグインの id と要求の ID を比べて、旧い ID からの転送を判定する。
+export async function getPluginView(env: Env, slug: string): Promise<PluginView | null> {
+  const lower = slug.toLowerCase();
+  const row = await env.DB.prepare(
+    `SELECT id FROM plugins WHERE lower(owner || '/' || repo) = ?
+     UNION ALL SELECT plugin_id AS id FROM plugin_aliases WHERE alias = ? LIMIT 1`,
+  )
+    .bind(lower, lower)
+    .first<{ id: string }>();
+  if (!row) return null;
+  const [view] = await loadViews(env, row.id);
+  return view ?? null;
+}
+
+export async function getPluginViewByInternalId(env: Env, id: string): Promise<PluginView | null> {
+  const [view] = await loadViews(env, id);
   return view ?? null;
 }
 
@@ -369,4 +551,16 @@ export async function getPluginPreview(
   if (!row) return null;
   const bytes = Array.isArray(row.bytes) ? new Uint8Array(row.bytes).buffer : row.bytes;
   return { contentType: 'image/webp', bytes };
+}
+
+// 定期処理が、すべてのプラグインの掲載状態から掲載の期間を記録するために使う。D1 のクエリは 1 件。
+export function loadAllViews(env: Env): Promise<PluginView[]> {
+  return loadViews(env);
+}
+
+// 告知ページの一覧。止めた版を、止めた日時の新しい順に並べる。
+export async function listNotices(env: Env): Promise<Array<{ view: PluginView; release: SuspendedReleaseView }>> {
+  return (await loadViews(env))
+    .flatMap((view) => view.suspendedReleases.map((release) => ({ view, release })))
+    .sort((a, b) => b.release.suspendedAt.localeCompare(a.release.suspendedAt));
 }

@@ -14,6 +14,10 @@ export interface RepoFixture {
   languages?: Record<string, number>;
   cmake?: string | null;
   release?: 'none' | 'no-digest' | 'ok';
+  // 不変のリリースでないリリース、exe の配布物を含むリリース、証明の無い配布物を作る。
+  immutable?: boolean;
+  installer?: boolean;
+  attestation?: boolean;
 }
 
 export const OBS_CMAKE =
@@ -66,9 +70,13 @@ export function githubHandlers(fixture: RepoFixture = {}, calls: string[] = []) 
           prerelease: false,
           published_at: '2026-10-20T00:00:00Z',
           html_url: `https://github.com/${OWNER}/${REPO}/releases/tag/v1.1.0`,
+          immutable: fixture.immutable ?? true,
           assets: [
             asset(8001, 'obs-fixture-pitchshift-1.1.0-windows-x64.zip', digest),
             asset(8002, 'obs-fixture-pitchshift-1.1.0-source.tar.gz', digest ? `sha256:${'e2'.repeat(32)}` : null),
+            ...(fixture.installer
+              ? [asset(8003, 'obs-fixture-pitchshift-setup.exe', `sha256:${'f3'.repeat(32)}`)]
+              : []),
           ],
         },
         { headers: { ETag: '"etag-1"' } },
@@ -78,10 +86,27 @@ export function githubHandlers(fixture: RepoFixture = {}, calls: string[] = []) 
       track('commit');
       return HttpResponse.json({ sha: '3f2a9c1000000000000000000000000000000000' });
     }),
+    http.get(`${base}/attestations/:digest`, () => {
+      track('attestation');
+      if (fixture.attestation === false) return new HttpResponse(null, { status: 404 });
+      return HttpResponse.json({ attestations: [{ bundle: null, bundle_url: 'https://example.invalid/bundle' }] });
+    }),
     http.get(`${base}/readme`, () => {
       track('readme');
       return HttpResponse.text('# Title\n\nA pitch shift filter.\n');
     }),
+  ];
+}
+
+// 新しい版の検査が読むファイル。個々のテストで上書きしなければ、どれも無いものとして 404 を返す。
+export function releaseCheckHandlers() {
+  const base = 'https://api.github.com/repos/:owner/:repo';
+  const missing = () => new HttpResponse(null, { status: 404 });
+  return [
+    http.get(`${base}/contents/.soko-kun/config.json`, missing),
+    http.get(`${base}/contents/.github/workflows`, missing),
+    http.get(`${base}/contents/:file`, missing),
+    http.get(`${base}/compare/:range`, missing),
   ];
 }
 

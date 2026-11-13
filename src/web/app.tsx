@@ -5,6 +5,7 @@ import {
   getPluginImage,
   getPluginPreview,
   getPluginView,
+  listNotices,
   type PluginView,
   searchPlugins,
 } from '../domain/catalog';
@@ -16,7 +17,16 @@ import { Layout, type PageMeta, toJsonLd, websiteJsonLd, withLang } from './layo
 import { LOGO_SVG } from './logo';
 import { LOGO_PNG } from './logo-png';
 import { OG_PNG } from './og-image';
-import { PluginCards, PluginDetail, SearchForm, SideCommon, SideRelated, StaticPage, summaryFor } from './pages';
+import {
+  NoticesPage,
+  PluginCards,
+  PluginDetail,
+  SearchForm,
+  SideCommon,
+  SideRelated,
+  StaticPage,
+  summaryFor,
+} from './pages';
 import { STYLE_CSS } from './style';
 
 type AppEnv = { Bindings: Env; Variables: { lang: Lang } };
@@ -88,7 +98,7 @@ function softwareJsonLd(origin: string, lang: Lang, view: PluginView, descriptio
   const data: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: view.repo,
+    name: view.name,
     description,
     applicationCategory: 'MultimediaApplication',
     applicationSubCategory: en.categories[view.category],
@@ -152,9 +162,12 @@ app.get('/robots.txt', (c) =>
 
 app.get('/sitemap.xml', async (c) => {
   const { items } = await searchPlugins(c.env, { limit: 5000 });
-  const paths = ['/', ...PAGE_KEYS.map((key) => `/${key}`), ...items.map((view) => `/plugins/${view.id}`)].flatMap(
-    (path) => LANGS.map((l) => withLang(path, l)),
-  );
+  const paths = [
+    '/',
+    ...PAGE_KEYS.map((key) => `/${key}`),
+    '/notices',
+    ...items.map((view) => `/plugins/${view.id}`),
+  ].flatMap((path) => LANGS.map((l) => withLang(path, l)));
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths
     .map((p) => `<url><loc>${esc(c.env.ORIGIN + p)}</loc></url>`)
@@ -254,7 +267,10 @@ app.get('/plugins/:owner/:repo', async (c) => {
   const id = `${c.req.param('owner')}/${c.req.param('repo')}`;
   if (!/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/.test(id)) return c.notFound();
   const view = await getPluginView(c.env, id);
-  if (!view) return c.notFound();
+  // 検査待ちのプラグインは、エンドユーザーに分かりにくい状態を見せないよう、未登録と同じ 404 にする。
+  if (!view || view.status === 'pending') return c.notFound();
+  // 名前を変える前の URL は、新しい URL へ転送する。
+  if (view.id !== id.toLowerCase()) return c.redirect(withLang(`/plugins/${view.id}`, lang), 301);
   const stats = await catalogStats(c.env);
   const related =
     view.status === 'listed' ? (await searchPlugins(c.env, { limit: 200 })).items.filter((v) => v.id !== view.id) : [];
@@ -266,7 +282,7 @@ app.get('/plugins/:owner/:repo', async (c) => {
   );
   const response = c.html(
     <Layout
-      meta={meta(c, lang, `${view.repo} - ${t.pluginTitleSuffix}`, description, {
+      meta={meta(c, lang, `${view.name} - ${t.pluginTitleSuffix}`, description, {
         jsonLd: view.status === 'listed' ? softwareJsonLd(c.env.ORIGIN, lang, view, description) : undefined,
         currentCategory: view.category,
         // URL の大文字と小文字の違いで重複しないよう、サイトマップと同じ小文字の ID にそろえる。
@@ -315,6 +331,28 @@ app.get('/plugins/:owner/:repo', async (c) => {
   // 掲載中でないプラグインの詳細は検索エンジンに載せない。
   if (view.status !== 'listed') c.header('X-Robots-Tag', 'noindex');
   return response;
+});
+
+app.get('/notices', async (c) => {
+  const lang = c.get('lang');
+  const t = DICTS[lang];
+  const [items, stats] = await Promise.all([listNotices(c.env), catalogStats(c.env)]);
+  const side = (collapsible: boolean) => (
+    <SideCommon
+      t={t}
+      lang={lang}
+      listed={stats.listed}
+      lastSyncedAt={stats.lastSyncedAt}
+      latest={stats.latest}
+      weekly={stats.weekly}
+      collapsible={collapsible}
+    />
+  );
+  return c.html(
+    <Layout meta={meta(c, lang, t.noticesTitle, t.noticesIntro)} side={side(false)} sideNarrow={side(true)}>
+      <NoticesPage items={items} t={t} lang={lang} />
+    </Layout>,
+  );
 });
 
 for (const key of PAGE_KEYS) {

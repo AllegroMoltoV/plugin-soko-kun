@@ -1,6 +1,6 @@
 # 認証と認可
 
-MCP のツールの認証要件・OAuth のエンドポイント・サインインの流れ・GitHub の権限の仕様です。構成の判断は [ADR 0002](../decisions/0002-single-worker-mixed-auth.md) に記載しています。
+MCP のツールの認証要件・OAuth のエンドポイント・サインインの流れ・GitHub の権限・証明の検証の受け口の認証の仕様です。構成の判断は [ADR 0002](../decisions/0002-single-worker-mixed-auth.md) に記載しています。
 
 ## ツールごとの認証要件
 
@@ -8,9 +8,10 @@ MCP のツールの認証要件・OAuth のエンドポイント・サインイ�
 | --- | --- | --- |
 | `search_plugins` | 不要 | なし |
 | `get_plugin` | 不要 | なし |
-| `submit_plugin` | 必須 | 対象リポジトリについて、サインインした GitHub の利用者の `permissions.admin` が `true` |
+| `submit_plugin` | 必須 | 対象リポジトリについて、サインインした GitHub の利用者の `permissions.admin` が `true`。確認のモードでも同じ |
+| `list_my_plugins` | 必須 | 返すのは、サインインした GitHub の利用者の `permissions.admin` が `true` のリポジトリのプラグインだけ。候補の決め方は [作者へのレビューの返し方](author-feedback.md) に記載する |
 
-認証は、リソースサーバーと `submit_plugin` のハンドラの両方で確かめます。認証なしで処理する MCP ハンドラには `submit_plugin` を登録しません。
+認証を要するツールは、`submit_plugin` と `list_my_plugins` です。認証は、リソースサーバーと各ツールのハンドラの両方で確かめます。認証なしで処理する MCP ハンドラには、認証を要するツールを登録しません。
 
 ## /mcp の振り分け
 
@@ -19,8 +20,8 @@ MCP のツールの認証要件・OAuth のエンドポイント・サインイ�
 | 要求 | 振り分け先 |
 | --- | --- |
 | `Authorization` ヘッダーを持つ | リソースサーバー |
-| `Mcp-Name` ヘッダーが `submit_plugin` | リソースサーバー |
-| `Mcp-Name` ヘッダーが無く、本文で `submit_plugin` を呼び出す | リソースサーバー |
+| `Mcp-Name` ヘッダーが認証を要するツール | リソースサーバー |
+| `Mcp-Name` ヘッダーが無く、本文で認証を要するツールを呼び出す | リソースサーバー |
 | `Mcp-Name` ヘッダーと本文のツール名が食い違う | 拒否 |
 | 上のいずれにも当てはまらない | 認証なしの MCP ハンドラ |
 
@@ -39,6 +40,7 @@ MCP の実装は `@modelcontextprotocol/server` の `createMcpHandler` を使い
 | `/authorize` | 認可要求の受付と同意画面 |
 | `/callback` | GitHub での認可からの戻り先 |
 | `/oauth/token` | アクセストークンの発行 |
+| `/internal/attestations/pending`・`/internal/attestations/results` | 証明の検証の受け口。GitHub Actions の OIDC のトークンで守る。「証明の検証の受け口の認証」を参照 |
 
 `/oauth/register`・`/authorize`・`/oauth/token`・`/callback` には、送信元 IP アドレスあたり 1 分 20 回のレート制限を設けます。これらの経路は KV へ書き込むため、無料プランの KV の書き込みの上限を守る必要があります。`/mcp` と Web カタログの上限は、送信元 IP アドレスあたり 1 分 120 回です。OAuth のメタデータ (`/.well-known/oauth-authorization-server` と `/.well-known/oauth-protected-resource` で始まるパス) にはレート制限を設けません。集計の方式は [データモデル](data-model.md) の `rate_limit` に記載します。
 
@@ -49,7 +51,7 @@ MCP の実装は `@modelcontextprotocol/server` の `createMcpHandler` を使い
 | 発行者 | 本サービスの認可サーバー。`issuer` は `ORIGIN` |
 | audience | `<ORIGIN>/mcp`。一致しないトークンは拒否する |
 | 保存先 | KV の `OAUTH_KV`。`@cloudflare/workers-oauth-provider` が管理する |
-| スコープ | 権限の区分は設けていない。認証済みであることが `submit_plugin` の条件である |
+| スコープ | 権限の区分は設けていない。認証済みであることが `submit_plugin` と `list_my_plugins` の条件である |
 
 ## クライアントの登録方式
 
@@ -90,12 +92,18 @@ MCP クライアントが `/oauth/token` へ `grant_type=refresh_token` の要�
 | --- | --- |
 | アプリの種類 | GitHub OAuth App |
 | 要求するスコープ | なし。公開リポジトリの `permissions.admin` はスコープ無しのトークンで取得できる |
-| 利用者のトークンの用途 | `submit_plugin` での管理権限の確認だけ |
+| 利用者のトークンの用途 | `submit_plugin` と `list_my_plugins` での管理権限の確認だけ |
 | アプリの認証情報の用途 | `submit_plugin` での情報取得と、同期での GitHub API の呼び出し。`client_id` と `client_secret` の Basic 認証で送る |
 
 GitHub API を認証なしで呼ぶと、Workers の共有の送信元 IP アドレスのために 403 を受けることがあります。そのため、本人確認を伴わない呼び出しにもアプリの認証情報を使います。
 
 利用者のトークン・アプリの認証ヘッダー・スキャナーの API キーは、ログと応答に出力しません。
+
+## 証明の検証の受け口の認証
+
+`/internal/attestations/pending` と `/internal/attestations/results` は、本サービスのリポジトリの GitHub Actions のワークフロー `verify.yaml` だけが使う経路です。OAuth のアクセストークンではなく、`Authorization: Bearer` の GitHub Actions の OIDC のトークンを求めます。Worker は GitHub が公開する鍵でトークンの署名を確かめ、`iss`・`aud`・`repository`・`job_workflow_ref`・`exp` を照合します。満たさない要求には 401 を返します。照合するクレームの値は [検査と同期](scanning.md) の「証明の検証の受け口」に、この方式の判断は [ADR 0014](../decisions/0014-attestation-verification-in-actions.md) に記載しています。
+
+この認証のために Worker が保存しておく鍵や秘密情報はありません。
 
 ## 秘密情報
 
