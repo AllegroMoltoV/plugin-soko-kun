@@ -114,6 +114,7 @@ GitHub API を認証なしで呼ぶと、Workers の共有の送信元 IP アド
 | `GITHUB_CLIENT_ID` | GitHub OAuth App の Client ID |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App の Client secret |
 | `MALWAREBAZAAR_AUTH_KEY` | MalwareBazaar の Auth-Key |
+| `GITHUB_DISPATCH_TOKEN` | 証明の検証のワークフロー `verify.yaml` を起動するための fine-grained personal access token。対象は本サービスのリポジトリだけで、権限は Actions の Read and write だけ。作り方と更新は [CI と配備](../operations/ci-cd.md) に記載 |
 | `CONTACT_EMAIL` | 開発者の連絡先のメールアドレス。収集を防ぐためソースコードに書かず、秘密情報と同じ方法で設定する |
 
-`MALWAREBAZAAR_AUTH_KEY` は省略できます。省略した場合は照会を行わず、検査結果は `pending` のまま残ります。`CONTACT_EMAIL` を省略すると、「連絡先を表示」ボタンは連絡先を準備中である旨を表示します。
+`GITHUB_DISPATCH_TOKEN` は省略できます。省略した場合は Worker から証明の検証のワークフローを起動せず、ワークフローの schedule と手動の起動だけに頼ります。このトークンが漏れた場合にできるのは、本サービスのリポジトリのワークフローの起動・取り消し・再実行・有効化と無効化・実行の記録の削除です。`MALWAREBAZAAR_AUTH_KEY` は省略できます。省略した場合は照会を行わず、検査結果は `pending` のまま残ります。`CONTACT_EMAIL` を省略すると、「連絡先を表示」ボタンは連絡先を準備中である旨を表示します。

@@ -386,3 +386,61 @@ describe('新しい版の検査の無料枠の待ち', () => {
     expect(await env.DB.prepare('SELECT review_attempts FROM release_checks').first('review_attempts')).toBe(0);
   });
 });
+
+describe('証明の検証のワークフローの起動', () => {
+  const DISPATCH_URL =
+    'https://api.github.com/repos/AllegroMoltoV/plugin-soko-kun/actions/workflows/verify.yaml/dispatches';
+  const withToken = { ...env, GITHUB_DISPATCH_TOKEN: 'test-dispatch-token' };
+
+  it('検証待ちの配布物があれば、同期が止まっても main を指定して起動する', async () => {
+    await registerFixture();
+    const bodies: unknown[] = [];
+    network.use(
+      repoById(503),
+      ...scannerHandlers({ mb: 0 }),
+      http.post(DISPATCH_URL, async ({ request }) => {
+        expect(request.headers.get('Authorization')).toBe('Bearer test-dispatch-token');
+        bodies.push(await request.json());
+        return HttpResponse.json({ workflow_run_id: 1 });
+      }),
+    );
+    const report = await runCron(withToken);
+    expect(report.stoppedBy).toBe('github_unavailable');
+    expect(report.verifyDispatch).toBe('dispatched');
+    expect(bodies).toEqual([{ ref: 'main' }]);
+  });
+
+  it('ほかの処理が外部呼び出しの予算を使い切っても、取り分けた 1 件で起動する', async () => {
+    await registerFixture();
+    network.use(
+      repoById(),
+      ...githubHandlers(),
+      ...scannerHandlers({ mb: 0 }),
+      http.post(DISPATCH_URL, () => HttpResponse.json({ workflow_run_id: 1 })),
+    );
+    const budget = new Budget();
+    for (let i = 0; i < 44; i += 1) budget.takeSubrequest();
+    const report = await runCron(withToken, budget);
+    expect(report.verifyDispatch).toBe('dispatched');
+    expect(report.subrequests).toBe(45);
+  });
+
+  it('検証待ちが無ければ起動しない', async () => {
+    await registerFixture();
+    await env.DB.prepare("UPDATE attestation_checks SET result = 'passed'").run();
+    network.use(repoById(503), ...scannerHandlers({ mb: 0 }));
+    const report = await runCron(withToken);
+    expect(report.verifyDispatch).toBe('skipped_no_pending');
+  });
+
+  it('トークンが拒否されても定期処理は最後まで進み、失敗を返す', async () => {
+    await registerFixture();
+    network.use(
+      repoById(503),
+      ...scannerHandlers({ mb: 0 }),
+      http.post(DISPATCH_URL, () => new HttpResponse(null, { status: 401 })),
+    );
+    const report = await runCron(withToken);
+    expect(report.verifyDispatch).toBe('failed_401');
+  });
+});

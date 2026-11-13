@@ -242,7 +242,9 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 | `job_workflow_ref` | `AllegroMoltoV/plugin-soko-kun/.github/workflows/verify.yaml@refs/heads/main` |
 | `exp` | 現在より後 |
 
-ワークフローは、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット>` に、記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加えて実行します。ダウンロードした配布物の SHA-256 が `digest` と違えば `failed` にします。ワークフローは 15 分ごとの schedule と workflow_dispatch で動きます。
+ワークフローは、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット>` に、記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加えて実行します。ダウンロードした配布物の SHA-256 が `digest` と違えば `failed` にします。
+
+ワークフローは、Worker の定期処理が workflow_dispatch で起動します。定期処理は、毎回の最後に、上の `GET /internal/attestations/pending` と同じ条件の配布物の有無を D1 で確かめます。あれば、`POST https://api.github.com/repos/AllegroMoltoV/plugin-soko-kun/actions/workflows/verify.yaml/dispatches` に `{"ref":"main"}` を送ります。同じ回の同期で見つけた配布物も、その回のうちに起動の対象になります。この起動のために、定期処理は最初に外部呼び出し 1 件と D1 のクエリ 1 件を予算から取り分けておきます。起動には秘密情報 `GITHUB_DISPATCH_TOKEN` を使い、無い環境では起動しません。起動が失敗しても定期処理は止めず、失敗をログに出します。ワークフローには 15 分ごとの schedule も残しますが、GitHub の schedule は起動しないことがあるため、予備の扱いです。
 
 ### 掲載中の配布物の照会し直し
 

@@ -73,9 +73,23 @@ npx wrangler secret put GITHUB_CLIENT_ID --env production
 npx wrangler secret put GITHUB_CLIENT_SECRET --env production
 npx wrangler secret put MALWAREBAZAAR_AUTH_KEY --env production
 npx wrangler secret put CONTACT_EMAIL --env production
+npx wrangler secret put GITHUB_DISPATCH_TOKEN --env production
 ```
 
 本番用の GitHub OAuth App の Authorization callback URL には、`<ORIGIN>/callback` を指定します。
+
+### 証明の検証のワークフローを起動するトークン
+
+`GITHUB_DISPATCH_TOKEN` は、Worker の定期処理が `verify.yaml` を workflow_dispatch で起動するためのトークンです。依頼者が GitHub の Settings の Developer settings で、fine-grained personal access token を次の設定で作ります。
+
+| 項目 | 設定 |
+| --- | --- |
+| Resource owner | AllegroMoltoV |
+| Expiration | 1 年 |
+| Repository access | Only select repositories で `AllegroMoltoV/plugin-soko-kun` だけ |
+| Repository permissions | Actions を Read and write。Metadata の Read は自動で付く。ほかは付けない |
+
+作ったトークンを `npx wrangler secret put GITHUB_DISPATCH_TOKEN --env production` で設定します。期限の 2 週間前に、同じ設定で新しいトークンを作って設定し直し、古いトークンを削除します。期限が切れると起動が 401 で失敗し、証明の検証は schedule が動かない限り進みません。このとき、管理コマンド `npm run admin -- pending --remote` の `attestations_waiting` が 0 より大きいまま残ります。
 
 ## 初回の配備
 
