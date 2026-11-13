@@ -105,7 +105,8 @@ Done when:
 
 - The render test passes on all three operating systems
 - Removing the fix or feature under test makes the test fail, and restoring it makes the test pass
-- Actions in the new workflow are pinned to full commit SHAs (`ci-hardening`)
+- Actions in every workflow, including the ones copied from the template, are pinned to full commit SHAs (`ci-hardening`). Do this before the first release that will be listed, because later workflow changes hold the next release for an administrator
+- The format checks pass locally with the same tool versions as CI, so the CI format check does not fail (see [references/scaffold.md](references/scaffold.md))
 
 ### 6. Release
 
