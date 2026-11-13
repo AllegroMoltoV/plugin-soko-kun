@@ -87,6 +87,17 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
       title: 'Submit a plugin',
       sections: [
         {
+          heading: 'Build your plugin with Claude Code',
+          paragraphs: [
+            'If you build your plugin with Claude Code, you can install a skill that collects what the developer of this platform learned from making ten OBS Studio plugins. It covers planning, setting up the template, common pitfalls in the OBS API, headless render tests in CI, releases with build provenance attestations, and listing on this platform.',
+            'Install it by running the following in a terminal:',
+            {
+              code: 'claude plugin marketplace add AllegroMoltoV/plugin-soko-kun\nclaude plugin install soko-kun-plugin-dev@plugin-soko-kun',
+            },
+            'The skill follows the listing conditions and the review criteria of this platform: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+          ],
+        },
+        {
           heading: 'Plugins you can submit',
           paragraphs: [
             'This platform lists OBS Studio plugins whose author administers the GitHub repository and submits it. Check that your repository meets all of the following conditions before submitting.',
@@ -418,6 +429,17 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
     submit: {
       title: 'プラグインを登録する',
       sections: [
+        {
+          heading: 'Claude Code でプラグインを作る',
+          paragraphs: [
+            'Claude Code でプラグインを作る場合は、このプラットフォームの開発者が 10 本の OBS Studio のプラグインを作って得た知見をまとめたスキルを入れられます。企画、テンプレートの準備、OBS の API の落とし穴、CI での画面なしの描画のテスト、ビルドの来歴の証明つきのリリース、このプラットフォームへの掲載を扱います。',
+            'ターミナルで次を実行して入れてください。',
+            {
+              code: 'claude plugin marketplace add AllegroMoltoV/plugin-soko-kun\nclaude plugin install soko-kun-plugin-dev@plugin-soko-kun',
+            },
+            'スキルは、このプラットフォームの掲載の条件と審査の基準にしたがっています: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+          ],
+        },
         {
           heading: '登録できるプラグイン',
           paragraphs: [
@@ -755,6 +777,17 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
       title: '提交插件',
       sections: [
         {
+          heading: '使用 Claude Code 制作插件',
+          paragraphs: [
+            '如果使用 Claude Code 制作插件，可以安装一个技能。它汇集了本平台开发者制作 10 个 OBS Studio 插件时获得的经验，涵盖规划、模板准备、OBS API 的常见陷阱、CI 中的无界面渲染测试、带构建来源证明的发布，以及在本平台上架。',
+            '在终端中运行以下命令进行安装：',
+            {
+              code: 'claude plugin marketplace add AllegroMoltoV/plugin-soko-kun\nclaude plugin install soko-kun-plugin-dev@plugin-soko-kun',
+            },
+            '该技能遵循本平台的收录条件和审查标准：https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+          ],
+        },
+        {
           heading: '可以提交的插件',
           paragraphs: [
             '本平台收录由 GitHub 仓库管理员本人提交的 OBS Studio 插件。提交前，请确认仓库满足以下全部条件。',
@@ -1067,6 +1100,17 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
       title: '提交外掛',
       sections: [
         {
+          heading: '使用 Claude Code 製作外掛',
+          paragraphs: [
+            '如果使用 Claude Code 製作外掛，可以安裝一個技能。它彙整了本平台開發者製作 10 個 OBS Studio 外掛時獲得的經驗，涵蓋規劃、範本準備、OBS API 的常見陷阱、CI 中的無畫面渲染測試、附建置來源證明的發布，以及在本平台上架。',
+            '在終端機中執行以下指令進行安裝：',
+            {
+              code: 'claude plugin marketplace add AllegroMoltoV/plugin-soko-kun\nclaude plugin install soko-kun-plugin-dev@plugin-soko-kun',
+            },
+            '該技能遵循本平台的收錄條件與審查標準：https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+          ],
+        },
+        {
           heading: '可以提交的外掛',
           paragraphs: [
             '本平台收錄由 GitHub 儲存庫管理員本人提交的 OBS Studio 外掛。提交前，請確認儲存庫滿足以下全部條件。',
@@ -1378,6 +1422,17 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
     submit: {
       title: '플러그인 등록하기',
       sections: [
+        {
+          heading: 'Claude Code로 플러그인 만들기',
+          paragraphs: [
+            'Claude Code로 플러그인을 만든다면, 이 플랫폼의 개발자가 OBS Studio 플러그인 10개를 만들며 얻은 지식을 정리한 스킬을 설치할 수 있습니다. 기획, 템플릿 준비, OBS API의 함정, CI에서의 화면 없는 렌더링 테스트, 빌드 출처 증명이 붙은 릴리스, 이 플랫폼에의 게재를 다룹니다.',
+            '터미널에서 다음을 실행해 설치해 주세요:',
+            {
+              code: 'claude plugin marketplace add AllegroMoltoV/plugin-soko-kun\nclaude plugin install soko-kun-plugin-dev@plugin-soko-kun',
+            },
+            '스킬은 이 플랫폼의 게재 조건과 심사 기준을 따릅니다: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+          ],
+        },
         {
           heading: '등록할 수 있는 플러그인',
           paragraphs: [
@@ -1705,6 +1760,17 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
     submit: {
       title: 'Enviar um plugin',
       sections: [
+        {
+          heading: 'Crie seu plugin com o Claude Code',
+          paragraphs: [
+            'Se você cria o seu plugin com o Claude Code, pode instalar uma skill que reúne o que o desenvolvedor desta plataforma aprendeu ao criar dez plugins para o OBS Studio. Ela cobre o planejamento, a preparação do template, armadilhas comuns da API do OBS, testes de renderização sem tela no CI, releases com atestados de proveniência de build e a listagem nesta plataforma.',
+            'Instale-a executando o seguinte em um terminal:',
+            {
+              code: 'claude plugin marketplace add AllegroMoltoV/plugin-soko-kun\nclaude plugin install soko-kun-plugin-dev@plugin-soko-kun',
+            },
+            'A skill segue as condições de listagem e os critérios de revisão desta plataforma: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+          ],
+        },
         {
           heading: 'Plugins que você pode enviar',
           paragraphs: [
@@ -2043,6 +2109,17 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
     submit: {
       title: 'Enviar un plugin',
       sections: [
+        {
+          heading: 'Crea tu plugin con Claude Code',
+          paragraphs: [
+            'Si creas tu plugin con Claude Code, puedes instalar una skill que reúne lo que el desarrollador de esta plataforma aprendió al crear diez plugins para OBS Studio. Cubre la planificación, la preparación de la plantilla, errores comunes de la API de OBS, pruebas de renderizado sin pantalla en CI, releases con atestaciones de procedencia de compilación y la publicación en esta plataforma.',
+            'Instálala ejecutando lo siguiente en una terminal:',
+            {
+              code: 'claude plugin marketplace add AllegroMoltoV/plugin-soko-kun\nclaude plugin install soko-kun-plugin-dev@plugin-soko-kun',
+            },
+            'La skill sigue las condiciones de publicación y los criterios de revisión de esta plataforma: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+          ],
+        },
         {
           heading: 'Plugins que puedes enviar',
           paragraphs: [
