@@ -53,6 +53,12 @@ describe('アクセス権限', () => {
       toolCall('submit_plugin', { repositoryUrl: 'https://github.com/a/b' }, { Authorization: 'Bearer x:y:z' }),
       401,
     ],
+    ['未サインインで list_my_plugins を呼ぶ', toolCall('list_my_plugins', {}), 401],
+    [
+      'Mcp-Name に search_plugins を付け、本文で list_my_plugins を呼ぶ',
+      toolCall('list_my_plugins', {}, { 'Mcp-Name': 'search_plugins' }),
+      400,
+    ],
     [
       'Mcp-Name に search_plugins を付け、本文で submit_plugin を呼ぶ',
       toolCall('submit_plugin', { repositoryUrl: 'https://github.com/a/b' }, { 'Mcp-Name': 'search_plugins' }),

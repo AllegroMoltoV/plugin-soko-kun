@@ -165,7 +165,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   // LLM のレビュー
   if (row.review_state !== 'done') {
     const input = await collectReviewFiles(github, row.owner, row.repo, row.tag);
-    const findings = await reviewWithBudget(env, budget, `${row.owner}/${row.repo}`, input, diff);
+    const findings = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, input, diff);
     if (findings) {
       const serious = findings.filter((finding) => finding.serious).length;
       update(
@@ -185,16 +185,16 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   }
 }
 
-interface CollectedFiles {
+export interface CollectedFiles {
   files: Array<{ path: string; content: string }>;
   unreadFiles: string[];
 }
 
-async function collectReviewFiles(
+export async function collectReviewFiles(
   github: GitHubClient,
   owner: string,
   repo: string,
-  tag: string,
+  ref: string,
 ): Promise<CollectedFiles> {
   const files: CollectedFiles['files'] = [];
   const unreadFiles: string[] = [];
@@ -208,20 +208,20 @@ async function collectReviewFiles(
     total += text.length;
     files.push({ path, content: text });
   };
-  const workflows = (await github.listDirectory(owner, repo, '.github/workflows', tag)) ?? [];
+  const workflows = (await github.listDirectory(owner, repo, '.github/workflows', ref)) ?? [];
   const yaml = workflows.filter((entry) => entry.type === 'file' && /\.ya?ml$/i.test(entry.name));
   for (const entry of yaml.slice(0, MAX_WORKFLOWS)) {
     add(
       `.github/workflows/${entry.name}`,
-      await github.getTextFile(owner, repo, '.github/workflows', entry.name, tag, MAX_FILE_BYTES),
+      await github.getTextFile(owner, repo, '.github/workflows', entry.name, ref, MAX_FILE_BYTES),
     );
   }
   for (const entry of yaml.slice(MAX_WORKFLOWS)) unreadFiles.push(`.github/workflows/${entry.name}`);
-  for (const file of ROOT_FILES) add(file, await github.getTextFile(owner, repo, '', file, tag, MAX_FILE_BYTES));
+  for (const file of ROOT_FILES) add(file, await github.getTextFile(owner, repo, '', file, ref, MAX_FILE_BYTES));
   return { files, unreadFiles };
 }
 
-async function reviewWithBudget(
+export async function reviewRepository(
   env: Env,
   budget: Budget,
   repository: string,

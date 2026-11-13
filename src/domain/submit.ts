@@ -1,7 +1,10 @@
 // submit_plugin の処理。検証を通ったリポジトリを検査待ちで登録し、検査は Cron で進める。
 import { Budget } from '../budget';
 import type { Env } from '../env';
-import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
+import { type GitHubAsset, GitHubClient, GitHubError, type GitHubRelease, type GitHubRepo } from '../github';
+import { CRITERIA_BY_ID, referenceOf } from '../review/criteria';
+import type { Finding } from '../review/llm';
+import { type ReviewSummary, reviewView } from './author';
 import { resetAttestationStatement, resetScanStatements } from './cron';
 import {
   type Category,
@@ -11,6 +14,7 @@ import {
   inferOs,
   summarizeReadme,
 } from './metadata';
+import { collectReviewFiles, reviewRepository } from './release-checks';
 
 export const SUBMITS_PER_DAY = 10;
 
@@ -26,6 +30,9 @@ export type SubmitErrorCode =
   | 'no_release'
   | 'no_verifiable_asset'
   | 'unsupported_tag'
+  | 'not_immutable'
+  | 'installer_not_allowed'
+  | 'no_attestation'
   | 'duplicate'
   | 'github_unavailable';
 
@@ -86,6 +93,183 @@ export async function submitPlugin(
   return result;
 }
 
+export type ConditionCode =
+  | 'not_admin'
+  | 'private_repository'
+  | 'archived_repository'
+  | 'no_license'
+  | 'not_obs_plugin'
+  | 'no_release'
+  | 'no_verifiable_asset'
+  | 'unsupported_tag'
+  | 'not_immutable'
+  | 'installer_not_allowed'
+  | 'no_attestation';
+
+export interface Condition {
+  code: ConditionCode;
+  result: 'passed' | 'failed' | 'unchecked';
+  message?: string;
+  fix?: string;
+}
+
+interface Evaluated {
+  conditions: Condition[];
+  repo: GitHubRepo;
+  release: GitHubRelease | null;
+  assets: GitHubAsset[];
+  etag: string | null;
+}
+
+// 1 回の登録で証明の有無を確かめる配布物の上限。外部呼び出しの予算に収めるため。
+export const MAX_SUBMIT_ASSETS = 30;
+const INSTALLER = /\.(exe|msi)$/i;
+
+const MESSAGES: Record<ConditionCode, { message: string; fix: string }> = {
+  not_admin: {
+    message: 'You do not have admin permission on this repository.',
+    fix: 'Ask an administrator of the repository to submit it.',
+  },
+  private_repository: { message: 'The repository is private.', fix: 'Make the repository public, then submit again.' },
+  archived_repository: { message: 'The repository is archived.', fix: 'Unarchive the repository, then submit again.' },
+  no_license: {
+    message: 'GitHub does not detect a license for the repository.',
+    fix: 'Add a LICENSE file that GitHub can detect.',
+  },
+  not_obs_plugin: {
+    message: 'The repository does not look like an OBS Studio plugin.',
+    fix: 'The root CMakeLists.txt must reference libobs (for example find_package(libobs)), and the repository must contain C or C++ sources.',
+  },
+  no_release: {
+    message: 'The repository has no published release.',
+    fix: 'Publish a release on GitHub with the plugin files attached.',
+  },
+  no_verifiable_asset: {
+    message: `The latest release has no files with a SHA-256 digest from GitHub, or more than ${MAX_SUBMIT_ASSETS} files.`,
+    fix: `Attach the plugin files (up to ${MAX_SUBMIT_ASSETS}) to the release. GitHub records a digest for uploaded files.`,
+  },
+  unsupported_tag: {
+    message: 'The release tag contains unsupported characters.',
+    fix: 'Use a tag made of letters, digits, dot, hyphen, and underscore.',
+  },
+  not_immutable: {
+    message: 'The latest release is not immutable.',
+    fix: `${criterionFix('immutable-release')} See ${referenceOf('immutable-release')}`,
+  },
+  installer_not_allowed: {
+    message: 'The latest release includes an exe or msi installer.',
+    fix: `${criterionFix('distribution-format')} See ${referenceOf('distribution-format')}`,
+  },
+  no_attestation: {
+    message: 'Some release files have no build provenance attestation.',
+    fix: `${criterionFix('attestation')} See ${referenceOf('attestation')}`,
+  },
+};
+
+function criterionFix(id: string): string {
+  return CRITERIA_BY_ID.get(id)?.fix ?? '';
+}
+
+function condition(code: ConditionCode, passed: boolean): Condition {
+  return passed ? { code, result: 'passed' } : { code, result: 'failed', ...MESSAGES[code] };
+}
+
+// 掲載の条件を順に判定する。リポジトリを取得できない、または管理者でないときは、そこで止める。
+// stopOnFailure のときは、最初に満たさなかった条件で止める (登録)。そうでなければ、判定できる条件をすべて判定する (確認のモード)。
+async function evaluateConditions(
+  asUser: GitHubClient,
+  asApp: GitHubClient,
+  parsed: { owner: string; repo: string },
+  stopOnFailure: boolean,
+): Promise<Evaluated> {
+  const conditions: Condition[] = [];
+  const done = () => stopOnFailure && conditions.some((item) => item.result === 'failed');
+  // 管理権限は利用者のトークンで確かめる。permissions は認証した利用者から見た権限を表す。
+  const repo = await asUser.getRepo(parsed.owner, parsed.repo);
+  const evaluated: Evaluated = { conditions, repo, release: null, assets: [], etag: null };
+  conditions.push(condition('not_admin', repo.permissions?.admin === true));
+  if (done() || repo.permissions?.admin !== true) return evaluated;
+  conditions.push(condition('private_repository', !repo.private));
+  if (done()) return evaluated;
+  conditions.push(condition('archived_repository', !repo.archived));
+  if (done()) return evaluated;
+  const license = repo.license?.spdx_id;
+  conditions.push(condition('no_license', Boolean(license) && license !== 'NOASSERTION'));
+  if (done()) return evaluated;
+
+  const owner = repo.owner.login;
+  const name = repo.name;
+  const languages = await asApp.getLanguages(owner, name);
+  const cmake = await asApp.getRootFile(owner, name, 'CMakeLists.txt');
+  conditions.push(
+    condition('not_obs_plugin', hasNativeSource(languages) && cmake !== null && cmakeReferencesLibobs(cmake)),
+  );
+  if (done()) return evaluated;
+
+  const latest = await asApp.getLatestRelease(owner, name);
+  const release = latest?.release ?? null;
+  const published = release !== null && !release.draft && Boolean(release.published_at);
+  conditions.push(condition('no_release', published));
+  if (!published || !release) return evaluated;
+  evaluated.release = release;
+  evaluated.etag = latest?.etag ?? null;
+  const assets = release.assets.filter((asset) => asset.digest?.startsWith('sha256:'));
+  evaluated.assets = assets;
+  conditions.push(condition('no_verifiable_asset', assets.length > 0 && assets.length <= MAX_SUBMIT_ASSETS));
+  if (done()) return evaluated;
+  conditions.push(condition('unsupported_tag', TAG.test(release.tag_name)));
+  if (done()) return evaluated;
+  conditions.push(condition('not_immutable', release.immutable === true));
+  if (done()) return evaluated;
+  conditions.push(condition('installer_not_allowed', !release.assets.some((asset) => INSTALLER.test(asset.name))));
+  if (done()) return evaluated;
+  if (assets.length === 0 || assets.length > MAX_SUBMIT_ASSETS) {
+    conditions.push({ code: 'no_attestation', result: 'unchecked' });
+    return evaluated;
+  }
+  let attested = true;
+  for (const asset of assets) {
+    if (!(await asApp.hasAttestation(owner, name, asset.digest as string))) {
+      attested = false;
+      break;
+    }
+  }
+  conditions.push(condition('no_attestation', attested));
+  return evaluated;
+}
+
+function githubFailure(error: unknown): SubmitResult {
+  if (error instanceof GitHubError) {
+    if (error.kind === 'not_found') {
+      return fail(
+        'not_found',
+        'The repository was not found on GitHub.',
+        'Check the URL and that the repository is public.',
+      );
+    }
+    return fail('github_unavailable', 'GitHub is not available right now.', 'Try again in a few minutes.');
+  }
+  throw error;
+}
+
+function clients(env: Env, submitter: Submitter, budget: Budget) {
+  return {
+    asUser: new GitHubClient(budget, { kind: 'user', token: submitter.githubToken }),
+    asApp: new GitHubClient(budget, {
+      kind: 'app',
+      clientId: env.GITHUB_CLIENT_ID,
+      clientSecret: env.GITHUB_CLIENT_SECRET,
+    }),
+  };
+}
+
+const INVALID_URL = (): SubmitResult =>
+  fail(
+    'invalid_url',
+    'The repository URL is not a GitHub repository URL.',
+    'Use the form https://github.com/<owner>/<repository>.',
+  );
+
 async function validateAndStore(
   env: Env,
   submitter: Submitter,
@@ -93,46 +277,15 @@ async function validateAndStore(
   category?: Category,
 ): Promise<SubmitResult> {
   const parsed = parseRepositoryUrl(repositoryUrl);
-  if (!parsed) {
-    return fail(
-      'invalid_url',
-      'The repository URL is not a GitHub repository URL.',
-      'Use the form https://github.com/<owner>/<repository>.',
-    );
-  }
-
+  if (!parsed) return INVALID_URL();
   const budget = new Budget();
-  const asUser = new GitHubClient(budget, { kind: 'user', token: submitter.githubToken });
-  const asApp = new GitHubClient(budget, {
-    kind: 'app',
-    clientId: env.GITHUB_CLIENT_ID,
-    clientSecret: env.GITHUB_CLIENT_SECRET,
-  });
-
+  const { asUser, asApp } = clients(env, submitter, budget);
   try {
-    // 管理権限は利用者のトークンで確かめる。permissions は認証した利用者から見た権限を表す。
-    const repo = await asUser.getRepo(parsed.owner, parsed.repo);
-    if (repo.permissions?.admin !== true) {
-      return fail(
-        'not_admin',
-        'You do not have admin permission on this repository.',
-        'Ask an administrator of the repository to submit it.',
-      );
-    }
-    if (repo.private) {
-      return fail('private_repository', 'The repository is private.', 'Make the repository public, then submit again.');
-    }
-    if (repo.archived) {
-      return fail('archived_repository', 'The repository is archived.', 'Unarchive the repository, then submit again.');
-    }
-    const license = repo.license?.spdx_id;
-    if (!license || license === 'NOASSERTION') {
-      return fail(
-        'no_license',
-        'GitHub does not detect a license for the repository.',
-        'Add a LICENSE file that GitHub can detect.',
-      );
-    }
+    const evaluated = await evaluateConditions(asUser, asApp, parsed, true);
+    const failed = evaluated.conditions.find((item) => item.result === 'failed');
+    if (failed) return fail(failed.code, failed.message ?? '', failed.fix ?? '');
+    const { repo, release, assets } = evaluated;
+    if (!release) return fail('no_release', MESSAGES.no_release.message, MESSAGES.no_release.fix);
 
     const duplicate = await env.DB.prepare('SELECT id FROM plugins WHERE github_repo_id = ?')
       .bind(repo.id)
@@ -143,42 +296,7 @@ async function validateAndStore(
 
     const owner = repo.owner.login;
     const name = repo.name;
-    const [languages, cmake] = [
-      await asApp.getLanguages(owner, name),
-      await asApp.getRootFile(owner, name, 'CMakeLists.txt'),
-    ];
-    if (!hasNativeSource(languages) || !cmake || !cmakeReferencesLibobs(cmake)) {
-      return fail(
-        'not_obs_plugin',
-        'The repository does not look like an OBS Studio plugin.',
-        'The root CMakeLists.txt must reference libobs (for example find_package(libobs)), and the repository must contain C or C++ sources.',
-      );
-    }
-
-    const latest = await asApp.getLatestRelease(owner, name);
-    const release: GitHubRelease | null | undefined = latest?.release;
-    if (!release || release.draft || !release.published_at) {
-      return fail(
-        'no_release',
-        'The repository has no published release.',
-        'Publish a release on GitHub with the plugin files attached.',
-      );
-    }
-    const assets = release.assets.filter((asset) => asset.digest?.startsWith('sha256:'));
-    if (assets.length === 0) {
-      return fail(
-        'no_verifiable_asset',
-        'The latest release has no files with a SHA-256 digest from GitHub.',
-        'Attach the plugin files to the release. GitHub records a digest for uploaded files.',
-      );
-    }
-    if (!TAG.test(release.tag_name)) {
-      return fail(
-        'unsupported_tag',
-        'The release tag contains unsupported characters.',
-        'Use a tag made of letters, digits, dot, hyphen, and underscore.',
-      );
-    }
+    const license = repo.license?.spdx_id as string;
     const commitSha = await asApp.getCommitSha(owner, name, release.tag_name);
     const summary = repo.description?.trim() || summarizeReadme((await asApp.getReadme(owner, name)) ?? '');
 
@@ -198,7 +316,7 @@ async function validateAndStore(
         license,
         category ?? inferCategory(name, summary),
         submitter.githubUserId,
-        latest?.etag ?? null,
+        evaluated.etag,
         timestamp,
         timestamp,
         timestamp,
@@ -239,16 +357,59 @@ async function validateAndStore(
       assetsToScan: assets.length,
     };
   } catch (error) {
-    if (error instanceof GitHubError) {
-      if (error.kind === 'not_found') {
-        return fail(
-          'not_found',
-          'The repository was not found on GitHub.',
-          'Check the URL and that the repository is public.',
-        );
-      }
-      return fail('github_unavailable', 'GitHub is not available right now.', 'Try again in a few minutes.');
+    return githubFailure(error);
+  }
+}
+
+export const CHECKS_PER_DAY = 5;
+
+export type CheckResult =
+  | SubmitResult
+  | {
+      ok: boolean;
+      mode: 'check';
+      conditions: Condition[];
+      review: { status: 'done' | 'failed' } & ReviewSummary;
+    };
+
+// 確認のモード。登録せず、掲載の条件と、既定のブランチの最新のコミットのレビューを返す (docs/design/author-feedback.md)。
+export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl: string): Promise<CheckResult> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const count = await env.DB.prepare('SELECT count(*) AS n FROM check_log WHERE github_user_id = ? AND created_at > ?')
+    .bind(submitter.githubUserId, since)
+    .first<{ n: number }>();
+  if ((count?.n ?? 0) >= CHECKS_PER_DAY) {
+    return fail(
+      'rate_limited',
+      `You can use the check mode up to ${CHECKS_PER_DAY} times per 24 hours.`,
+      'Wait and try again later.',
+    );
+  }
+  await env.DB.prepare('INSERT INTO check_log (github_user_id, created_at) VALUES (?, ?)')
+    .bind(submitter.githubUserId, now())
+    .run();
+  const parsed = parseRepositoryUrl(repositoryUrl);
+  if (!parsed) return INVALID_URL();
+  const budget = new Budget();
+  const { asUser, asApp } = clients(env, submitter, budget);
+  try {
+    const evaluated = await evaluateConditions(asUser, asApp, parsed, false);
+    const { repo } = evaluated;
+    const admin = evaluated.conditions.find((item) => item.code === 'not_admin')?.result === 'passed';
+    let review: { findings: Finding[]; unreadFiles: string[] } | null = null;
+    if (admin && budget.canFetch(12)) {
+      const collected = await collectReviewFiles(asApp, repo.owner.login, repo.name, repo.default_branch);
+      const findings = await reviewRepository(env, budget, `${repo.owner.login}/${repo.name}`, collected, null);
+      review = findings ? { findings, unreadFiles: collected.unreadFiles } : null;
     }
-    throw error;
+    const view = reviewView(review);
+    return {
+      ok: evaluated.conditions.every((item) => item.result === 'passed'),
+      mode: 'check',
+      conditions: evaluated.conditions,
+      review: { status: review ? 'done' : 'failed', ...view },
+    };
+  } catch (error) {
+    return githubFailure(error);
   }
 }

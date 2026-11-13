@@ -250,6 +250,19 @@ export class GitHubClient {
     return { text: text.slice(0, maxChars), truncated: !done || text.length > maxChars };
   }
 
+  // その digest の配布物に、このリポジトリで作った証明が 1 件以上あるときに true。署名の検証はしない。
+  async hasAttestation(owner: string, repo: string, digest: string): Promise<boolean> {
+    if (!/^sha256:[0-9a-f]{64}$/.test(digest)) return false;
+    try {
+      const response = await this.request(`${API}/repos/${path(owner, repo)}/attestations/${digest}`);
+      const body = (await response.json()) as { attestations?: unknown[] };
+      return Array.isArray(body.attestations) && body.attestations.length > 0;
+    } catch (error) {
+      if (error instanceof GitHubError && error.kind === 'not_found') return false;
+      throw error;
+    }
+  }
+
   async getCommitSha(owner: string, repo: string, ref: string): Promise<string> {
     const response = await this.request(`${API}/repos/${path(owner, repo)}/commits/${path(ref)}`);
     const body = (await response.json()) as { sha: string };

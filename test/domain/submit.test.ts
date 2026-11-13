@@ -2,8 +2,8 @@
 import { env } from 'cloudflare:test';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { parseRepositoryUrl, SUBMITS_PER_DAY, submitPlugin } from '../../src/domain/submit';
-import { githubHandlers, OWNER, REPO, REPO_ID, USER_TOKEN } from '../fixtures/github';
+import { checkPlugin, parseRepositoryUrl, SUBMITS_PER_DAY, submitPlugin } from '../../src/domain/submit';
+import { githubHandlers, OWNER, REPO, REPO_ID, releaseCheckHandlers, USER_TOKEN } from '../fixtures/github';
 import { network } from '../setup';
 
 const submitter = { githubUserId: 4242, githubToken: USER_TOKEN };
@@ -40,8 +40,19 @@ describe('submitPlugin', () => {
     const result = await submitPlugin(env, submitter, url);
     expect(result.ok).toBe(true);
     expect(calls[0]).toBe('repo:Bearer');
-    // 無料プランの外部呼び出しの上限 (50 件) に対し、submit は配布物の数に依存しない 6 件で済む。
-    expect(calls.length).toBeLessThanOrEqual(6);
+    // 無料プランの外部呼び出しの上限 (50 件) に対し、submit は 6 件に配布物ごとの証明の確認を足した件数で済む。
+    expect(calls.length).toBeLessThanOrEqual(6 + 2);
+  });
+
+  it('不変でないリリース、exe の配布物、証明の無い配布物は登録しない', async () => {
+    network.use(...githubHandlers({ immutable: false }));
+    expect(await submitPlugin(env, submitter, url)).toMatchObject({ ok: false, code: 'not_immutable' });
+    network.resetHandlers();
+    network.use(...githubHandlers({ installer: true }));
+    expect(await submitPlugin(env, submitter, url)).toMatchObject({ ok: false, code: 'installer_not_allowed' });
+    network.resetHandlers();
+    network.use(...githubHandlers({ attestation: false }));
+    expect(await submitPlugin(env, submitter, url)).toMatchObject({ ok: false, code: 'no_attestation' });
   });
 
   it('同じリポジトリの二重登録を拒否する', async () => {
@@ -91,5 +102,19 @@ describe('submitPlugin', () => {
     expect(scans?.n).toBe(2);
     const plugin = await env.DB.prepare('SELECT github_repo_id FROM plugins').first<{ github_repo_id: number }>();
     expect(plugin?.github_repo_id).toBe(REPO_ID);
+  });
+});
+
+describe('checkPlugin (確認のモード)', () => {
+  it('登録せずに条件ごとの結果を返し、1 人 24 時間 5 回を超えたら断る', async () => {
+    network.use(...githubHandlers({ immutable: false }), ...releaseCheckHandlers());
+    const first = await checkPlugin(env, submitter, url);
+    expect(first).toMatchObject({ mode: 'check', ok: false });
+    expect((first as { conditions: Array<{ code: string; result: string }> }).conditions).toContainEqual(
+      expect.objectContaining({ code: 'not_immutable', result: 'failed' }),
+    );
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM plugins').first('n')).toBe(0);
+    for (let i = 0; i < 4; i += 1) await checkPlugin(env, submitter, url);
+    expect(await checkPlugin(env, submitter, url)).toMatchObject({ ok: false, code: 'rate_limited' });
   });
 });
