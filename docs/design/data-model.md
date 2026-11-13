@@ -1,6 +1,6 @@
 # データモデル
 
-D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0004_download_snapshots.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
+D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0008_release_checks.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
 
 ## テーブルの一覧
 
@@ -16,6 +16,12 @@ D1 のテーブルと、掲載状態の算出規則の仕様です。スキー�
 | `plugin_images` | プラグインと画像の種類の組 1 つにつき 1 行 |
 | `plugin_image_previews` | 説明の画像を持つプラグイン 1 つにつき 1 行 |
 | `download_snapshots` | プラグインと日付の組 1 つにつき 1 行 |
+| `release_checks` | 新しい版の検査とレビューの結果。リリース 1 件につき 1 行 |
+| `attestation_checks` | 証明の検証の結果。配布物 1 件につき 1 行 |
+| `listing_periods` | 掲載した配布物と掲載の期間。削除しない |
+| `release_suspensions` | 管理者が止めた版とマルウェアを検出した版。削除しない |
+| `plugin_aliases` | プラグインの旧い URL の ID 1 つにつき 1 行 |
+| `check_log` | `submit_plugin` の確認のモードの要求 1 件につき 1 行 |
 
 OAuth のクライアント・認可・トークンの情報は D1 ではなく KV の `OAUTH_KV` に置きます。KV の形式は `@cloudflare/workers-oauth-provider` が管理します。
 
@@ -23,7 +29,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 
 | 列 | 型 | 制約 | 内容 |
 | --- | --- | --- | --- |
-| `id` | TEXT | 主キー | プラグイン ID。`owner/repo` を小文字にした文字列 |
+| `id` | TEXT | 主キー | 内部のプラグイン ID。登録したときの `owner/repo` を小文字にした文字列で、名前の変更では変えない。URL と MCP で示す ID は、現在の `owner` と `repo` を小文字にして `/` でつないだもので、名前を変えると変わる |
 | `github_repo_id` | INTEGER | NOT NULL、UNIQUE | GitHub のリポジトリ ID。重複登録の防止に使う。同期ではこの ID でリポジトリを引き直し、名前の変更と移管に追従する |
 | `owner` | TEXT | NOT NULL | GitHub のリポジトリの所有者名 |
 | `repo` | TEXT | NOT NULL | GitHub のリポジトリ名 |
@@ -40,6 +46,9 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `created_at` | TEXT | NOT NULL | 登録日時 |
 | `updated_at` | TEXT | NOT NULL | 行の更新日時。同期のたびに進む。画面の「更新日」には使わない |
 | `last_synced_at` | TEXT | NOT NULL | 最後に同期した日時。同期の順序に使う |
+| `display_name` | TEXT | | `.soko-kun/config.json` の `name`。外部データ。NULL のときはリポジトリ名を表示する |
+| `declared_os` | TEXT | | `.soko-kun/config.json` の `os` を JSON の配列で保存した値。NULL のときは宣言が無い |
+| `release_workflow` | TEXT | | 初めて証明を検証できた版の、署名したワークフローのパス (例: `.github/workflows/push.yaml`) |
 
 ## releases
 
@@ -125,6 +134,88 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 
 `/.well-known/oauth-authorization-server` と `/.well-known/oauth-protected-resource` で始まる OAuth のメタデータには、レート制限を設けません。それ以外の `/.well-known/` 配下は `public` の経路として数えます。送信元 IP アドレスは要求ヘッダー `CF-Connecting-IP` から得ます。上限を超えた要求には、429 と `Retry-After: 60` を返します。60 分より前の窓の行は、Cron の定期処理で削除します。
 
+## release_checks
+
+新しい版の検査とレビューの結果を保存します。規則は [検査と同期](scanning.md) に、項目は [審査の基準](review-criteria.md) に記載しています。
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `github_release_id` | INTEGER | 主キー、`releases.github_release_id` を参照、親の削除で連鎖削除 | リリース ID |
+| `legacy` | INTEGER | NOT NULL、既定値 0 | 1 のとき、マイグレーション `0008` の時点で保存済みのリリース。追加の条件を当てない |
+| `immutable` | INTEGER | NOT NULL、既定値 0 | 1 のとき、GitHub のリリースの API の `immutable` が true |
+| `base_release_id` | INTEGER | | 差分の起点にした掲載中のリリース。初めて登録した版では NULL |
+| `diff_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`passed`・`held`・`skipped`・`error` のいずれか。`skipped` は起点が無いとき |
+| `diff_hits` | TEXT | | 当たった乗っ取りの兆候の ID とファイルの JSON |
+| `config_state` | TEXT | NOT NULL、既定値 `pending` | `.soko-kun/config.json` の判定。`pending`・`ok`・`missing`・`invalid`・`no_declared_assets` のいずれか |
+| `review_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`done`・`failed` のいずれか |
+| `review_attempts` | INTEGER | NOT NULL、既定値 0 | レビューを試みた回数 |
+| `review_json` | TEXT | | レビューの指摘の JSON。説明と該当の箇所は外部データ |
+| `review_serious` | INTEGER | NOT NULL、既定値 0 | 重大な指摘の件数 |
+| `reviewed_at` | TEXT | | レビューした日時 |
+| `admin_approved_at` | TEXT | | 管理者が確認待ちを承認した日時。NULL は未承認 |
+
+## attestation_checks
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `github_asset_id` | INTEGER | 主キー、`assets.github_asset_id` を参照、親の削除で連鎖削除 | 配布物の ID |
+| `result` | TEXT | NOT NULL、既定値 `pending` | `pending`・`passed`・`failed`・`error` のいずれか |
+| `reason` | TEXT | | 失敗の理由のコード |
+| `signer_workflow` | TEXT | | 検証で確かめた、署名したワークフローのパス |
+| `attempts` | INTEGER | NOT NULL、既定値 0 | 検証を試みた回数 |
+| `checked_at` | TEXT | | 最後に検証した日時 |
+
+## listing_periods
+
+掲載した配布物と、その期間を記録します。侵害が起きたときに、影響を受けた版と期間を示すために使います。他の表の削除と連鎖せず、行を削除しません。
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `plugin_id` | TEXT | NOT NULL | 内部のプラグイン ID |
+| `github_release_id` | INTEGER | 主キーの一部 | リリース ID |
+| `digest` | TEXT | 主キーの一部 | 配布物の `digest` |
+| `tag` | TEXT | NOT NULL | タグ名 |
+| `asset_name` | TEXT | NOT NULL | 配布物のファイル名。外部データ |
+| `started_at` | TEXT | NOT NULL | 掲載を始めた日時 |
+| `ended_at` | TEXT | | 掲載を終えた日時。掲載中は NULL |
+
+同期は、掲載対象のリリースが変わったときに、新しい掲載対象の配布物の行を足し、それまでの掲載対象の行の `ended_at` を埋めます。
+
+## release_suspensions
+
+管理者が止めた版と、マルウェアを検出した版を記録します。告知ページと警告の表示に使います。他の表の削除と連鎖せず、行を削除しません。
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `id` | INTEGER | 主キー | 連番 |
+| `plugin_id` | TEXT | NOT NULL | 内部のプラグイン ID |
+| `github_release_id` | INTEGER | NOT NULL、UNIQUE | リリース ID。同じ版を止め直すと、告知の文を書き換える |
+| `tag` | TEXT | NOT NULL | タグ名 |
+| `reason` | TEXT | NOT NULL | `admin`・`malicious` のいずれか |
+| `note` | TEXT | | 管理者が書く告知の文 |
+| `suspended_at` | TEXT | NOT NULL | 止めた日時 |
+
+止めた版の配布物と掲載の期間は、`listing_periods` から求めます。
+
+## plugin_aliases
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `alias` | TEXT | 主キー | 旧い URL の ID。`owner/repo` を小文字にした文字列 |
+| `plugin_id` | TEXT | NOT NULL、`plugins.id` を参照、親の削除で連鎖削除 | 内部のプラグイン ID |
+| `created_at` | TEXT | NOT NULL | 記録した日時 |
+
+同期で `owner` か `repo` が変わったとき、変わる前の ID を記録します。旧い ID の詳細ページは新しい ID へ 301 で転送し、`get_plugin` は旧い ID も受け付けます。
+
+## check_log
+
+| 列 | 型 | 制約 | 内容 |
+| --- | --- | --- | --- |
+| `github_user_id` | INTEGER | NOT NULL | 要求した利用者の GitHub のユーザー ID |
+| `created_at` | TEXT | NOT NULL | 要求の日時 |
+
+確認のモードの上限は、利用者ごとに直近 24 時間で 5 件です。
+
 ## 掲載状態の算出規則
 
 掲載状態は列に保存せず、問い合わせのたびに算出します。この判断は [ADR 0004](../decisions/0004-computed-listing-status.md) に記載しています。
@@ -139,14 +230,24 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 
 ### 検査済みのリリース
 
-リリースが検査済みとなるのは、次の 2 つを両方満たすときです。
+リリースが検査済みとなるのは、次をすべて満たすときです。
 
 - 配布物を 1 件以上持つ。
 - すべての配布物について、MalwareBazaar の結果が確定である。
+- `release_suspensions` に記録されていない。
+
+`release_checks` の `legacy` が 0 のリリースは、さらに次をすべて満たす必要があります。
+
+- `immutable` が 1 である。
+- 配布物に、拡張子が `.exe` か `.msi` のものが無い。
+- すべての配布物の `attestation_checks` の結果が `passed` である。
+- `config_state` が `ok` か `missing` である。
+- `diff_state` が `passed` か `skipped` である。または `admin_approved_at` がある。
+- `review_state` が `done` で `review_serious` が 0 である。または `admin_approved_at` がある。
 
 ### 掲載対象バージョン
 
-掲載対象バージョンは、検査済みのリリースのうち `published_at` が最も新しいものです。それより新しく検査済みでないリリースは、検査中のリリースとして別に示します。
+掲載対象バージョンは、検査済みのリリースのうち `published_at` が最も新しいものです。それより新しく検査済みでないリリースは、作者向けの `list_my_plugins` にだけ示し、エンドユーザー向けの画面と MCP のツールには示しません。
 
 ### プラグインの掲載状態
 
@@ -164,12 +265,14 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 
 | 状態 | Web の一覧・`search_plugins`・サイトマップ | `get_plugin` | Web の詳細ページ |
 | --- | --- | --- | --- |
-| 掲載中 | 含める | すべての項目とダウンロード URL を返す | すべての項目とダウンロードボタンを表示する |
-| 検査待ち | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | [画面構成](ui.md) の掲載中以外の要素だけを表示する。noindex にする |
-| 停止 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 同上。管理停止の理由があれば表示する |
-| 掲載終了 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | 同上 |
+| 掲載中 | 含める | 掲載対象バージョンの項目とダウンロード URL を返す | 掲載対象バージョンとダウンロードボタンを表示する |
+| 検査待ち | 含めない | 未登録と同じ `not_found` を返す | 404 を返す |
+| 停止 | 含めない | 状態・理由・止めた版の警告を返し、ダウンロード URL を返さない | 掲載停止の警告を表示する。noindex にする |
+| 掲載終了 | 含めない | 状態と理由だけを返し、ダウンロード URL を返さない | [画面構成](ui.md) の掲載中以外の要素だけを表示する。noindex にする |
 
-掲載中以外の `get_plugin` の応答が含む項目は、プラグイン ID・名前・作者・GitHub のリポジトリの URL・状態・理由・案内文・詳細ページの URL です。理由の値は `admin`・`removed`・`malicious` のいずれかで、検査待ちでは `null` です。
+検査待ちのプラグインを未登録と同じに扱うのは、エンドユーザーに検査中という分かりにくい状態を見せないためです。作者は `list_my_plugins` で状態と理由を確かめます。
+
+掲載中のプラグインでも、`release_suspensions` に記録された版があれば、詳細ページと `get_plugin` に止めた版の警告を示します。
 
 詳細ページの noindex は、応答ヘッダー `X-Robots-Tag: noindex` で示します。
 

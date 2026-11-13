@@ -10,6 +10,8 @@
 | テーブルと掲載状態の算出規則 | [データモデル](design/data-model.md) | リファレンス |
 | 認可の流れとスコープ | [認証と認可](design/auth.md) | リファレンス |
 | 登録・検査・同期の処理と無料プランの予算 | [検査と同期](design/scanning.md) | リファレンス |
+| 新しい版を掲載する前に確かめる項目 | [審査の基準](design/review-criteria.md) | リファレンス |
+| 作者の LLM へ検査とレビューの結果を返す MCP のツール | [作者へのレビューの返し方](design/author-feedback.md) | リファレンス |
 | 対応言語と言語の判定 | [多言語対応](design/i18n.md) | リファレンス |
 | 画面の一覧と各画面の要素 | [画面構成](design/ui.md) | リファレンス |
 
@@ -31,6 +33,8 @@
 | 0010 | [プラグインの説明文の機械翻訳](decisions/0010-machine-translation-of-summaries.md) | 採用 |
 | 0011 | [プラグインの画像を Worker から配信する](decisions/0011-plugin-images-hosted-by-worker.md) | 採用 |
 | 0012 | [VirusTotal を照会先から外す](decisions/0012-drop-virustotal.md) | 採用 |
+| 0013 | [新しい版の掲載の条件と開発の実践のレビュー](decisions/0013-release-provenance-and-review.md) | 採用 |
+| 0014 | [証明の署名の検証を GitHub Actions で行う](decisions/0014-attestation-verification-in-actions.md) | 採用 |
 
 ## 運用手順
 
@@ -40,6 +44,7 @@
 | --- | --- |
 | 手元で Worker を起動し、テストと MCP の接続を確かめる | [ローカルでの開発](operations/local-development.md) |
 | プラグインの掲載を止める、再開する、通報に対応する | [掲載停止と再開](operations/suspend.md) |
+| 侵害が疑われる版を止め、影響を受けた版と期間を告知する | [侵害の対応](operations/incident-response.md) |
 | D1 のデータを保存する、過去の時点へ戻す | [バックアップと復元](operations/backup.md) |
 | ワークフローの権限を知る、本番の設定をそろえて配備する | [CI と配備](operations/ci-cd.md) |
 | 公式の MCP Registry に登録する、登録を更新する。Glama の掲載を確かめる | [公式 MCP Registry への登録](operations/mcp-registry.md) |
