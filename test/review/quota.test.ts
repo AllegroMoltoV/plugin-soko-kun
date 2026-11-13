@@ -16,6 +16,15 @@ const envThrowing = (message: string) =>
 
 describe('Workers AI の例外の分類', () => {
   it('無料枠の不足と混雑だけを、失敗と分けて扱う', () => {
+    // 2026-11-13 に binding で実際に受けた例外のメッセージ。
+    expect(
+      classifyAiError(
+        new Error(
+          "AiError: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan",
+        ),
+      ),
+    ).toEqual({ kind: 'quota' });
+    // 公式の文書の表に載っているコード。
     expect(classifyAiError(new Error('AiError: 3036: You have used up your daily free allocation'))).toEqual({
       kind: 'quota',
     });

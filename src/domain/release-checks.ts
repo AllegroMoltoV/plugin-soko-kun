@@ -249,16 +249,19 @@ export async function reviewRepository(
 export type ReviewOutcome =
   | { kind: 'done'; findings: Finding[] }
   | { kind: 'failed' }
-  // 無料枠の不足 (3036)。試行に数えず、枠が戻る 00:00 UTC まで待つ。
+  // 無料枠の不足 (4006 か 3036)。試行に数えず、枠が戻る 00:00 UTC まで待つ。
   | { kind: 'quota' }
   // 一時的な混雑 (3040)。試行に数えず、次の起動でやり直す。
   | { kind: 'busy' };
 
 // Workers AI の例外のメッセージ (AiError: <コード>: <説明>) からコードを取り出して分ける。
+// 無料枠の不足は、2026-11-13 に binding で実際に受けた例外が 4006 だった。公式の文書の表は 3036 と書くため、両方を見る。
 // コードを取り出せない例外は、今までどおり失敗として数える。外れても前の版の掲載が続き、管理者の確認に回るだけで済むため。
+const QUOTA_CODES = new Set(['4006', '3036']);
+
 export function classifyAiError(error: unknown): ReviewOutcome {
   const code = /\b(\d{4}):/.exec(String(error))?.[1];
-  if (code === '3036') return { kind: 'quota' };
+  if (code && QUOTA_CODES.has(code)) return { kind: 'quota' };
   if (code === '3040') return { kind: 'busy' };
   return { kind: 'failed' };
 }
