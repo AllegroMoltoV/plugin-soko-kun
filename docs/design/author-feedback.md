@@ -43,7 +43,7 @@ sequenceDiagram
 作者の LLM に list_my_plugins を呼ばせるきっかけは、次の 2 つです。
 
 1. MCP の initialize の instructions に、次の趣旨を書く: 「プラグインの作者がリリースを出したら、15 分以上あとに list_my_plugins で掲載の状態を確かめ、指摘があれば作者に伝えて直し方を提案する」
-2. 作者向けのスキル (OBS のプラグインの作り方をまとめたもの) のリリースの手順の最後に、同じ確認を入れる
+2. 作者向けのスキル streaming-plugin-dev (本リポジトリの `plugins/soko-kun-plugin-dev`) のリリースの手順の最後に、同じ確認を入れる。instructions と登録の方法のページ (/submit) では、このスキルの導入の方法を案内する
 
 検査には最大で 30 分ほどかかります (同期と検証のワークフローがそれぞれ 15 分ごと)。結果がまだ出ていない版には、`state: "checking"` と、確かめ直す目安の時刻を返します。
 

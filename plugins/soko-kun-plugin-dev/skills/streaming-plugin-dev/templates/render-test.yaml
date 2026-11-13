@@ -1,0 +1,193 @@
+name: Render test
+# Renders the plugin headless with libobs on each OS and checks the pixels.
+# - Windows: Direct3D 11. Runners have no GPU, so DXGI uses its software adapter (WARP).
+# - Ubuntu: OpenGL on Mesa llvmpipe under Xvfb.
+# - macOS: OpenGL on the Apple Software Renderer.
+# Use this workflow to check macOS and Linux rendering without owning those machines.
+# render-test exits with 0 on pass, 1 on a failed check, and 2 when it cannot start.
+#
+# Requirements:
+# - A repository created from obs-plugintemplate (this workflow calls its build-plugin action).
+# - templates/render-tests.cmake appended to the root CMakeLists.txt, and the files in templates/tests/ in tests/.
+# - PLUGIN_NAME equal to "name" in buildspec.json, and OBS_VERSION equal to dependencies.obs-studio.version.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'CMakeLists.txt'
+      - 'src/**'
+      - 'data/**'
+      - 'tests/**'
+      - '.github/workflows/render-test.yaml'
+permissions:
+  contents: read
+env:
+  PLUGIN_NAME: my-plugin
+  OBS_VERSION: 31.1.1
+  # Keep this list equal to RENDER_TEST_SCENARIOS in CMakeLists.txt
+  SCENARIOS: filter-output
+jobs:
+  windows-render:
+    name: Render on Windows (D3D11)
+    runs-on: windows-2022
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build plugin and render test
+        uses: ./.github/actions/build-plugin
+        with:
+          target: x64
+          config: RelWithDebInfo
+
+      # The graphics modules are not dependencies of the plugin, so build the one the test uses
+      - name: Build D3D11 module
+        run: cmake --build ".deps/obs-studio-$env:OBS_VERSION/build_x64" --config Release --target libobs-d3d11
+
+      - name: Render
+        run: |
+          New-Item -ItemType Directory -Path test-images | Out-Null
+          $env:RENDER_TEST_OUTPUT_DIR = "$PWD\test-images"
+          ctest --test-dir build_x64 -C RelWithDebInfo -R d3d11 --output-on-failure --no-tests=error 2>&1 |
+            Tee-Object -FilePath render-windows.log
+          exit $LASTEXITCODE
+
+      - name: Upload render log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: render-windows
+          path: |
+            render-windows.log
+            test-images
+          if-no-files-found: warn
+
+  ubuntu-render:
+    name: Render on Ubuntu (Mesa OpenGL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build plugin
+        uses: ./.github/actions/build-plugin
+        with:
+          target: x86_64
+          config: RelWithDebInfo
+
+      - name: Install render dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libegl-mesa0 libx11-dev
+
+      - name: Build render test
+        run: |
+          cmake -S . -B build_x86_64 -DENABLE_RENDER_TESTS=ON
+          cmake --build build_x86_64 --config RelWithDebInfo --target render-test
+
+      # libobs-opengl and the libobs data come from the obs-studio package that the template installs from the PPA
+      - name: Render
+        run: |
+          plugin=$(find "$PWD/build_x86_64" -name "${PLUGIN_NAME}.so" -print -quit)
+          test=$(find "$PWD/build_x86_64" -name 'render-test' -type f -print -quit)
+          gl=$(find /usr/lib -name 'libobs-opengl.so*' -print -quit)
+          echo "plugin=${plugin} test=${test} gl=${gl}"
+          mkdir -p test-images
+          export RENDER_TEST_OUTPUT_DIR="$PWD/test-images"
+          failed=0
+          for scenario in ${SCENARIOS}; do
+            if xvfb-run -a -s '-screen 0 1280x720x24' "${test}" "${plugin}" "$PWD/data" "${gl}" \
+              /usr/share/obs/libobs "${scenario}" >> render-ubuntu.log 2>&1; then
+              echo "PASS ${scenario}" | tee -a render-ubuntu.log
+            else
+              echo "FAIL ${scenario}" | tee -a render-ubuntu.log
+              failed=1
+            fi
+          done
+          exit ${failed}
+
+      - name: Upload render log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: render-ubuntu
+          path: |
+            render-ubuntu.log
+            test-images
+          if-no-files-found: warn
+
+  macos-render:
+    name: Render on macOS (OpenGL)
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: zsh --no-rcs --errexit --pipefail {0}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: sudo xcode-select --switch /Applications/Xcode_16.1.0.app/Contents/Developer
+
+      - name: Build plugin
+        uses: ./.github/actions/build-plugin
+        with:
+          target: macos-universal
+          config: RelWithDebInfo
+
+      - name: Build render test and OpenGL module
+        run: |
+          cmake -S . -B build_macos -DENABLE_RENDER_TESTS=ON
+          cmake --build build_macos --config RelWithDebInfo --target render-test
+          cmake --build ".deps/obs-studio-${OBS_VERSION}/build_universal" --config Release --target libobs-opengl
+
+      - name: Render
+        run: |
+          plugin=$(find "$PWD/build_macos" -path "*RelWithDebInfo/${PLUGIN_NAME}.plugin/Contents/MacOS/${PLUGIN_NAME}" -print -quit)
+          test=$(find "$PWD/build_macos" -name 'render-test' -type f -perm -u+x -print -quit)
+          gl=$(find "$PWD/.deps/obs-studio-${OBS_VERSION}/build_universal" \( -name 'libobs-opengl.dylib' -o -name 'libobs-opengl.so' \) -print -quit)
+          print "plugin=${plugin} test=${test} gl=${gl}"
+          # The test and libobs-opengl load libobs.framework through @rpath. The framework built for the plugin is in
+          # .deps/Frameworks, and the FFmpeg and other libraries that libobs needs are in the obs-deps folder of .deps
+          deps_lib=$(dirname "$(find "$PWD/.deps" -name 'libavcodec.dylib' -print -quit)")
+          print "deps_lib=${deps_lib}"
+          export DYLD_FRAMEWORK_PATH="$PWD/.deps/Frameworks"
+          export DYLD_LIBRARY_PATH="${deps_lib}"
+          core="$PWD/.deps/obs-studio-${OBS_VERSION}/libobs/data"
+          mkdir -p test-images
+          export RENDER_TEST_OUTPUT_DIR="$PWD/test-images"
+          failed=0
+          for scenario in ${=SCENARIOS}; do
+            if "${test}" "${plugin}" "$PWD/data" "${gl}" "${core}" "${scenario}" >> render-macos.log 2>&1; then
+              print "PASS ${scenario}" | tee -a render-macos.log
+            else
+              print "FAIL ${scenario}" | tee -a render-macos.log
+              failed=1
+            fi
+          done
+          exit ${failed}
+
+      - name: Upload render log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: render-macos
+          path: |
+            render-macos.log
+            test-images
+          if-no-files-found: warn

@@ -30,6 +30,17 @@ The listing conditions, the security policy, and how to report a problem are on 
 
 To report a vulnerability in this service, use [private vulnerability reporting](https://github.com/AllegroMoltoV/plugin-soko-kun/security/advisories/new).
 
+### Claude Code skill for plugin authors
+
+This repository is also a Claude Code plugin marketplace. Its plugin `soko-kun-plugin-dev` contains the skill `streaming-plugin-dev`, which guides Claude Code through building an OBS Studio plugin: planning, scaffolding from obs-plugintemplate, verification in OBS and in CI, releases with build provenance attestations and immutable releases, and listing on this service. Install it from your shell:
+
+```sh
+claude plugin marketplace add AllegroMoltoV/plugin-soko-kun
+claude plugin install soko-kun-plugin-dev@plugin-soko-kun
+```
+
+In a Claude Code session, run `/plugin marketplace add AllegroMoltoV/plugin-soko-kun` and then `/plugin install soko-kun-plugin-dev@plugin-soko-kun`. Claude Code uses the skill when you ask it to build or publish an OBS plugin, and you can also run it as `/soko-kun-plugin-dev:streaming-plugin-dev`. The skill is in [plugins/soko-kun-plugin-dev/](plugins/soko-kun-plugin-dev/).
+
 ### Contents
 
 | Path | Description |
@@ -43,13 +54,15 @@ To report a vulnerability in this service, use [private vulnerability reporting]
 | `server.json` | Entry for the official MCP Registry |
 | `glama.json` | Maintainer of the Glama server listing |
 | `docs/` | Design documents, glossary, and decision records (in Japanese) |
+| `.claude-plugin/` | Claude Code plugin marketplace definition |
+| `plugins/` | Claude Code plugin with the skill for plugin authors |
 | `LICENSE` | MIT License |
 
 For local development, see [docs/operations/local-development.md](docs/operations/local-development.md) (in Japanese).
 
 ### AI disclosure
 
-Anthropic Claude Code was used for almost the entire development of this service, including research, source code, Cloudflare configuration, tests, and documentation. OpenAI Codex was used to verify sign-in and submission from Codex. The author decided the requirements and design policies, reviewed the web pages and documents, and approved each deployment and external operation one by one. The author did not perform a rigorous line-by-line human review of the source code.
+Anthropic Claude Code was used for almost the entire development of this service, including research, source code, Cloudflare configuration, tests, and documentation. OpenAI Codex was used to verify sign-in and submission from Codex. The author decided the requirements and design policies, reviewed the web pages and documents, and approved each deployment and external operation one by one. The author did not perform a rigorous line-by-line human review of the source code. The Claude Code skill for plugin authors was also written with Claude Code, from the author's records of building OBS Studio plugins.
 
 ## 日本語
 
@@ -79,6 +92,17 @@ codex mcp add plugin-soko-kun --url https://soko-kun.allegromoltov.jp/mcp
 
 本サービスの脆弱性は、[Private vulnerability reporting](https://github.com/AllegroMoltoV/plugin-soko-kun/security/advisories/new) で報告してください。
 
+### プラグインの作者向けの Claude Code のスキル
+
+このリポジトリは Claude Code のプラグインのマーケットプレイスを兼ねています。プラグイン `soko-kun-plugin-dev` には、スキル `streaming-plugin-dev` が入っています。このスキルにしたがって、Claude Code は OBS Studio のプラグインを作ります。企画、obs-plugintemplate からの雛形の作成、OBS と CI での検証、ビルドの来歴の証明と不変のリリース、本サービスへの掲載を扱います。シェルで次のコマンドを実行して導入します。
+
+```sh
+claude plugin marketplace add AllegroMoltoV/plugin-soko-kun
+claude plugin install soko-kun-plugin-dev@plugin-soko-kun
+```
+
+Claude Code のセッションの中では、`/plugin marketplace add AllegroMoltoV/plugin-soko-kun` のあとに `/plugin install soko-kun-plugin-dev@plugin-soko-kun` を実行します。OBS のプラグインの制作や公開を頼むと、Claude Code がこのスキルを使います。`/soko-kun-plugin-dev:streaming-plugin-dev` で呼び出すこともできます。スキルの本文は英語で、[plugins/soko-kun-plugin-dev/](plugins/soko-kun-plugin-dev/) にあります。
+
 ### 内容物
 
 | パス | 内容 |
@@ -92,13 +116,15 @@ codex mcp add plugin-soko-kun --url https://soko-kun.allegromoltov.jp/mcp
 | `server.json` | 公式の MCP Registry への登録の定義 |
 | `glama.json` | Glama のサーバーの掲載の保守者 |
 | `docs/` | 設計文書、用語集、決定事項の記録 |
+| `.claude-plugin/` | Claude Code のプラグインのマーケットプレイスの定義 |
+| `plugins/` | プラグインの作者向けのスキルを入れた Claude Code のプラグイン |
 | `LICENSE` | MIT License |
 
 ローカルでの開発の手順は [docs/operations/local-development.md](docs/operations/local-development.md) にあります。
 
 ### AI 利用開示
 
-本サービスの開発では、調査、ソースコード、Cloudflare の設定、テスト、文書を含むほぼすべての工程で Anthropic Claude Code を使用しました。Codex からのサインインと登録の確認には OpenAI Codex を使用しました。要件と設計の方針は作者が決めました。作者は Web の画面と文書を確認し、配備と外部への操作を 1 回ずつ承認しました。ソースコードを 1 行ずつ読む厳密な人間のレビューは行っていません。
+本サービスの開発では、調査、ソースコード、Cloudflare の設定、テスト、文書を含むほぼすべての工程で Anthropic Claude Code を使用しました。Codex からのサインインと登録の確認には OpenAI Codex を使用しました。要件と設計の方針は作者が決めました。作者は Web の画面と文書を確認し、配備と外部への操作を 1 回ずつ承認しました。ソースコードを 1 行ずつ読む厳密な人間のレビューは行っていません。プラグインの作者向けの Claude Code のスキルも、作者が OBS Studio のプラグインを作った記録をもとに、Claude Code で書きました。
 
 ## 更新履歴
 
