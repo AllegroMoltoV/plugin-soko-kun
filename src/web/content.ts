@@ -46,7 +46,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'In Codex, run:',
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Searching and viewing details work without signing in to GitHub. To submit a repository, sign in with GitHub from the MCP client (in Claude Code, run /mcp; in Codex, run codex mcp login plugin-soko-kun). This platform itself never gets write access to your GitHub repositories.',
-            'Example requests: "Find a pitch shift plugin that works on Windows", "Register the OBS plugin in this GitHub repository".',
+            'Example requests: "Find a pitch shift plugin that works on Windows", "Register the OBS plugin in this GitHub repository", "Check whether my plugin\'s new release is listed".',
           ],
         },
         {
@@ -71,7 +71,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub detects a license for the repository. Add a LICENSE file if GitHub shows no license.',
                 'The CMakeLists.txt at the root of the repository references libobs, for example with find_package(libobs), and the repository contains C or C++ sources.',
                 'The latest release on GitHub has the plugin files attached. GitHub records a SHA-256 digest for files uploaded to a release, and this platform uses that digest for checks.',
-                'The automated checks find no known threat.',
+                'The latest release is an immutable release. Turn on immutable releases in the repository settings before you publish it.',
+                'Every file in the release has a build provenance attestation. Create it in the release workflow with actions/attest-build-provenance.',
+                'The release has no exe or msi installers. Ship Windows builds as zip files.',
+                'The release passes the automated checks. The Security page describes the checks.',
               ],
             },
             'Whether AI was used to develop a plugin does not affect listing. The same conditions apply to every plugin. Disclosing the use of AI is not required.',
@@ -93,6 +96,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub detects a license for the repository. Add a LICENSE file if GitHub shows no license.',
                 'The CMakeLists.txt at the root of the repository references libobs, for example with find_package(libobs), and the repository contains C or C++ sources.',
                 'The latest release on GitHub has the plugin files attached. GitHub records a SHA-256 digest for files uploaded to a release, and this platform uses that digest for checks.',
+                'The latest release is an immutable release. Turn on immutable releases in the repository settings before you publish it.',
+                'Every file in the release has a build provenance attestation. Create it in the release workflow with actions/attest-build-provenance.',
+                'The release has no exe or msi installers. Ship Windows builds as zip files.',
               ],
             },
           ],
@@ -109,8 +115,12 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'After submitting',
           paragraphs: [
-            'This platform registers the plugin as waiting for checks and checks each file against MalwareBazaar, a database of known malware samples, every 15 minutes. Checks for a plugin usually finish within a few hours, so check the plugin page later.',
-            'When all files pass the checks, this platform lists the plugin automatically. When you publish a new release on GitHub, this platform finds it and checks it, and keeps listing the previous release until the checks finish.',
+            'This platform registers the plugin as waiting for checks. Until a release passes the checks, the plugin does not appear in search or on its own page.',
+            'Checks run every 15 minutes and usually finish within a few hours.',
+            'This platform lists only releases that pass the checks. When you publish a new release on GitHub, this platform picks it up and checks it automatically. You do not need to submit it again.',
+            'To see the results, ask your AI agent to check your plugin with list_my_plugins, for example: "Check whether my plugin\'s new release is listed". The agent shows the state of each release, the reasons a release is not listed, the review findings, and how to fix them.',
+            'Before you publish a release, ask the agent to run submit_plugin in check mode. It checks the listing conditions on the latest release and reviews the latest commit of the default branch. It does not register the plugin. You can use check mode up to 5 times in 24 hours.',
+            'Some releases wait for an administrator to confirm them. To explain the changes in such a release, open an issue in the repository of this platform: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
         {
@@ -130,6 +140,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'not_found: The repository was not found. Check the URL and that the repository is public.',
                 'unsupported_tag: Use a release tag with only letters, digits, ".", "-", and "_", up to 100 characters.',
                 'github_unavailable: GitHub did not respond normally. Try again later.',
+                'not_immutable: Turn on immutable releases in the repository settings, then publish a new release.',
+                'installer_not_allowed: Remove the exe and msi files. Ship Windows builds as zip files, then publish a new release.',
+                'no_attestation: Add actions/attest-build-provenance to the release workflow so that every file has an attestation, then publish a new release.',
               ],
             },
           ],
@@ -151,9 +164,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '.soko-kun/config.json',
+          paragraphs: [
+            'Authors can declare the display name and the supported OS in .soko-kun/config.json. Place the file in the same .soko-kun folder as the images.',
+            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            {
+              list: [
+                'name: The display name, from 1 to 60 characters. Without it, this platform shows the repository name.',
+                'os: An array of windows, macos, and linux. With it, this platform lists only the files for the declared OS. Without it, this platform guesses the OS from the file names.',
+              ],
+            },
+            'Both fields are optional.',
+            'This platform reads the file at the tag of each new release, so publish a new release after you change the file.',
+            'This platform does not list a release whose file is invalid, or that has no files for the declared OS.',
+          ],
+        },
+        {
           heading: 'Updating and withdrawing',
           paragraphs: [
-            'To update a listing, publish a new release on GitHub. This platform also updates the summary from the repository description.',
+            'To update a listing, publish a new release on GitHub. This platform picks it up automatically and lists it after it passes the checks. This platform also updates the summary from the repository description.',
+            'If a new release is not listed, ask your AI agent to check it with list_my_plugins. The agent shows the reason and how to fix it.',
             'To withdraw a listing, make the repository private or delete it, or send a request as described on the Report page.',
           ],
         },
@@ -165,15 +195,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Automated checks',
           paragraphs: [
-            'For each file in a release, the service records the SHA-256 digest that GitHub publishes and looks it up in MalwareBazaar, a database of known malware samples. Files are not downloaded by the service.',
-            'A release is shown as checked only after every file has a lookup result. Releases that are waiting for checks, or whose checks failed, are not listed. When a new release is under check, the previously checked release stays listed.',
-            'A file reported as malicious suspends the plugin.',
+            'This platform checks every new release before listing it. It lists only releases that pass the checks.',
+            {
+              list: [
+                'Provenance: Every file must have a build provenance attestation. A GitHub Actions workflow verifies its signature. The workflow also confirms that the attestation matches the repository, the release tag, the commit of the tag, and the release workflow recorded for the plugin.',
+                'Immutable release: The release must be immutable. Files in an immutable release cannot be replaced after it is published.',
+                'Malware lookup: The SHA-256 digest of each file, as published by GitHub, is looked up in MalwareBazaar, a database of known malware samples. Listed files are looked up again regularly.',
+                'Changes since the listed release: The changes from the listed release to the new release are checked against rules. A release that matches a rule waits for an administrator to confirm it.',
+                'Development practice review: An LLM reads the release workflows, the build files, and the README, and reviews the development practices. The criteria are based on concerns and recommendations that an OBS plugin developer has published. A release with a serious finding waits for an administrator to confirm it.',
+              ],
+            },
+            'The review criteria are public on GitHub: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+            'Releases that have not passed the checks are not shown. Until a new release passes, the previously listed release stays listed.',
+            'A file reported as malicious suspends the plugin. An administrator can also suspend a release.',
+            'Suspended releases are announced on the notices page {{ORIGIN}}/notices with the version, the SHA-256 of each file, and the period they were listed here. The plugin page also shows a warning.',
           ],
         },
         {
           heading: 'Limits of the checks',
           paragraphs: [
-            'The checks detect only threats already known to these databases. New or targeted malware may not be detected, so use plugins carefully even when nothing is detected.',
+            'The malware lookup detects only threats already known to MalwareBazaar. New or targeted malware may not be detected, so use plugins carefully even when nothing is detected.',
             'The digest identifies the file that GitHub served when it was recorded. Compare the SHA-256 of the file you download with the value shown here.',
           ],
         },
@@ -337,7 +378,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Codex では次を実行してください:',
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '検索と詳細取得については、GitHub サインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインしてください (Claude Code では /mcp を、Codex では codex mcp login plugin-soko-kun を実行)。なおこのプラットフォーム自体が GitHub リポジトリへの書き込み権限を取得することはありません。',
-            '話しかけ方の例:「Windows で動くピッチシフトのプラグインを探して」「この GitHub リポジトリの OBS プラグインを登録して」',
+            '話しかけ方の例:「Windows で動くピッチシフトのプラグインを探して」「この GitHub リポジトリの OBS プラグインを登録して」「自分のプラグインの新しいリリースの掲載の状態を確かめて」',
           ],
         },
         {
@@ -362,7 +403,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub がリポジトリのライセンスを検出できること。GitHub にライセンスが表示されないときは、LICENSE ファイルを追加してください。',
                 'リポジトリの直下の CMakeLists.txt が find_package(libobs) などで libobs を参照していて、C または C++ のソースがあること。',
                 'GitHub の最新のリリースに、プラグインの配布物が添付されていること。GitHub はリリースにアップロードした配布物に SHA-256 を記録し、このプラットフォームはその値で検査します。',
-                '自動検査で既知の脅威が検出されないこと。',
+                '最新のリリースが不変のリリース (immutable release) であること。公開する前に、リポジトリの設定で不変のリリースを有効にしてください。',
+                'リリースのすべての配布物に、build provenance の証明があること。リリースのワークフローで actions/attest-build-provenance を使って証明を作ってください。',
+                '配布物に exe や msi のインストーラーが無いこと。Windows 向けの配布物は zip で配ってください。',
+                'リリースが自動検査を通ること。検査の内容はセキュリティと免責のページに記載しています。',
               ],
             },
             '開発に AI を使ったかどうかは掲載に影響しません。このプラットフォームはすべてのプラグインに同じ条件を適用し、AI の使用の申告も求めません。',
@@ -384,6 +428,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub がリポジトリのライセンスを検出できること。GitHub にライセンスが表示されないときは、LICENSE ファイルを追加してください。',
                 'リポジトリの直下の CMakeLists.txt が find_package(libobs) などで libobs を参照していて、C または C++ のソースがあること。',
                 'GitHub の最新のリリースに、プラグインの配布物が添付されていること。GitHub はリリースにアップロードした配布物に SHA-256 を記録し、このプラットフォームはその値で検査します。',
+                '最新のリリースが不変のリリース (immutable release) であること。公開する前に、リポジトリの設定で不変のリリースを有効にしてください。',
+                'リリースのすべての配布物に、build provenance の証明があること。リリースのワークフローで actions/attest-build-provenance を使って証明を作ってください。',
+                '配布物に exe や msi のインストーラーが無いこと。Windows 向けの配布物は zip で配ってください。',
               ],
             },
           ],
@@ -400,8 +447,12 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '登録した後の流れ',
           paragraphs: [
-            'このプラットフォームはプラグインを検査待ちで登録し、15 分ごとに配布物を 既知のマルウェアのデータベースである MalwareBazaar で照会します。検査はふつう数時間以内に終わるので、しばらくしてからプラグインのページを確認してください。',
-            'すべての配布物が検査を通ると、このプラットフォームはプラグインを自動で掲載します。GitHub で新しいリリースを公開すると、このプラットフォームはそれを見つけて検査し、検査が終わるまで前のリリースを掲載し続けます。',
+            'このプラットフォームはプラグインを検査待ちで登録します。リリースが検査を通るまで、プラグインは検索とプラグインのページに表示されません。',
+            '検査は 15 分ごとに進み、ふつう数時間以内に終わります。',
+            'このプラットフォームは、検査を通った版だけを掲載します。GitHub で新しいリリースを公開すると、このプラットフォームは自動で取り込んで検査します。登録し直す必要はありません。',
+            '検査の結果は、AI エージェントに list_my_plugins で確かめさせてください。話しかけ方の例は「自分のプラグインの新しいリリースの掲載の状態を確かめて」です。AI エージェントは、版ごとの状態・掲載していない理由・レビューの指摘・直し方を示します。',
+            'リリースを公開する前に、AI エージェントに submit_plugin の確認のモードを使わせてください。確認のモードは、最新のリリースで掲載の条件を判定し、既定のブランチの最新のコミットをレビューします。このモードでは登録しません。確認のモードは 24 時間に 5 回まで使えます。',
+            '管理者の確認待ちになる版もあります。その版の変更の意図を説明するときは、このプラットフォームのリポジトリの Issue に書いてください: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
         {
@@ -421,6 +472,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'not_found: リポジトリが見つかりません。URL と、リポジトリが公開されていることを確認してください。',
                 'unsupported_tag: リリースのタグは、英数字・「.」・「-」・「_」だけの 100 文字以内にしてください。',
                 'github_unavailable: GitHub が正常に応答しませんでした。時間をおいてから登録してください。',
+                'not_immutable: リポジトリの設定で不変のリリースを有効にしてから、新しいリリースを公開してください。',
+                'installer_not_allowed: exe と msi の配布物を外してください。Windows 向けは zip で配り、新しいリリースを公開してください。',
+                'no_attestation: リリースのワークフローに actions/attest-build-provenance を加え、すべての配布物に証明を付けてください。そのうえで新しいリリースを公開してください。',
               ],
             },
           ],
@@ -442,9 +496,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '.soko-kun/config.json',
+          paragraphs: [
+            '作者は .soko-kun/config.json で、表示名と対応 OS を宣言できます。画像と同じ .soko-kun フォルダーにファイルを置いてください。',
+            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            {
+              list: [
+                'name: 表示名です。1〜60 文字で書いてください。書かないときは、リポジトリ名を表示します。',
+                'os: windows・macos・linux を配列で書きます。書くと、このプラットフォームは宣言した OS の配布物だけを掲載します。書かないときは、配布物のファイル名から OS を推定します。',
+              ],
+            },
+            'どちらの項目も任意です。',
+            'このプラットフォームは新しいリリースのタグの時点のファイルを読むので、ファイルを変えたときは新しいリリースを公開してください。',
+            'ファイルの内容が条件に合わないリリースと、宣言した OS の配布物が無いリリースは掲載しません。',
+          ],
+        },
+        {
           heading: '更新と掲載の取り下げ',
           paragraphs: [
-            '掲載を更新するときは、GitHub で新しいリリースを公開してください。このプラットフォームは、リポジトリの説明から概要も更新します。',
+            '掲載を更新するときは、GitHub で新しいリリースを公開してください。このプラットフォームは新しいリリースを自動で取り込み、検査を通ったら掲載します。リポジトリの説明から概要も更新します。',
+            '新しいリリースが掲載されないときは、AI エージェントに list_my_plugins で理由を確かめさせてください。AI エージェントは理由と直し方を示します。',
             '掲載を取り下げるときは、リポジトリを非公開にするか削除してください。通報ページの方法で取り下げを依頼することもできます。',
           ],
         },
@@ -456,15 +527,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '自動検査',
           paragraphs: [
-            'このプラットフォームは、リリースの配布物ごとに GitHub が公開する SHA-256 を記録し、既知のマルウェアのデータベースである MalwareBazaar で照会します。このプラットフォームは配布物をダウンロードしません。',
-            'このプラットフォームは、すべての配布物の照会結果がそろってから、検査済みとして表示します。検査待ちや検査に失敗したリリースは掲載しません。新しいリリースを検査しているあいだは、検査を通った前のリリースを掲載し続けます。',
-            'マルウェアと判定された配布物があると、このプラットフォームはプラグインの掲載を停止します。',
+            'このプラットフォームは、新しいリリースを掲載する前に検査します。検査を通ったリリースだけを掲載します。',
+            {
+              list: [
+                '証明の照合: すべての配布物に build provenance の証明が必要です。GitHub Actions のワークフローが、証明の署名を検証します。あわせて、証明がリポジトリ・リリースのタグ・タグのコミット・記録したリリースのワークフローと一致することを確かめます。',
+                '不変のリリース: リリースが不変であることを確かめます。不変のリリースでは、公開した後に配布物を差し替えられません。',
+                'マルウェアの照会: GitHub が公開する配布物の SHA-256 を、既知のマルウェアのデータベースである MalwareBazaar で照会します。掲載中の配布物も定期的に照会し直します。',
+                '新しい版の差分: 掲載中のリリースから新しいリリースまでの変更を、ルールで検査します。ルールに当たったリリースは、管理者の確認待ちにします。',
+                '開発の実践のレビュー: LLM がリリースのワークフロー・ビルドの設定・README を読み、開発の実践をレビューします。基準は、OBS のプラグインの開発者が公開物で述べている懸念と推奨にもとづきます。重大な指摘があるリリースは、管理者の確認待ちにします。',
+              ],
+            },
+            'レビューの基準は GitHub で公開しています: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+            '検査を通っていないリリースは表示しません。新しいリリースが検査を通るまでは、前に掲載していたリリースを掲載し続けます。',
+            'マルウェアと判定された配布物があると、このプラットフォームはプラグインの掲載を停止します。管理者がリリースを止めることもあります。',
+            '止めたリリースは、告知ページ {{ORIGIN}}/notices で、版・配布物の SHA-256・掲載していた期間とともに知らせます。プラグインのページにも警告を表示します。',
           ],
         },
         {
           heading: '検査の限界',
           paragraphs: [
-            '検査で検出できるのは、これらのデータベースに既に知られている脅威だけです。新しいマルウェアや標的型のマルウェアは検出できないことがあるので、検査で何も検出されなくても、注意して利用してください。',
+            'マルウェアの照会で検出できるのは、MalwareBazaar に既に知られている脅威だけです。新しいマルウェアや標的型のマルウェアは検出できないことがあるので、検査で何も検出されなくても、注意して利用してください。',
             'SHA-256 は、記録した時点で GitHub が配布していたファイルを表します。ダウンロードしたファイルの SHA-256 をここに示した値と照合してください。',
           ],
         },
@@ -632,7 +714,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '在 Codex 中运行：',
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '搜索和查看详情无需登录 GitHub。提交仓库时，请在 MCP 客户端中使用 GitHub 登录（在 Claude Code 中运行 /mcp，在 Codex 中运行 codex mcp login plugin-soko-kun）。本平台本身不会获得 GitHub 仓库的写入权限。',
-            '示例：“帮我找一个能在 Windows 上使用的变调插件”“把这个 GitHub 仓库的 OBS 插件登记上去”',
+            '示例：“帮我找一个能在 Windows 上使用的变调插件”“把这个 GitHub 仓库的 OBS 插件登记上去”“确认我的插件的新版本是否已收录”',
           ],
         },
         {
@@ -657,7 +739,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub 能检测到仓库的许可证。如果 GitHub 未显示许可证，请添加 LICENSE 文件。',
                 '仓库根目录的 CMakeLists.txt 通过 find_package(libobs) 等方式引用 libobs，且仓库包含 C 或 C++ 源代码。',
                 'GitHub 上的最新发布附有插件文件。GitHub 会为上传到发布中的文件记录 SHA-256，本平台使用该值进行检查。',
-                '自动检查未发现已知威胁。',
+                '最新发布是不可变发布（immutable release）。发布前，请在仓库设置中启用不可变发布。',
+                '发布中的每个文件都有构建来源证明（build provenance attestation）。请在发布工作流中使用 actions/attest-build-provenance 生成证明。',
+                '发布中没有 exe 或 msi 安装程序。Windows 版本请以 zip 文件分发。',
+                '发布通过自动检查。检查内容见“安全与免责声明”页面。',
               ],
             },
             '是否使用 AI 开发不影响收录。所有插件适用相同条件，也不要求申报 AI 的使用。',
@@ -679,6 +764,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub 能检测到仓库的许可证。如果 GitHub 未显示许可证，请添加 LICENSE 文件。',
                 '仓库根目录的 CMakeLists.txt 通过 find_package(libobs) 等方式引用 libobs，且仓库包含 C 或 C++ 源代码。',
                 'GitHub 上的最新发布附有插件文件。GitHub 会为上传到发布中的文件记录 SHA-256，本平台使用该值进行检查。',
+                '最新发布是不可变发布（immutable release）。发布前，请在仓库设置中启用不可变发布。',
+                '发布中的每个文件都有构建来源证明（build provenance attestation）。请在发布工作流中使用 actions/attest-build-provenance 生成证明。',
+                '发布中没有 exe 或 msi 安装程序。Windows 版本请以 zip 文件分发。',
               ],
             },
           ],
@@ -695,8 +783,12 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '提交之后',
           paragraphs: [
-            '本平台将插件登记为等待检查，并每 15 分钟在已知恶意软件数据库 MalwareBazaar 中查询文件。检查通常在几小时内完成，请稍后查看插件页面。',
-            '所有文件通过检查后，本平台会自动收录插件。您在 GitHub 上发布新版本后，本平台会发现并检查它，检查完成前继续收录之前的版本。',
+            '本平台将插件登记为等待检查。在某个发布通过检查之前，插件不会出现在搜索结果中，也没有插件页面。',
+            '检查每 15 分钟进行一次，通常在几小时内完成。',
+            '本平台只收录通过检查的发布。您在 GitHub 上发布新版本后，本平台会自动获取并检查它。无需重新提交。',
+            '要查看检查结果，请让 AI 代理用 list_my_plugins 确认您的插件，例如：“确认我的插件的新版本是否已收录”。代理会显示每个发布的状态、未收录的原因、审查意见以及修改方法。',
+            '发布之前，请让代理以检查模式运行 submit_plugin。检查模式会用最新发布判断收录条件，并审查默认分支的最新提交。检查模式不会登记插件。24 小时内最多可使用 5 次检查模式。',
+            '有些发布需要等待管理员确认。如需说明此类发布中的变更，请在本平台的仓库中提交 Issue：https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
         {
@@ -716,6 +808,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'not_found：找不到该仓库。请确认 URL 以及仓库是否公开。',
                 'unsupported_tag：发布标签只能使用字母、数字、“.”、“-”和“_”，且不超过 100 个字符。',
                 'github_unavailable：GitHub 未正常响应。请稍后再提交。',
+                'not_immutable：请在仓库设置中启用不可变发布，然后发布新版本。',
+                'installer_not_allowed：请移除 exe 和 msi 文件。Windows 版本请以 zip 文件分发，然后发布新版本。',
+                'no_attestation：请在发布工作流中加入 actions/attest-build-provenance，为每个文件生成证明，然后发布新版本。',
               ],
             },
           ],
@@ -737,9 +832,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '.soko-kun/config.json',
+          paragraphs: [
+            '作者可以在 .soko-kun/config.json 中声明显示名称和支持的操作系统。请将该文件放在与图片相同的 .soko-kun 文件夹中。',
+            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            {
+              list: [
+                'name：显示名称，1 到 60 个字符。未填写时，本平台显示仓库名称。',
+                'os：由 windows、macos、linux 组成的数组。填写后，本平台只收录所声明操作系统的文件。未填写时，本平台根据文件名推断操作系统。',
+              ],
+            },
+            '两个字段都是可选的。',
+            '本平台读取每个新发布标签时的该文件，因此更改文件后请发布新的版本。',
+            '如果文件内容不符合条件，或没有所声明操作系统的文件，本平台不会收录该发布。',
+          ],
+        },
+        {
           heading: '更新与撤下',
           paragraphs: [
-            '更新收录内容时，请在 GitHub 上发布新版本。本平台也会根据仓库说明更新简介。',
+            '更新收录内容时，请在 GitHub 上发布新版本。本平台会自动获取新版本，并在通过检查后收录。本平台也会根据仓库说明更新简介。',
+            '如果新版本未被收录，请让 AI 代理用 list_my_plugins 确认。代理会显示原因和修改方法。',
             '撤下收录时，请将仓库设为私有或删除仓库。您也可以按举报页面的方法申请撤下。',
           ],
         },
@@ -751,15 +863,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '自动检查',
           paragraphs: [
-            '对于发布中的每个文件，本服务记录 GitHub 公布的 SHA-256，并在已知恶意软件数据库 MalwareBazaar 中查询。本服务不下载文件。',
-            '只有当所有文件都得到查询结果后，才显示为已检查。等待检查或检查失败的发布不会被收录。新发布检查期间，之前通过检查的发布将继续收录。',
-            '如有文件被判定为恶意软件，将暂停该插件的收录。',
+            '本平台在收录每个新发布之前都会进行检查，只收录通过检查的发布。',
+            {
+              list: [
+                '来源证明：每个文件都必须有构建来源证明。GitHub Actions 工作流会验证其签名，并确认证明与仓库、发布标签、标签的提交以及为该插件记录的发布工作流一致。',
+                '不可变发布：发布必须是不可变的。不可变发布中的文件在发布后无法替换。',
+                '恶意软件查询：在已知恶意软件数据库 MalwareBazaar 中查询 GitHub 公布的每个文件的 SHA-256。已收录的文件也会定期重新查询。',
+                '与已收录发布的差异：按规则检查从已收录发布到新发布的变更。符合规则的发布将等待管理员确认。',
+                '开发实践审查：由 LLM 阅读发布工作流、构建文件和 README，审查开发实践。审查标准基于一位 OBS 插件开发者公开发表的担忧与建议。有严重问题的发布将等待管理员确认。',
+              ],
+            },
+            '审查标准在 GitHub 上公开：https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+            '未通过检查的发布不会显示。在新发布通过检查之前，之前收录的发布将继续收录。',
+            '如有文件被判定为恶意软件，将暂停该插件的收录。管理员也可能暂停某个发布。',
+            '被暂停的发布会在公告页面 {{ORIGIN}}/notices 上公布，并附上版本、每个文件的 SHA-256 以及在本平台收录的期间。插件页面也会显示警告。',
           ],
         },
         {
           heading: '检查的局限',
           paragraphs: [
-            '只能检出这些数据库中已知的威胁。新型或定向的恶意软件可能无法检出，因此即使未检出任何问题，也请谨慎使用。',
+            '恶意软件查询只能检出 MalwareBazaar 中已知的威胁。新型或定向的恶意软件可能无法检出，因此即使未检出任何问题，也请谨慎使用。',
             'SHA-256 代表记录时 GitHub 提供的文件。请将下载文件的 SHA-256 与此处显示的值进行比对。',
           ],
         },
@@ -903,7 +1026,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '在 Codex 中執行：',
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '搜尋與查看詳情無需登入 GitHub。提交儲存庫時，請在 MCP 用戶端中以 GitHub 登入（在 Claude Code 中執行 /mcp，在 Codex 中執行 codex mcp login plugin-soko-kun）。本平台本身不會取得 GitHub 儲存庫的寫入權限。',
-            '範例：「幫我找一個能在 Windows 上使用的變調外掛」「把這個 GitHub 儲存庫的 OBS 外掛登記上去」',
+            '範例：「幫我找一個能在 Windows 上使用的變調外掛」「把這個 GitHub 儲存庫的 OBS 外掛登記上去」「確認我的外掛的新版本是否已收錄」',
           ],
         },
         {
@@ -928,7 +1051,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub 能偵測到儲存庫的授權。如果 GitHub 未顯示授權，請新增 LICENSE 檔案。',
                 '儲存庫根目錄的 CMakeLists.txt 透過 find_package(libobs) 等方式參照 libobs，且儲存庫包含 C 或 C++ 原始碼。',
                 'GitHub 上的最新發行附有外掛檔案。GitHub 會為上傳到發行中的檔案記錄 SHA-256，本平台使用該值進行檢查。',
-                '自動檢查未發現已知威脅。',
+                '最新發行是不可變發行（immutable release）。發布前，請在儲存庫設定中啟用不可變發行。',
+                '發行中的每個檔案都有建置來源證明（build provenance attestation）。請在發行工作流程中使用 actions/attest-build-provenance 產生證明。',
+                '發行中沒有 exe 或 msi 安裝程式。Windows 版本請以 zip 檔案發布。',
+                '發行通過自動檢查。檢查內容請見「安全與免責聲明」頁面。',
               ],
             },
             '是否使用 AI 開發不影響收錄。所有外掛適用相同條件，也不要求申報 AI 的使用。',
@@ -950,6 +1076,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub 能偵測到儲存庫的授權。如果 GitHub 未顯示授權，請新增 LICENSE 檔案。',
                 '儲存庫根目錄的 CMakeLists.txt 透過 find_package(libobs) 等方式參照 libobs，且儲存庫包含 C 或 C++ 原始碼。',
                 'GitHub 上的最新發行附有外掛檔案。GitHub 會為上傳到發行中的檔案記錄 SHA-256，本平台使用該值進行檢查。',
+                '最新發行是不可變發行（immutable release）。發布前，請在儲存庫設定中啟用不可變發行。',
+                '發行中的每個檔案都有建置來源證明（build provenance attestation）。請在發行工作流程中使用 actions/attest-build-provenance 產生證明。',
+                '發行中沒有 exe 或 msi 安裝程式。Windows 版本請以 zip 檔案發布。',
               ],
             },
           ],
@@ -966,8 +1095,12 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '提交之後',
           paragraphs: [
-            '本平台將外掛登記為等待檢查，並每 15 分鐘在已知惡意軟體資料庫 MalwareBazaar 中查詢檔案。檢查通常在幾小時內完成，請稍後查看外掛頁面。',
-            '所有檔案通過檢查後，本平台會自動收錄外掛。您在 GitHub 上發布新版本後，本平台會發現並檢查它，檢查完成前繼續收錄先前的版本。',
+            '本平台將外掛登記為等待檢查。在某個發行通過檢查之前，外掛不會出現在搜尋結果中，也沒有外掛頁面。',
+            '檢查每 15 分鐘進行一次，通常在幾小時內完成。',
+            '本平台只收錄通過檢查的發行。您在 GitHub 上發布新版本後，本平台會自動取得並檢查它。無需重新提交。',
+            '要查看檢查結果，請讓 AI 代理以 list_my_plugins 確認您的外掛，例如：「確認我的外掛的新版本是否已收錄」。代理會顯示每個發行的狀態、未收錄的原因、審查意見以及修改方法。',
+            '發布之前，請讓代理以檢查模式執行 submit_plugin。檢查模式會以最新發行判斷收錄條件，並審查預設分支的最新提交。檢查模式不會登記外掛。24 小時內最多可使用 5 次檢查模式。',
+            '有些發行需要等待管理員確認。如需說明此類發行中的變更，請在本平台的儲存庫中提出 Issue：https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
         {
@@ -987,6 +1120,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'not_found：找不到該儲存庫。請確認 URL 以及儲存庫是否公開。',
                 'unsupported_tag：發行標籤只能使用字母、數字、「.」、「-」和「_」，且不超過 100 個字元。',
                 'github_unavailable：GitHub 未正常回應。請稍後再提交。',
+                'not_immutable：請在儲存庫設定中啟用不可變發行，然後發布新版本。',
+                'installer_not_allowed：請移除 exe 和 msi 檔案。Windows 版本請以 zip 檔案發布，然後發布新版本。',
+                'no_attestation：請在發行工作流程中加入 actions/attest-build-provenance，為每個檔案產生證明，然後發布新版本。',
               ],
             },
           ],
@@ -1008,9 +1144,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '.soko-kun/config.json',
+          paragraphs: [
+            '作者可以在 .soko-kun/config.json 中宣告顯示名稱和支援的作業系統。請將該檔案放在與圖片相同的 .soko-kun 資料夾中。',
+            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            {
+              list: [
+                'name：顯示名稱，1 到 60 個字元。未填寫時，本平台顯示儲存庫名稱。',
+                'os：由 windows、macos、linux 組成的陣列。填寫後，本平台只收錄所宣告作業系統的檔案。未填寫時，本平台根據檔案名稱推斷作業系統。',
+              ],
+            },
+            '兩個欄位都是選填的。',
+            '本平台讀取每個新發行標籤時的該檔案，因此變更檔案後請發布新的版本。',
+            '若檔案內容不符合條件，或沒有所宣告作業系統的檔案，本平台不會收錄該發行。',
+          ],
+        },
+        {
           heading: '更新與撤下',
           paragraphs: [
-            '更新收錄內容時，請在 GitHub 上發布新版本。本平台也會根據儲存庫說明更新簡介。',
+            '更新收錄內容時，請在 GitHub 上發布新版本。本平台會自動取得新版本，並在通過檢查後收錄。本平台也會根據儲存庫說明更新簡介。',
+            '若新版本未被收錄，請讓 AI 代理以 list_my_plugins 確認。代理會顯示原因與修改方法。',
             '撤下收錄時，請將儲存庫設為私人或刪除儲存庫。您也可以依檢舉頁面的方法申請撤下。',
           ],
         },
@@ -1022,15 +1175,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '自動檢查',
           paragraphs: [
-            '對於發行中的每個檔案，本服務記錄 GitHub 公布的 SHA-256，並在已知惡意軟體資料庫 MalwareBazaar 中查詢。本服務不下載檔案。',
-            '只有當所有檔案都取得查詢結果後，才顯示為已檢查。等待檢查或檢查失敗的發行不會被收錄。新發行檢查期間，先前通過檢查的發行將繼續收錄。',
-            '如有檔案被判定為惡意軟體，將暫停該外掛的收錄。',
+            '本平台在收錄每個新發行之前都會進行檢查，只收錄通過檢查的發行。',
+            {
+              list: [
+                '來源證明：每個檔案都必須有建置來源證明。GitHub Actions 工作流程會驗證其簽章，並確認證明與儲存庫、發行標籤、標籤的提交以及為該外掛記錄的發行工作流程一致。',
+                '不可變發行：發行必須是不可變的。不可變發行中的檔案在發布後無法替換。',
+                '惡意軟體查詢：在已知惡意軟體資料庫 MalwareBazaar 中查詢 GitHub 公布的每個檔案的 SHA-256。已收錄的檔案也會定期重新查詢。',
+                '與已收錄發行的差異：依規則檢查從已收錄發行到新發行的變更。符合規則的發行將等待管理員確認。',
+                '開發實務審查：由 LLM 閱讀發行工作流程、建置檔案和 README，審查開發實務。審查標準基於一位 OBS 外掛開發者公開發表的疑慮與建議。有嚴重問題的發行將等待管理員確認。',
+              ],
+            },
+            '審查標準在 GitHub 上公開：https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+            '未通過檢查的發行不會顯示。在新發行通過檢查之前，先前收錄的發行將繼續收錄。',
+            '如有檔案被判定為惡意軟體，將暫停該外掛的收錄。管理員也可能暫停某個發行。',
+            '被暫停的發行會在公告頁面 {{ORIGIN}}/notices 上公布，並附上版本、每個檔案的 SHA-256 以及在本平台收錄的期間。外掛頁面也會顯示警告。',
           ],
         },
         {
           heading: '檢查的限制',
           paragraphs: [
-            '只能檢出這些資料庫中已知的威脅。新型或針對性的惡意軟體可能無法檢出，因此即使未檢出任何問題，也請謹慎使用。',
+            '惡意軟體查詢只能檢出 MalwareBazaar 中已知的威脅。新型或針對性的惡意軟體可能無法檢出，因此即使未檢出任何問題，也請謹慎使用。',
             'SHA-256 代表記錄時 GitHub 提供的檔案。請將下載檔案的 SHA-256 與此處顯示的值進行比對。',
           ],
         },
@@ -1174,7 +1338,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Codex에서는 다음을 실행합니다:',
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '검색과 상세 조회는 GitHub 로그인 없이 사용할 수 있습니다. 저장소를 등록할 때는 MCP 클라이언트에서 GitHub로 로그인합니다(Claude Code에서는 /mcp, Codex에서는 codex mcp login plugin-soko-kun 실행). 이 플랫폼 자체가 GitHub 저장소에 대한 쓰기 권한을 얻는 일은 없습니다.',
-            '예: "Windows에서 동작하는 피치 시프트 플러그인을 찾아 줘", "이 GitHub 저장소의 OBS 플러그인을 등록해 줘"',
+            '예: "Windows에서 동작하는 피치 시프트 플러그인을 찾아 줘", "이 GitHub 저장소의 OBS 플러그인을 등록해 줘", "내 플러그인의 새 릴리스가 게재되었는지 확인해 줘"',
           ],
         },
         {
@@ -1199,7 +1363,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub가 저장소의 라이선스를 감지할 수 있을 것. GitHub에 라이선스가 표시되지 않으면 LICENSE 파일을 추가해 주세요.',
                 '저장소 최상위의 CMakeLists.txt가 find_package(libobs) 등으로 libobs를 참조하고, C 또는 C++ 소스가 있을 것.',
                 'GitHub의 최신 릴리스에 플러그인 배포 파일이 첨부되어 있을 것. GitHub는 릴리스에 올린 파일에 SHA-256을 기록하며, 이 플랫폼은 그 값으로 검사합니다.',
-                '자동 검사에서 알려진 위협이 검출되지 않을 것.',
+                '최신 릴리스가 불변 릴리스(immutable release)일 것. 공개하기 전에 저장소 설정에서 불변 릴리스를 켜 주세요.',
+                '릴리스의 모든 배포 파일에 build provenance 증명이 있을 것. 릴리스 워크플로에서 actions/attest-build-provenance로 증명을 만들어 주세요.',
+                '배포 파일에 exe나 msi 설치 프로그램이 없을 것. Windows용 배포 파일은 zip으로 배포해 주세요.',
+                '릴리스가 자동 검사를 통과할 것. 검사 내용은 보안과 면책 페이지에 적혀 있습니다.',
               ],
             },
             '개발에 AI를 사용했는지 여부는 게재에 영향을 주지 않습니다. 모든 플러그인에 같은 조건을 적용하며, AI 사용의 신고도 요구하지 않습니다.',
@@ -1221,6 +1388,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub가 저장소의 라이선스를 감지할 수 있을 것. GitHub에 라이선스가 표시되지 않으면 LICENSE 파일을 추가해 주세요.',
                 '저장소 최상위의 CMakeLists.txt가 find_package(libobs) 등으로 libobs를 참조하고, C 또는 C++ 소스가 있을 것.',
                 'GitHub의 최신 릴리스에 플러그인 배포 파일이 첨부되어 있을 것. GitHub는 릴리스에 올린 파일에 SHA-256을 기록하며, 이 플랫폼은 그 값으로 검사합니다.',
+                '최신 릴리스가 불변 릴리스(immutable release)일 것. 공개하기 전에 저장소 설정에서 불변 릴리스를 켜 주세요.',
+                '릴리스의 모든 배포 파일에 build provenance 증명이 있을 것. 릴리스 워크플로에서 actions/attest-build-provenance로 증명을 만들어 주세요.',
+                '배포 파일에 exe나 msi 설치 프로그램이 없을 것. Windows용 배포 파일은 zip으로 배포해 주세요.',
               ],
             },
           ],
@@ -1228,7 +1398,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '등록 절차',
           paragraphs: [
-            'MCP 클라이언트를 {{ORIGIN}}/mcp에 연결해 주세요. Claude Code에서는 다음을 실행해 주세요:',
+            'MCP 클라이언트를 엔드포인트({{ORIGIN}}/mcp)에 연결해 주세요. Claude Code에서는 다음을 실행해 주세요:',
             { code: 'claude mcp add --transport http plugin-soko-kun {{ORIGIN}}/mcp' },
             'MCP 클라이언트에서 GitHub 계정으로 로그인해 주세요. Claude Code에서는 /mcp를 실행하고 plugin-soko-kun을 선택해 주세요. Codex에서는 codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp로 연결한 뒤 codex mcp login plugin-soko-kun로 로그인해 주세요. 이 플랫폼 자체가 GitHub 저장소에 대한 쓰기 권한을 얻는 일은 없습니다.',
             'AI 에이전트에게 등록을 부탁해 주세요. 예: "https://github.com/<owner>/<repository>의 OBS 플러그인을 등록해 줘". 오디오 필터나 도크처럼 카테고리도 전할 수 있습니다.',
@@ -1237,8 +1407,12 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '등록한 뒤의 흐름',
           paragraphs: [
-            '이 플랫폼은 플러그인을 검사 대기로 등록하고, 15분마다 배포 파일을 알려진 악성 코드 데이터베이스인 MalwareBazaar에서 조회합니다. 검사는 보통 몇 시간 안에 끝나므로, 잠시 후 플러그인 페이지를 확인해 주세요.',
-            '모든 배포 파일이 검사를 통과하면 이 플랫폼은 플러그인을 자동으로 게재합니다. GitHub에서 새 릴리스를 공개하면 이 플랫폼이 이를 찾아 검사하며, 검사가 끝날 때까지 이전 릴리스를 계속 게재합니다.',
+            '이 플랫폼은 플러그인을 검사 대기로 등록합니다. 릴리스가 검사를 통과하기 전까지 플러그인은 검색과 플러그인 페이지에 나타나지 않습니다.',
+            '검사는 15분마다 진행되며, 보통 몇 시간 안에 끝납니다.',
+            '이 플랫폼은 검사를 통과한 릴리스만 게재합니다. GitHub에서 새 릴리스를 공개하면 이 플랫폼이 자동으로 가져와 검사합니다. 다시 등록할 필요는 없습니다.',
+            '검사 결과는 AI 에이전트에게 list_my_plugins로 확인하게 해 주세요. 예: "내 플러그인의 새 릴리스가 게재되었는지 확인해 줘". 에이전트는 릴리스마다의 상태, 게재되지 않은 이유, 리뷰 지적 사항, 고치는 방법을 보여 줍니다.',
+            '릴리스를 공개하기 전에 에이전트에게 submit_plugin의 확인 모드를 실행하게 해 주세요. 확인 모드는 최신 릴리스로 게재 조건을 판정하고, 기본 브랜치의 최신 커밋을 리뷰합니다. 확인 모드에서는 등록하지 않습니다. 확인 모드는 24시간에 5번까지 사용할 수 있습니다.',
+            '관리자의 확인을 기다리는 릴리스도 있습니다. 그런 릴리스의 변경 의도를 설명하려면 이 플랫폼 저장소의 Issue에 적어 주세요: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
         {
@@ -1258,6 +1432,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'not_found: 저장소를 찾을 수 없습니다. URL과 저장소가 공개되어 있는지 확인해 주세요.',
                 'unsupported_tag: 릴리스 태그는 영문자, 숫자, ".", "-", "_"만 사용해 100자 이내로 해 주세요.',
                 'github_unavailable: GitHub가 정상적으로 응답하지 않았습니다. 시간을 두고 다시 등록해 주세요.',
+                'not_immutable: 저장소 설정에서 불변 릴리스를 켠 뒤 새 릴리스를 공개해 주세요.',
+                'installer_not_allowed: exe와 msi 파일을 빼 주세요. Windows용은 zip으로 배포하고 새 릴리스를 공개해 주세요.',
+                'no_attestation: 릴리스 워크플로에 actions/attest-build-provenance를 추가해 모든 배포 파일에 증명을 붙인 뒤 새 릴리스를 공개해 주세요.',
               ],
             },
           ],
@@ -1279,9 +1456,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '.soko-kun/config.json',
+          paragraphs: [
+            '작성자는 .soko-kun/config.json에서 표시 이름과 지원 OS를 선언할 수 있습니다. 이미지와 같은 .soko-kun 폴더에 파일을 넣어 주세요.',
+            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            {
+              list: [
+                'name: 표시 이름입니다. 1~60자로 적어 주세요. 적지 않으면 저장소 이름을 표시합니다.',
+                'os: windows, macos, linux를 배열로 적습니다. 적으면 이 플랫폼은 선언한 OS의 배포 파일만 게재합니다. 적지 않으면 배포 파일 이름에서 OS를 추정합니다.',
+              ],
+            },
+            '두 항목 모두 선택 사항입니다.',
+            '이 플랫폼은 새 릴리스 태그 시점의 파일을 읽으므로, 파일을 바꾼 뒤에는 새 릴리스를 공개해 주세요.',
+            '파일 내용이 조건에 맞지 않거나 선언한 OS의 배포 파일이 없는 릴리스는 게재하지 않습니다.',
+          ],
+        },
+        {
           heading: '업데이트와 게재 철회',
           paragraphs: [
-            '게재 내용을 업데이트하려면 GitHub에서 새 릴리스를 공개해 주세요. 이 플랫폼은 저장소 설명에서 개요도 업데이트합니다.',
+            '게재 내용을 업데이트하려면 GitHub에서 새 릴리스를 공개해 주세요. 이 플랫폼은 새 릴리스를 자동으로 가져와 검사를 통과하면 게재합니다. 저장소 설명에서 개요도 업데이트합니다.',
+            '새 릴리스가 게재되지 않으면 AI 에이전트에게 list_my_plugins로 이유를 확인하게 해 주세요. 에이전트는 이유와 고치는 방법을 보여 줍니다.',
             '게재를 철회하려면 저장소를 비공개로 하거나 삭제해 주세요. 신고 페이지의 방법으로 철회를 요청할 수도 있습니다.',
           ],
         },
@@ -1293,15 +1487,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '자동 검사',
           paragraphs: [
-            '릴리스의 파일마다 GitHub가 공개하는 SHA-256을 기록하고, 알려진 악성 코드 데이터베이스인 MalwareBazaar에서 조회합니다. 이 서비스는 파일을 다운로드하지 않습니다.',
-            '모든 파일의 조회 결과가 갖추어진 뒤에 검사 완료로 표시합니다. 검사 대기 중이거나 검사에 실패한 릴리스는 게재하지 않습니다. 새 릴리스를 검사하는 동안에는 검사를 통과한 이전 릴리스를 계속 게재합니다.',
-            '악성코드로 판정된 파일이 있으면 플러그인의 게재를 중지합니다.',
+            '이 플랫폼은 새 릴리스를 게재하기 전에 검사합니다. 검사를 통과한 릴리스만 게재합니다.',
+            {
+              list: [
+                '증명 대조: 모든 배포 파일에 build provenance 증명이 있어야 합니다. GitHub Actions 워크플로가 증명의 서명을 검증합니다. 또한 증명이 저장소, 릴리스 태그, 태그의 커밋, 플러그인에 기록된 릴리스 워크플로와 일치하는지 확인합니다.',
+                '불변 릴리스: 릴리스가 불변이어야 합니다. 불변 릴리스의 파일은 공개한 뒤에 바꿀 수 없습니다.',
+                '악성 코드 조회: GitHub가 공개하는 각 파일의 SHA-256을 알려진 악성 코드 데이터베이스인 MalwareBazaar에서 조회합니다. 게재 중인 파일도 정기적으로 다시 조회합니다.',
+                '게재 중인 릴리스와의 차이: 게재 중인 릴리스에서 새 릴리스까지의 변경을 규칙으로 검사합니다. 규칙에 해당하는 릴리스는 관리자의 확인을 기다립니다.',
+                '개발 실천 리뷰: LLM이 릴리스 워크플로, 빌드 파일, README를 읽고 개발 실천을 리뷰합니다. 기준은 한 OBS 플러그인 개발자가 공개한 우려와 권장 사항을 바탕으로 합니다. 중대한 지적이 있는 릴리스는 관리자의 확인을 기다립니다.',
+              ],
+            },
+            '리뷰 기준은 GitHub에 공개되어 있습니다: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+            '검사를 통과하지 않은 릴리스는 표시하지 않습니다. 새 릴리스가 검사를 통과할 때까지는 이전에 게재한 릴리스를 계속 게재합니다.',
+            '악성코드로 판정된 파일이 있으면 플러그인의 게재를 중지합니다. 관리자가 릴리스를 중지할 수도 있습니다.',
+            '중지한 릴리스는 공지 페이지({{ORIGIN}}/notices)에서 버전, 각 파일의 SHA-256, 이 플랫폼에 게재했던 기간과 함께 알립니다. 플러그인 페이지에도 경고를 표시합니다.',
           ],
         },
         {
           heading: '검사의 한계',
           paragraphs: [
-            '이 데이터베이스에 이미 알려진 위협만 검출할 수 있습니다. 새로운 악성코드나 표적형 악성코드는 검출하지 못할 수 있으므로, 아무것도 검출되지 않아도 주의해서 이용해 주세요.',
+            '악성 코드 조회는 MalwareBazaar에 이미 알려진 위협만 검출할 수 있습니다. 새로운 악성코드나 표적형 악성코드는 검출하지 못할 수 있으므로, 아무것도 검출되지 않아도 주의해서 이용해 주세요.',
             'SHA-256은 기록 시점에 GitHub가 배포하던 파일을 나타냅니다. 다운로드한 파일의 SHA-256을 여기 표시된 값과 비교해 주세요.',
           ],
         },
@@ -1460,7 +1665,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'No Codex, execute:',
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Buscar e ver detalhes funciona sem login no GitHub. Para enviar um repositório, entre com o GitHub pelo cliente MCP (no Claude Code, execute /mcp; no Codex, execute codex mcp login plugin-soko-kun). Esta plataforma em si nunca recebe acesso de escrita aos seus repositórios do GitHub.',
-            'Exemplos: "Encontre um plugin de pitch shift que funcione no Windows", "Registre o plugin do OBS deste repositório do GitHub".',
+            'Exemplos: "Encontre um plugin de pitch shift que funcione no Windows", "Registre o plugin do OBS deste repositório do GitHub", "Verifique se a nova versão do meu plugin está listada".',
           ],
         },
         {
@@ -1485,7 +1690,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'O GitHub detecta uma licença no repositório. Se o GitHub não mostrar licença, adicione um arquivo LICENSE.',
                 'O CMakeLists.txt da raiz referencia a libobs, por exemplo com find_package(libobs), e o repositório tem código-fonte em C ou C++.',
                 'A versão mais recente no GitHub tem os arquivos do plugin anexados. O GitHub registra o SHA-256 dos arquivos enviados a uma versão, e esta plataforma usa esse valor nas verificações.',
-                'As verificações automáticas não encontram ameaças conhecidas.',
+                'A versão mais recente é uma versão imutável (immutable release). Ative as versões imutáveis nas configurações do repositório antes de publicá-la.',
+                'Todos os arquivos da versão têm um atestado de proveniência de build (build provenance attestation). Gere-o no workflow de release com actions/attest-build-provenance.',
+                'A versão não tem instaladores exe ou msi. Distribua as builds para Windows como arquivos zip.',
+                'A versão passa nas verificações automáticas. A página Segurança descreve as verificações.',
               ],
             },
             'O uso de IA no desenvolvimento não afeta a listagem. As mesmas condições valem para todos os plugins, e não é preciso declarar o uso de IA.',
@@ -1507,6 +1715,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'O GitHub detecta uma licença no repositório. Se o GitHub não mostrar licença, adicione um arquivo LICENSE.',
                 'O CMakeLists.txt da raiz referencia a libobs, por exemplo com find_package(libobs), e o repositório tem código-fonte em C ou C++.',
                 'A versão mais recente no GitHub tem os arquivos do plugin anexados. O GitHub registra o SHA-256 dos arquivos enviados a uma versão, e esta plataforma usa esse valor nas verificações.',
+                'A versão mais recente é uma versão imutável (immutable release). Ative as versões imutáveis nas configurações do repositório antes de publicá-la.',
+                'Todos os arquivos da versão têm um atestado de proveniência de build (build provenance attestation). Gere-o no workflow de release com actions/attest-build-provenance.',
+                'A versão não tem instaladores exe ou msi. Distribua as builds para Windows como arquivos zip.',
               ],
             },
           ],
@@ -1523,8 +1734,12 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Depois do envio',
           paragraphs: [
-            'Esta plataforma registra o plugin como aguardando verificação e consulta os arquivos no MalwareBazaar, um banco de dados de malware conhecido, a cada 15 minutos. As verificações costumam terminar em algumas horas; por isso, confira a página do plugin mais tarde.',
-            'Quando todos os arquivos passam nas verificações, esta plataforma lista o plugin automaticamente. Quando você publica uma nova versão no GitHub, esta plataforma a encontra e a verifica, e mantém a versão anterior listada até a verificação terminar.',
+            'Esta plataforma registra o plugin como aguardando verificação. Até que uma versão passe nas verificações, o plugin não aparece na busca nem tem página própria.',
+            'As verificações rodam a cada 15 minutos e costumam terminar em algumas horas.',
+            'Esta plataforma lista apenas versões que passam nas verificações. Quando você publica uma nova versão no GitHub, esta plataforma a obtém e a verifica automaticamente. Não é preciso enviá-la de novo.',
+            'Para ver os resultados, peça ao agente de IA para verificar seu plugin com list_my_plugins, por exemplo: "Verifique se a nova versão do meu plugin está listada". O agente mostra o estado de cada versão, os motivos de uma versão não estar listada, os apontamentos da revisão e como corrigi-los.',
+            'Antes de publicar uma versão, peça ao agente para executar submit_plugin no modo de verificação. Ele avalia as condições de listagem na versão mais recente e revisa o commit mais recente do branch padrão. Ele não registra o plugin. Você pode usar o modo de verificação até 5 vezes em 24 horas.',
+            'Algumas versões aguardam a confirmação de um administrador. Para explicar as mudanças de uma versão assim, abra uma issue no repositório desta plataforma: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
         {
@@ -1544,6 +1759,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'not_found: O repositório não foi encontrado. Verifique a URL e se o repositório é público.',
                 'unsupported_tag: Use uma tag de versão apenas com letras, números, ".", "-" e "_", com até 100 caracteres.',
                 'github_unavailable: O GitHub não respondeu normalmente. Tente de novo mais tarde.',
+                'not_immutable: Ative as versões imutáveis nas configurações do repositório e publique uma nova versão.',
+                'installer_not_allowed: Remova os arquivos exe e msi. Distribua as builds para Windows como arquivos zip e publique uma nova versão.',
+                'no_attestation: Adicione actions/attest-build-provenance ao workflow de release para que todos os arquivos tenham atestado e publique uma nova versão.',
               ],
             },
           ],
@@ -1565,9 +1783,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '.soko-kun/config.json',
+          paragraphs: [
+            'Os autores podem declarar o nome de exibição e os sistemas operacionais suportados em .soko-kun/config.json. Coloque o arquivo na mesma pasta .soko-kun das imagens.',
+            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            {
+              list: [
+                'name: O nome de exibição, de 1 a 60 caracteres. Sem ele, esta plataforma mostra o nome do repositório.',
+                'os: Um array com windows, macos e linux. Com ele, esta plataforma lista apenas os arquivos dos sistemas declarados. Sem ele, esta plataforma deduz o sistema pelos nomes dos arquivos.',
+              ],
+            },
+            'Os dois campos são opcionais.',
+            'Esta plataforma lê o arquivo na tag de cada nova versão; por isso, publique uma nova versão depois de alterar o arquivo.',
+            'Esta plataforma não lista uma versão cujo arquivo seja inválido ou que não tenha arquivos para os sistemas declarados.',
+          ],
+        },
+        {
           heading: 'Atualizar e retirar',
           paragraphs: [
-            'Para atualizar a listagem, publique uma nova versão no GitHub. Esta plataforma também atualiza o resumo a partir da descrição do repositório.',
+            'Para atualizar a listagem, publique uma nova versão no GitHub. Esta plataforma a obtém automaticamente e a lista depois que ela passa nas verificações. Esta plataforma também atualiza o resumo a partir da descrição do repositório.',
+            'Se uma nova versão não for listada, peça ao agente de IA para verificá-la com list_my_plugins. O agente mostra o motivo e como corrigir.',
             'Para retirar a listagem, torne o repositório privado ou exclua-o. Você também pode pedir a retirada como descrito na página Denunciar.',
           ],
         },
@@ -1579,15 +1814,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Verificações automáticas',
           paragraphs: [
-            'Para cada arquivo de uma versão, o serviço registra o SHA-256 publicado pelo GitHub e o consulta no MalwareBazaar, um banco de dados de malware conhecido. O serviço não baixa os arquivos.',
-            'Uma versão só aparece como verificada depois que todos os arquivos têm resultado da consulta. Versões aguardando verificação ou com falha na verificação não são listadas. Enquanto uma nova versão é verificada, a versão verificada anterior continua listada.',
-            'Um arquivo apontado como malicioso suspende o plugin.',
+            'Esta plataforma verifica cada nova versão antes de listá-la. Ela lista apenas versões que passam nas verificações.',
+            {
+              list: [
+                'Proveniência: Todos os arquivos precisam ter um atestado de proveniência de build. Um workflow do GitHub Actions verifica a assinatura. O workflow também confirma que o atestado corresponde ao repositório, à tag da versão, ao commit da tag e ao workflow de release registrado para o plugin.',
+                'Versão imutável: A versão precisa ser imutável. Os arquivos de uma versão imutável não podem ser substituídos depois da publicação.',
+                'Consulta de malware: O SHA-256 de cada arquivo, publicado pelo GitHub, é consultado no MalwareBazaar, um banco de dados de malware conhecido. Os arquivos listados são consultados de novo regularmente.',
+                'Mudanças desde a versão listada: As mudanças da versão listada até a nova versão são verificadas com regras. Uma versão que corresponde a uma regra aguarda a confirmação de um administrador.',
+                'Revisão das práticas de desenvolvimento: Um LLM lê os workflows de release, os arquivos de build e o README, e revisa as práticas de desenvolvimento. Os critérios se baseiam em preocupações e recomendações publicadas por um desenvolvedor de plugins do OBS. Uma versão com um apontamento grave aguarda a confirmação de um administrador.',
+              ],
+            },
+            'Os critérios da revisão são públicos no GitHub: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+            'Versões que não passaram nas verificações não são exibidas. Até que uma nova versão passe, a versão listada anteriormente continua listada.',
+            'Um arquivo apontado como malicioso suspende o plugin. Um administrador também pode suspender uma versão.',
+            'As versões suspensas são anunciadas na página de avisos {{ORIGIN}}/notices com a versão, o SHA-256 de cada arquivo e o período em que foram listadas aqui. A página do plugin também mostra um aviso.',
           ],
         },
         {
           heading: 'Limites das verificações',
           paragraphs: [
-            'As verificações detectam apenas ameaças já conhecidas por essas bases. Malwares novos ou direcionados podem não ser detectados; por isso, use os plugins com cuidado mesmo quando nada for detectado.',
+            'A consulta de malware detecta apenas ameaças já conhecidas pelo MalwareBazaar. Malwares novos ou direcionados podem não ser detectados; por isso, use os plugins com cuidado mesmo quando nada for detectado.',
             'O SHA-256 identifica o arquivo que o GitHub servia no momento do registro. Compare o SHA-256 do arquivo baixado com o valor mostrado aqui.',
           ],
         },
@@ -1757,7 +2003,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'En Codex, ejecuta:',
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Buscar y ver detalles funciona sin iniciar sesión en GitHub. Para enviar un repositorio, inicia sesión con GitHub desde el cliente MCP (en Claude Code, ejecuta /mcp; en Codex, ejecuta codex mcp login plugin-soko-kun). Esta plataforma en sí nunca obtiene acceso de escritura a tus repositorios de GitHub.',
-            'Ejemplos: "Busca un plugin de pitch shift que funcione en Windows", "Registra el plugin de OBS de este repositorio de GitHub".',
+            'Ejemplos: "Busca un plugin de pitch shift que funcione en Windows", "Registra el plugin de OBS de este repositorio de GitHub", "Revisa si la nueva versión de mi plugin está en la lista".',
           ],
         },
         {
@@ -1782,7 +2028,10 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub detecta una licencia en el repositorio. Si GitHub no muestra una licencia, agrega un archivo LICENSE.',
                 'El CMakeLists.txt de la raíz hace referencia a libobs, por ejemplo con find_package(libobs), y el repositorio tiene código fuente en C o C++.',
                 'La versión más reciente en GitHub tiene los archivos del plugin adjuntos. GitHub registra el SHA-256 de los archivos que subes a una versión, y esta plataforma usa ese valor en las revisiones.',
-                'Las revisiones automáticas no encuentran amenazas conocidas.',
+                'La versión más reciente es una versión inmutable (immutable release). Activa las versiones inmutables en la configuración del repositorio antes de publicarla.',
+                'Todos los archivos de la versión tienen una atestación de procedencia de compilación (build provenance attestation). Créala en el workflow de publicación con actions/attest-build-provenance.',
+                'La versión no incluye instaladores exe ni msi. Distribuye las compilaciones para Windows como archivos zip.',
+                'La versión pasa las revisiones automáticas. La página Seguridad describe las revisiones.',
               ],
             },
             'Haber usado IA en el desarrollo no afecta la lista. Las mismas condiciones aplican a todos los plugins y no es necesario declarar el uso de IA.',
@@ -1804,6 +2053,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'GitHub detecta una licencia en el repositorio. Si GitHub no muestra una licencia, agrega un archivo LICENSE.',
                 'El CMakeLists.txt de la raíz hace referencia a libobs, por ejemplo con find_package(libobs), y el repositorio tiene código fuente en C o C++.',
                 'La versión más reciente en GitHub tiene los archivos del plugin adjuntos. GitHub registra el SHA-256 de los archivos que subes a una versión, y esta plataforma usa ese valor en las revisiones.',
+                'La versión más reciente es una versión inmutable (immutable release). Activa las versiones inmutables en la configuración del repositorio antes de publicarla.',
+                'Todos los archivos de la versión tienen una atestación de procedencia de compilación (build provenance attestation). Créala en el workflow de publicación con actions/attest-build-provenance.',
+                'La versión no incluye instaladores exe ni msi. Distribuye las compilaciones para Windows como archivos zip.',
               ],
             },
           ],
@@ -1820,8 +2072,12 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Después de enviar',
           paragraphs: [
-            'Esta plataforma registra el plugin en espera de revisión y consulta los archivos en MalwareBazaar, una base de datos de malware conocido, cada 15 minutos. Las revisiones suelen terminar en unas horas; por eso, revisa la página del plugin más tarde.',
-            'Cuando todos los archivos pasan las revisiones, esta plataforma incluye el plugin automáticamente. Cuando publicas una nueva versión en GitHub, esta plataforma la encuentra y la revisa, y mantiene la versión anterior en la lista hasta que termina la revisión.',
+            'Esta plataforma registra el plugin en espera de revisión. Hasta que una versión pasa las revisiones, el plugin no aparece en la búsqueda ni tiene página propia.',
+            'Las revisiones se ejecutan cada 15 minutos y suelen terminar en unas horas.',
+            'Esta plataforma incluye solo versiones que pasan las revisiones. Cuando publicas una nueva versión en GitHub, esta plataforma la obtiene y la revisa automáticamente. No necesitas enviarla de nuevo.',
+            'Para ver los resultados, pide al agente de IA que revise tu plugin con list_my_plugins, por ejemplo: "Revisa si la nueva versión de mi plugin está en la lista". El agente muestra el estado de cada versión, los motivos por los que una versión no está en la lista, las observaciones de la revisión y cómo corregirlas.',
+            'Antes de publicar una versión, pide al agente que ejecute submit_plugin en modo de comprobación. Este modo evalúa las condiciones de la lista en la versión más reciente y revisa el commit más reciente de la rama predeterminada. No registra el plugin. Puedes usar el modo de comprobación hasta 5 veces en 24 horas.',
+            'Algunas versiones esperan la confirmación de un administrador. Para explicar los cambios de una versión así, abre un issue en el repositorio de esta plataforma: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
         {
@@ -1841,6 +2097,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'not_found: No se encontró el repositorio. Revisa la URL y que el repositorio sea público.',
                 'unsupported_tag: Usa una etiqueta de versión solo con letras, números, ".", "-" y "_", de hasta 100 caracteres.',
                 'github_unavailable: GitHub no respondió con normalidad. Vuelve a intentarlo más tarde.',
+                'not_immutable: Activa las versiones inmutables en la configuración del repositorio y publica una nueva versión.',
+                'installer_not_allowed: Quita los archivos exe y msi. Distribuye las compilaciones para Windows como archivos zip y publica una nueva versión.',
+                'no_attestation: Agrega actions/attest-build-provenance al workflow de publicación para que todos los archivos tengan atestación, y publica una nueva versión.',
               ],
             },
           ],
@@ -1862,9 +2121,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '.soko-kun/config.json',
+          paragraphs: [
+            'Los autores pueden declarar el nombre visible y los sistemas operativos compatibles en .soko-kun/config.json. Coloca el archivo en la misma carpeta .soko-kun que las imágenes.',
+            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            {
+              list: [
+                'name: El nombre visible, de 1 a 60 caracteres. Si no lo indicas, esta plataforma muestra el nombre del repositorio.',
+                'os: Un arreglo con windows, macos y linux. Si lo indicas, esta plataforma incluye solo los archivos de los sistemas declarados. Si no lo indicas, esta plataforma deduce el sistema a partir de los nombres de los archivos.',
+              ],
+            },
+            'Ambos campos son opcionales.',
+            'Esta plataforma lee el archivo en la etiqueta de cada nueva versión; por eso, publica una nueva versión después de cambiar el archivo.',
+            'Esta plataforma no incluye una versión cuyo archivo no es válido o que no tiene archivos para los sistemas declarados.',
+          ],
+        },
+        {
           heading: 'Actualizar y retirar',
           paragraphs: [
-            'Para actualizar la publicación, publica una nueva versión en GitHub. Esta plataforma también actualiza el resumen a partir de la descripción del repositorio.',
+            'Para actualizar la publicación, publica una nueva versión en GitHub. Esta plataforma la obtiene automáticamente y la incluye después de que pasa las revisiones. Esta plataforma también actualiza el resumen a partir de la descripción del repositorio.',
+            'Si una nueva versión no aparece en la lista, pide al agente de IA que la revise con list_my_plugins. El agente muestra el motivo y cómo corregirlo.',
             'Para retirar la publicación, haz privado el repositorio o elimínalo. También puedes pedir el retiro como se describe en la página Reportar.',
           ],
         },
@@ -1876,15 +2152,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: 'Revisiones automáticas',
           paragraphs: [
-            'Para cada archivo de una versión, el servicio registra el SHA-256 que publica GitHub y lo consulta en MalwareBazaar, una base de datos de malware conocido. El servicio no descarga los archivos.',
-            'Una versión se muestra como revisada solo cuando todos sus archivos tienen resultado de la consulta. Las versiones en espera de revisión o con revisiones fallidas no aparecen en la lista. Mientras se revisa una versión nueva, la versión revisada anterior sigue en la lista.',
-            'Un archivo marcado como malicioso suspende el plugin.',
+            'Esta plataforma revisa cada nueva versión antes de incluirla. Solo incluye versiones que pasan las revisiones.',
+            {
+              list: [
+                'Procedencia: Todos los archivos deben tener una atestación de procedencia de compilación. Un workflow de GitHub Actions verifica su firma. El workflow también confirma que la atestación coincide con el repositorio, la etiqueta de la versión, el commit de la etiqueta y el workflow de publicación registrado para el plugin.',
+                'Versión inmutable: La versión debe ser inmutable. Los archivos de una versión inmutable no se pueden reemplazar después de publicarla.',
+                'Consulta de malware: El SHA-256 de cada archivo, publicado por GitHub, se consulta en MalwareBazaar, una base de datos de malware conocido. Los archivos incluidos se vuelven a consultar con regularidad.',
+                'Cambios desde la versión incluida: Los cambios desde la versión incluida hasta la nueva versión se revisan con reglas. Una versión que coincide con una regla espera la confirmación de un administrador.',
+                'Revisión de prácticas de desarrollo: Un LLM lee los workflows de publicación, los archivos de compilación y el README, y revisa las prácticas de desarrollo. Los criterios se basan en preocupaciones y recomendaciones que publicó un desarrollador de plugins de OBS. Una versión con una observación grave espera la confirmación de un administrador.',
+              ],
+            },
+            'Los criterios de la revisión son públicos en GitHub: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
+            'Las versiones que no pasaron las revisiones no se muestran. Hasta que una nueva versión pasa, la versión incluida anteriormente sigue en la lista.',
+            'Un archivo marcado como malicioso suspende el plugin. Un administrador también puede suspender una versión.',
+            'Las versiones suspendidas se anuncian en la página de avisos {{ORIGIN}}/notices con la versión, el SHA-256 de cada archivo y el periodo en que estuvieron en la lista aquí. La página del plugin también muestra una advertencia.',
           ],
         },
         {
           heading: 'Límites de las revisiones',
           paragraphs: [
-            'Las revisiones solo detectan amenazas ya conocidas por estas bases. El malware nuevo o dirigido podría no detectarse; por eso, usa los plugins con cuidado aunque no haya detecciones.',
+            'La consulta de malware solo detecta amenazas ya conocidas por MalwareBazaar. El malware nuevo o dirigido podría no detectarse; por eso, usa los plugins con cuidado aunque no haya detecciones.',
             'El SHA-256 identifica el archivo que GitHub entregaba al momento del registro. Compara el SHA-256 del archivo descargado con el valor que se muestra aquí.',
           ],
         },
