@@ -173,6 +173,11 @@ async function releaseStatements(
        ON CONFLICT (github_release_id) DO UPDATE SET tag = excluded.tag, name = excluded.name,
          commit_sha = excluded.commit_sha, html_url = excluded.html_url`,
     ).bind(release.id, pluginId, release.tag_name, release.name, commitSha, release.published_at, release.html_url),
+    // 新しい版の検査の行。差分の起点とレビューは定期処理の新しい版の検査で決める (ADR 0013)。
+    env.DB.prepare(
+      `INSERT INTO release_checks (github_release_id, immutable) VALUES (?, ?)
+       ON CONFLICT (github_release_id) DO UPDATE SET immutable = excluded.immutable`,
+    ).bind(release.id, release.immutable === true ? 1 : 0),
     // リリースから外された配布物は掲載対象から外す。
     env.DB.prepare(
       `DELETE FROM assets WHERE release_id = ? AND github_asset_id NOT IN (${assets.map(() => '?').join(', ')})`,
@@ -198,6 +203,7 @@ async function releaseStatements(
     // 既知の配布物はダウンロード数の変化などで ETag が変わっても照会し直さず、照会の上限を使い切らないようにする。
     if (!knownKeys.has(`${asset.id}:${asset.digest}`)) {
       statements.push(...resetScanStatements(env, asset.digest as string));
+      statements.push(resetAttestationStatement(env, asset.id));
     }
   }
   return statements;
@@ -309,6 +315,15 @@ export function resetScanStatements(env: Env, digest: string): D1PreparedStateme
        ON CONFLICT (digest, scanner) DO UPDATE SET result = 'pending', detail = NULL, attempts = 0, scanned_at = NULL`,
     ).bind(digest, scanner),
   );
+}
+
+// 新しく現れた配布物は、証明を検証し直す。署名の検証は GitHub Actions が行う (ADR 0014)。
+export function resetAttestationStatement(env: Env, assetId: number): D1PreparedStatement {
+  return env.DB.prepare(
+    `INSERT INTO attestation_checks (github_asset_id, result) VALUES (?, 'pending')
+     ON CONFLICT (github_asset_id) DO UPDATE SET result = 'pending', reason = NULL, signer_workflow = NULL, attempts = 0,
+       checked_at = NULL`,
+  ).bind(assetId);
 }
 
 async function runSync(env: Env, budget: Budget, report: CronReport): Promise<void> {

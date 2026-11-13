@@ -2,7 +2,7 @@
 import { Budget } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
-import { resetScanStatements } from './cron';
+import { resetAttestationStatement, resetScanStatements } from './cron';
 import {
   type Category,
   cmakeReferencesLibobs,
@@ -206,6 +206,10 @@ async function validateAndStore(
       env.DB.prepare(
         'INSERT INTO releases (github_release_id, plugin_id, tag, name, commit_sha, published_at, html_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ).bind(release.id, pluginId, release.tag_name, release.name, commitSha, release.published_at, release.html_url),
+      env.DB.prepare('INSERT INTO release_checks (github_release_id, immutable) VALUES (?, ?)').bind(
+        release.id,
+        release.immutable === true ? 1 : 0,
+      ),
     ];
     for (const asset of assets) {
       statements.push(
@@ -222,6 +226,7 @@ async function validateAndStore(
         ),
       );
       statements.push(...resetScanStatements(env, asset.digest as string));
+      statements.push(resetAttestationStatement(env, asset.id));
     }
     // 1 回の batch は D1 のクエリ 1 件として数えられ、途中で失敗しても部分的な書き込みが残らない。
     await env.DB.batch(statements);

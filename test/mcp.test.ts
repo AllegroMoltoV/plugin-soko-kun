@@ -2,6 +2,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { submitPlugin } from '../src/domain/submit';
+import { markListable } from './fixtures/checks';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from './fixtures/github';
 import { network } from './setup';
 
@@ -83,7 +84,7 @@ describe('アクセス権限', () => {
 
   it('検査を通ったプラグインは検索でき、外部データは untrusted に入る', async () => {
     await registerPendingFixture();
-    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
+    await markListable(env.DB);
     const { payload } = await toolResult(
       await SELF.fetch(toolCall('search_plugins', { keyword: 'pitch shift', os: 'windows' })),
     );
@@ -94,7 +95,7 @@ describe('アクセス権限', () => {
 
   it('概要の機械翻訳の語でも検索できる', async () => {
     await registerPendingFixture();
-    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
+    await markListable(env.DB);
     await env.DB.prepare(
       "INSERT INTO plugin_translations (plugin_id, lang, source_hash, text, translated_at) SELECT id, 'ja', 'x', '声の高さを変える音声フィルター', '2026-11-10T00:00:00Z' FROM plugins",
     ).run();
@@ -104,7 +105,7 @@ describe('アクセス権限', () => {
 
   it('管理者が停止したプラグインは検索結果から消える', async () => {
     await registerPendingFixture();
-    await env.DB.prepare("UPDATE scans SET result = 'not_found'").run();
+    await markListable(env.DB);
     await env.DB.prepare('UPDATE plugins SET admin_suspended = 1').run();
     const { payload } = await toolResult(await SELF.fetch(toolCall('search_plugins', {})));
     expect(payload.total).toBe(0);

@@ -45,6 +45,8 @@ export interface GitHubRelease {
   prerelease: boolean;
   published_at: string | null;
   html_url: string;
+  // 不変のリリース (immutable release) のとき true。古い応答には無いことがある。
+  immutable?: boolean;
   assets: GitHubAsset[];
 }
 

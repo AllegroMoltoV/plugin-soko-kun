@@ -2,7 +2,18 @@
 import type { Env } from '../env';
 import { detectLang, type TranslationLang } from '../translate';
 import type { Category, Os } from './metadata';
-import { computeStatus, type PluginStatus, type ReleaseForStatus, type Scanner, type ScanResult } from './status';
+import {
+  type AttestationResult,
+  type ConfigState,
+  computeStatus,
+  type DiffState,
+  type PluginStatus,
+  type ReleaseChecks,
+  type ReleaseForStatus,
+  type ReviewState,
+  type Scanner,
+  type ScanResult,
+} from './status';
 
 export interface ScanView {
   result: ScanResult;
@@ -90,12 +101,24 @@ interface ReleaseRow {
   obs_build_version: string | null;
 }
 interface AssetRow {
+  github_asset_id: number;
   release_id: number;
   name: string;
   size: number;
   digest: string;
   download_url: string;
   os: Os | null;
+}
+interface CheckRow {
+  github_release_id: number;
+  legacy: number;
+  immutable: number;
+  diff_state: DiffState;
+  config_state: ConfigState;
+  review_state: ReviewState;
+  review_attempts: number;
+  review_serious: number;
+  admin_approved_at: string | null;
 }
 interface ScanRow {
   digest: string;
@@ -118,41 +141,59 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
   const where = pluginId ? 'WHERE p.id = ?' : '';
   const bind = (statement: D1PreparedStatement) => (pluginId ? statement.bind(pluginId) : statement);
   // SELECT を 1 回の batch にまとめ、D1 のクエリ 1 件として扱う。
-  const [plugins, releases, assets, scans, translations, images, snapshots] = await env.DB.batch([
-    bind(env.DB.prepare(`SELECT * FROM plugins p ${where}`)),
-    bind(env.DB.prepare(`SELECT r.* FROM releases r JOIN plugins p ON p.id = r.plugin_id ${where}`)),
-    bind(
-      env.DB.prepare(
-        `SELECT a.* FROM assets a JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id ${where}`,
+  const [plugins, releases, assets, scans, translations, images, snapshots, checks, attestations, suspensions] =
+    await env.DB.batch([
+      bind(env.DB.prepare(`SELECT * FROM plugins p ${where}`)),
+      bind(env.DB.prepare(`SELECT r.* FROM releases r JOIN plugins p ON p.id = r.plugin_id ${where}`)),
+      bind(
+        env.DB.prepare(
+          `SELECT a.* FROM assets a JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id ${where}`,
+        ),
       ),
-    ),
-    bind(
-      env.DB.prepare(
-        `SELECT DISTINCT s.* FROM scans s JOIN assets a ON a.digest = s.digest JOIN releases r ON r.github_release_id = a.release_id
+      bind(
+        env.DB.prepare(
+          `SELECT DISTINCT s.* FROM scans s JOIN assets a ON a.digest = s.digest JOIN releases r ON r.github_release_id = a.release_id
          JOIN plugins p ON p.id = r.plugin_id ${where}`,
+        ),
       ),
-    ),
-    bind(
-      env.DB.prepare(
-        `SELECT t.plugin_id, t.lang, t.text FROM plugin_translations t JOIN plugins p ON p.id = t.plugin_id ${where}`,
+      bind(
+        env.DB.prepare(
+          `SELECT t.plugin_id, t.lang, t.text FROM plugin_translations t JOIN plugins p ON p.id = t.plugin_id ${where}`,
+        ),
       ),
-    ),
-    // 画像の本体は配信のときだけ読む。
-    bind(
-      env.DB.prepare(
-        `SELECT i.plugin_id, i.kind, i.blob_sha, i.width, i.height, i.content_type,
+      // 画像の本体は配信のときだけ読む。
+      bind(
+        env.DB.prepare(
+          `SELECT i.plugin_id, i.kind, i.blob_sha, i.width, i.height, i.content_type,
            v.width AS preview_width, v.height AS preview_height
          FROM plugin_images i JOIN plugins p ON p.id = i.plugin_id
          LEFT JOIN plugin_image_previews v ON v.plugin_id = i.plugin_id AND i.kind = 'image' AND v.source_sha = i.blob_sha
          ${where}`,
+        ),
       ),
-    ),
-    bind(
-      env.DB.prepare(
-        `SELECT d.plugin_id, d.day, d.total FROM download_snapshots d JOIN plugins p ON p.id = d.plugin_id ${where} ORDER BY d.day`,
+      bind(
+        env.DB.prepare(
+          `SELECT d.plugin_id, d.day, d.total FROM download_snapshots d JOIN plugins p ON p.id = d.plugin_id ${where} ORDER BY d.day`,
+        ),
       ),
-    ),
-  ]);
+      bind(
+        env.DB.prepare(
+          `SELECT c.* FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id
+         JOIN plugins p ON p.id = r.plugin_id ${where}`,
+        ),
+      ),
+      bind(
+        env.DB.prepare(
+          `SELECT t.github_asset_id, t.result FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
+         JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id ${where}`,
+        ),
+      ),
+      bind(
+        env.DB.prepare(
+          `SELECT s.github_release_id FROM release_suspensions s JOIN plugins p ON p.id = s.plugin_id ${where}`,
+        ),
+      ),
+    ]);
   const snapshotsByPlugin = new Map<string, Array<{ day: string; total: number }>>();
   for (const row of (snapshots?.results ?? []) as Array<{ plugin_id: string; day: string; total: number }>) {
     const list = snapshotsByPlugin.get(row.plugin_id) ?? [];
@@ -207,6 +248,27 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     releasesByPlugin.set(row.plugin_id, list);
   }
 
+  const checksByRelease = new Map<number, ReleaseChecks>();
+  for (const row of (checks?.results ?? []) as CheckRow[]) {
+    checksByRelease.set(row.github_release_id, {
+      legacy: row.legacy === 1,
+      immutable: row.immutable === 1,
+      diffState: row.diff_state,
+      configState: row.config_state,
+      reviewState: row.review_state,
+      reviewAttempts: row.review_attempts,
+      reviewSerious: row.review_serious,
+      adminApproved: row.admin_approved_at !== null,
+    });
+  }
+  const attestationByAsset = new Map<number, AttestationResult>();
+  for (const row of (attestations?.results ?? []) as Array<{ github_asset_id: number; result: AttestationResult }>) {
+    attestationByAsset.set(row.github_asset_id, row.result);
+  }
+  const suspendedReleases = new Set(
+    ((suspensions?.results ?? []) as Array<{ github_release_id: number }>).map((row) => row.github_release_id),
+  );
+
   const toScan = (digest: string, scanner: Scanner): ScanView | null => {
     const row = scanMap.get(`${digest}:${scanner}`);
     return row ? { result: row.result, detail: row.detail, scannedAt: row.scanned_at } : null;
@@ -217,7 +279,14 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     const forStatus: ReleaseForStatus[] = pluginReleases.map((release) => ({
       githubReleaseId: release.github_release_id,
       publishedAt: release.published_at,
-      digests: (assetsByRelease.get(release.github_release_id) ?? []).map((asset) => asset.digest),
+      assets: (assetsByRelease.get(release.github_release_id) ?? []).map((asset) => ({
+        name: asset.name,
+        digest: asset.digest,
+        os: asset.os,
+        attestation: attestationByAsset.get(asset.github_asset_id),
+      })),
+      checks: checksByRelease.get(release.github_release_id),
+      suspended: suspendedReleases.has(release.github_release_id),
     }));
     const status = computeStatus(
       { adminSuspended: plugin.admin_suspended === 1, removed: plugin.removed === 1 },
