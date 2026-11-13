@@ -72,7 +72,7 @@ export function parseReview(text: string): Finding[] | null {
     const entry = item as Record<string, unknown>;
     const id = typeof entry.id === 'string' ? entry.id : '';
     const criterion = CRITERIA_BY_ID.get(id);
-    if (!criterion || criterion.judgedBy !== 'llm' || findings.has(id)) continue;
+    if (criterion?.judgedBy !== 'llm' || findings.has(id)) continue;
     const result = RESULTS.has(entry.result as FindingResult) ? (entry.result as FindingResult) : 'unclear';
     const evidence = Array.isArray(entry.evidence)
       ? entry.evidence
