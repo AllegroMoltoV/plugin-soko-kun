@@ -17,6 +17,8 @@ CREATE TABLE release_checks (
     CHECK (config_state IN ('pending', 'ok', 'missing', 'invalid', 'no_declared_assets')),
   review_state TEXT NOT NULL DEFAULT 'pending' CHECK (review_state IN ('pending', 'done', 'failed')),
   review_attempts INTEGER NOT NULL DEFAULT 0,
+  -- Workers AI の無料枠を使い切ったとき、枠が戻る時刻 (00:00 UTC) まで LLM のレビューを待たせる。
+  review_wait_until TEXT,
   review_json TEXT,
   review_serious INTEGER NOT NULL DEFAULT 0,
   reviewed_at TEXT,

@@ -114,7 +114,8 @@ const BLOCKER_TEXT: Record<BlockerCode, { message: string; fix: string; criterio
     fix: 'No action is needed.',
   },
   diff_held: {
-    message: 'The change since the listed version needs a review by an administrator.',
+    message:
+      'The change since the listed version touches workflows, binaries, or links to other hosts, so an administrator reviews it before listing. Every workflow change is reviewed, including action updates by Dependabot. The review has no fixed schedule.',
     fix: 'No action is needed if the change is intended. An administrator reviews it before listing.',
   },
   diff_error: {
@@ -158,6 +159,7 @@ interface CheckRow {
   config_state: ConfigState;
   review_state: ReviewState;
   review_attempts: number;
+  review_wait_until: string | null;
   review_json: string | null;
   review_serious: number;
   reviewed_at: string | null;
@@ -236,11 +238,11 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
         tag: row.tag,
         publishedAt: row.published_at,
         state,
-        checkAgainAfter: state === 'checking' ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null,
+        checkAgainAfter: state === 'checking' ? latestResume(blockers, check?.review_wait_until ?? null) : null,
         blockers:
           state === 'listed' || state === 'superseded'
             ? []
-            : blockers.map((code) => blockerView(code, diffHits, view.id, row.tag)),
+            : blockers.map((code) => blockerView(code, diffHits, view.id, row.tag, check?.review_wait_until ?? null)),
         checks: check?.legacy
           ? { legacy: true }
           : {
@@ -291,16 +293,53 @@ function attestationSummary(results: Array<AttestationResult | null>): string {
   return 'pending';
 }
 
-function blockerView(code: BlockerCode, hits: DiffHit[], pluginId: string, tag: string) {
+// 本サービスの処理を待つ理由ごとの、再開の目安。作者の LLM が無駄に何度も確かめないよう、理由に合った時刻を返す。
+// 定期処理は 15 分ごと、証明を検証するワークフローも 15 分ごとに動く。GitHub の定期実行は遅れることがある。
+const SYSTEM_WAIT_MINUTES: Partial<Record<BlockerCode, number>> = {
+  scan_pending: 15,
+  checks_missing: 15,
+  attestation_pending: 30,
+  config_pending: 15,
+  diff_pending: 15,
+  review_pending: 15,
+};
+
+function resumeOf(code: BlockerCode, reviewWaitUntil: string | null): string | null {
+  const now = Date.now();
+  if (code === 'review_pending' && reviewWaitUntil && Date.parse(reviewWaitUntil) > now) return reviewWaitUntil;
+  const minutes = SYSTEM_WAIT_MINUTES[code];
+  return minutes === undefined ? null : new Date(now + minutes * 60 * 1000).toISOString();
+}
+
+function latestResume(blockers: BlockerCode[], reviewWaitUntil: string | null): string | null {
+  const times = blockers
+    .map((code) => resumeOf(code, reviewWaitUntil))
+    .filter((value): value is string => value !== null)
+    .sort();
+  return times.at(-1) ?? null;
+}
+
+function blockerView(
+  code: BlockerCode,
+  hits: DiffHit[],
+  pluginId: string,
+  tag: string,
+  reviewWaitUntil: string | null,
+) {
   const text = BLOCKER_TEXT[code];
   const waitsFor: WaitsFor = BLOCKER_WAITS_FOR[code];
   const criterion = text.criterion ? CRITERIA_BY_ID.get(text.criterion) : undefined;
   const fix = criterion ? `${criterion.fix} See ${referenceOf(criterion.id)}` : text.fix;
+  // 無料枠を使い切った日は、枠が戻る時刻まで LLM のレビューを待つ。作者に理由と時刻をそのまま伝える。
+  const quotaWait = code === 'review_pending' && reviewWaitUntil !== null && Date.parse(reviewWaitUntil) > Date.now();
   return {
     code,
-    message: text.message,
+    message: quotaWait
+      ? 'The daily review capacity of this service is used up. The review resumes automatically at resumesAt. No action is needed.'
+      : text.message,
     fix,
     waitsFor,
+    ...(waitsFor === 'system' ? { resumesAt: resumeOf(code, reviewWaitUntil) } : {}),
     ...(code === 'diff_held'
       ? {
           hits: hits.map((hit) => ({

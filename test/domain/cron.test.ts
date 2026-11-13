@@ -4,6 +4,7 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { Budget } from '../../src/budget';
 import { recordListings, runCron } from '../../src/domain/cron';
+import { runReleaseChecks } from '../../src/domain/release-checks';
 import { submitPlugin } from '../../src/domain/submit';
 import { markListable } from '../fixtures/checks';
 import {
@@ -372,5 +373,16 @@ describe('掲載の期間と止めた版の記録', () => {
     await env.DB.prepare('DELETE FROM plugins').run();
     expect(await env.DB.prepare('SELECT count(*) AS n FROM listing_periods').first('n')).toBe(2);
     expect(await env.DB.prepare('SELECT count(*) AS n FROM release_suspensions').first('n')).toBe(1);
+  });
+});
+
+describe('新しい版の検査の無料枠の待ち', () => {
+  it('無料枠が戻る時刻までは、レビューだけが残った版を選ばず、試行の回数も進めない', async () => {
+    await registerFixture();
+    await env.DB.prepare(
+      "UPDATE release_checks SET config_state = 'missing', diff_state = 'skipped', review_wait_until = '2999-01-01T00:00:00Z'",
+    ).run();
+    expect(await runReleaseChecks(env, new Budget())).toBe(0);
+    expect(await env.DB.prepare('SELECT review_attempts FROM release_checks').first('review_attempts')).toBe(0);
   });
 });

@@ -77,10 +77,11 @@ export async function runReleaseChecks(env: Env, budget: Budget): Promise<number
        c.review_attempts
      FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id JOIN plugins p ON p.id = r.plugin_id
      WHERE c.legacy = 0 AND p.removed = 0 AND c.review_attempts < ? AND (c.diff_state = 'pending'
-       OR c.config_state = 'pending' OR c.review_state IN ('pending', 'failed'))
+       OR c.config_state = 'pending'
+       OR (c.review_state IN ('pending', 'failed') AND (c.review_wait_until IS NULL OR c.review_wait_until <= ?)))
      ORDER BY r.published_at LIMIT 1`,
   )
-    .bind(MAX_REVIEW_ATTEMPTS)
+    .bind(MAX_REVIEW_ATTEMPTS, new Date().toISOString())
     .first<PendingRow>();
   if (!row) return 0;
 
@@ -165,8 +166,9 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   // LLM のレビュー
   if (row.review_state !== 'done') {
     const input = await collectReviewFiles(github, row.owner, row.repo, row.tag);
-    const findings = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, input, diff);
-    if (findings) {
+    const outcome = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, input, diff);
+    if (outcome.kind === 'done') {
+      const findings = outcome.findings;
       const serious = findings.filter((finding) => finding.serious).length;
       update(
         "review_state = 'done', review_attempts = review_attempts + 1, review_json = ?, review_serious = ?, reviewed_at = ?",
@@ -174,7 +176,9 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
         serious,
         new Date().toISOString(),
       );
-    } else {
+    } else if (outcome.kind === 'quota') {
+      update('review_wait_until = ?', nextQuotaReset());
+    } else if (outcome.kind === 'failed') {
       update("review_state = 'failed', review_attempts = review_attempts + 1");
     }
   }
@@ -227,15 +231,39 @@ export async function reviewRepository(
   repository: string,
   collected: CollectedFiles,
   diff: string | null,
-): Promise<Finding[] | null> {
+): Promise<ReviewOutcome> {
   // テストの環境には Workers AI が無い。レビューできない版は失敗として記録し、管理者の判断に回る。
-  if (!env.AI) return null;
+  if (!env.AI) return { kind: 'failed' };
   budget.takeSubrequest();
   try {
     const review = await runReview(env.AI, { repository, ...collected, diff });
-    return review?.findings ?? null;
-  } catch {
-    // タイムアウト・5xx・無料枠の不足は失敗として記録し、次の起動で 1 回だけやり直す。
-    return null;
+    return review ? { kind: 'done', findings: review.findings } : { kind: 'failed' };
+  } catch (error) {
+    const outcome = classifyAiError(error);
+    // 例外の形は本番で確かめる (3036 を binding で受けた実例はまだ無い)。
+    console.log(JSON.stringify({ event: 'review_error', outcome: outcome.kind, message: String(error).slice(0, 200) }));
+    return outcome;
   }
+}
+
+export type ReviewOutcome =
+  | { kind: 'done'; findings: Finding[] }
+  | { kind: 'failed' }
+  // 無料枠の不足 (3036)。試行に数えず、枠が戻る 00:00 UTC まで待つ。
+  | { kind: 'quota' }
+  // 一時的な混雑 (3040)。試行に数えず、次の起動でやり直す。
+  | { kind: 'busy' };
+
+// Workers AI の例外のメッセージ (AiError: <コード>: <説明>) からコードを取り出して分ける。
+// コードを取り出せない例外は、今までどおり失敗として数える。外れても前の版の掲載が続き、管理者の確認に回るだけで済むため。
+export function classifyAiError(error: unknown): ReviewOutcome {
+  const code = /\b(\d{4}):/.exec(String(error))?.[1];
+  if (code === '3036') return { kind: 'quota' };
+  if (code === '3040') return { kind: 'busy' };
+  return { kind: 'failed' };
+}
+
+// 次の 00:00 UTC。Workers AI の無料枠が戻る時刻。
+export function nextQuotaReset(now = new Date()): string {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
 }

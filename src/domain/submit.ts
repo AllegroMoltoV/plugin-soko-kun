@@ -14,7 +14,7 @@ import {
   inferOs,
   summarizeReadme,
 } from './metadata';
-import { collectReviewFiles, reviewRepository } from './release-checks';
+import { collectReviewFiles, nextQuotaReset, type ReviewOutcome, reviewRepository } from './release-checks';
 
 export const SUBMITS_PER_DAY = 10;
 
@@ -37,7 +37,7 @@ export type SubmitErrorCode =
   | 'github_unavailable';
 
 export type SubmitResult =
-  | { ok: true; pluginId: string; status: 'pending'; detailUrl: string; assetsToScan: number }
+  | { ok: true; pluginId: string; status: 'pending'; detailUrl: string; assetsToScan: number; note: string }
   | { ok: false; code: SubmitErrorCode; message: string; fix: string };
 
 export interface Submitter {
@@ -355,6 +355,7 @@ async function validateAndStore(
       status: 'pending',
       detailUrl: `${env.ORIGIN}/plugins/${pluginId}`,
       assetsToScan: assets.length,
+      note: 'The plugin page at detailUrl is published after the checks pass, usually within a few hours. Until then it returns 404. Call list_my_plugins to see the progress.',
     };
   } catch (error) {
     return githubFailure(error);
@@ -369,7 +370,7 @@ export type CheckResult =
       ok: boolean;
       mode: 'check';
       conditions: Condition[];
-      review: { status: 'done' | 'failed' } & ReviewSummary;
+      review: { status: 'done' | 'failed' | 'unavailable'; message?: string; resumesAt?: string } & ReviewSummary;
     };
 
 // 確認のモード。登録せず、掲載の条件と、既定のブランチの最新のコミットのレビューを返す (docs/design/author-feedback.md)。
@@ -385,8 +386,9 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
       'Wait and try again later.',
     );
   }
+  const loggedAt = now();
   await env.DB.prepare('INSERT INTO check_log (github_user_id, created_at) VALUES (?, ?)')
-    .bind(submitter.githubUserId, now())
+    .bind(submitter.githubUserId, loggedAt)
     .run();
   const parsed = parseRepositoryUrl(repositoryUrl);
   if (!parsed) return INVALID_URL();
@@ -397,17 +399,38 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
     const { repo } = evaluated;
     const admin = evaluated.conditions.find((item) => item.code === 'not_admin')?.result === 'passed';
     let review: { findings: Finding[]; unreadFiles: string[] } | null = null;
+    let unavailable: ReviewOutcome['kind'] | null = null;
     if (admin && budget.canFetch(12)) {
       const collected = await collectReviewFiles(asApp, repo.owner.login, repo.name, repo.default_branch);
-      const findings = await reviewRepository(env, budget, `${repo.owner.login}/${repo.name}`, collected, null);
-      review = findings ? { findings, unreadFiles: collected.unreadFiles } : null;
+      const outcome = await reviewRepository(env, budget, `${repo.owner.login}/${repo.name}`, collected, null);
+      if (outcome.kind === 'done') review = { findings: outcome.findings, unreadFiles: collected.unreadFiles };
+      else unavailable = outcome.kind;
+    }
+    // 本サービスの側の都合 (無料枠の不足と混雑) でレビューできなかった回は、回数に数えない。
+    if (unavailable === 'quota' || unavailable === 'busy') {
+      await env.DB.prepare('DELETE FROM check_log WHERE github_user_id = ? AND created_at = ?')
+        .bind(submitter.githubUserId, loggedAt)
+        .run();
     }
     const view = reviewView(review);
     return {
       ok: evaluated.conditions.every((item) => item.result === 'passed'),
       mode: 'check',
       conditions: evaluated.conditions,
-      review: { status: review ? 'done' : 'failed', ...view },
+      review: {
+        status: review ? 'done' : unavailable === 'quota' || unavailable === 'busy' ? 'unavailable' : 'failed',
+        ...(unavailable === 'quota'
+          ? {
+              message:
+                'The daily review capacity of this service is used up. This check was not counted. Try again after resumesAt.',
+              resumesAt: nextQuotaReset(),
+            }
+          : {}),
+        ...(unavailable === 'busy'
+          ? { message: 'The review service is busy. This check was not counted. Try again in a few minutes.' }
+          : {}),
+        ...view,
+      },
     };
   } catch (error) {
     return githubFailure(error);
