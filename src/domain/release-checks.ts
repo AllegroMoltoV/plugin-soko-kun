@@ -53,7 +53,11 @@ export function parseConfig(text: string | 'too_large' | null, assetOs: Array<st
   }
   if (os !== undefined) {
     const values = OS_VALUES as readonly string[];
-    if (!Array.isArray(os) || os.length === 0 || !os.every((value) => typeof value === 'string' && values.includes(value))) {
+    if (
+      !Array.isArray(os) ||
+      os.length === 0 ||
+      !os.every((value) => typeof value === 'string' && values.includes(value))
+    ) {
       return { state: 'invalid' };
     }
     if (!assetOs.some((value) => value !== null && os.includes(value))) return { state: 'no_declared_assets' };
@@ -105,7 +109,10 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   const statements: D1PreparedStatement[] = [];
   const update = (sql: string, ...values: unknown[]) =>
     statements.push(
-      env.DB.prepare(`UPDATE release_checks SET ${sql} WHERE github_release_id = ?`).bind(...values, row.github_release_id),
+      env.DB.prepare(`UPDATE release_checks SET ${sql} WHERE github_release_id = ?`).bind(
+        ...values,
+        row.github_release_id,
+      ),
     );
 
   // 宣言ファイル
@@ -146,7 +153,8 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
           update('diff_state = ?, diff_hits = ?', hits.length > 0 ? 'held' : 'passed', JSON.stringify(hits));
         }
       } catch (error) {
-        if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
+        if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable'))
+          throw error;
         if (row.diff_state === 'pending') update('diff_state = ?', 'error');
       }
     } else if (row.diff_state === 'pending') {

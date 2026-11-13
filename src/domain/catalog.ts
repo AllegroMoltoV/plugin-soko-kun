@@ -31,6 +31,7 @@ export interface AssetView {
 }
 
 export interface ReleaseView {
+  githubReleaseId: number;
   tag: string;
   name: string | null;
   commitSha: string;
@@ -313,6 +314,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
       releasesUrl: `https://github.com/${plugin.owner}/${plugin.repo}/releases`,
       listedRelease: listed
         ? {
+            githubReleaseId: listed.github_release_id,
             tag: listed.tag,
             name: listed.name,
             commitSha: listed.commit_sha,
@@ -438,4 +440,9 @@ export async function getPluginPreview(
   if (!row) return null;
   const bytes = Array.isArray(row.bytes) ? new Uint8Array(row.bytes).buffer : row.bytes;
   return { contentType: 'image/webp', bytes };
+}
+
+// 定期処理が、すべてのプラグインの掲載状態から掲載の期間を記録するために使う。D1 のクエリは 1 件。
+export function loadAllViews(env: Env): Promise<PluginView[]> {
+  return loadViews(env);
 }

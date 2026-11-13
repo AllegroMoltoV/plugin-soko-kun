@@ -172,7 +172,8 @@ export const CRITERIA: Criterion[] = [
     kind: 'recommendation',
     judgedBy: 'llm',
     title: 'Users are shown how to verify downloads',
-    viewpoint: 'The README shows how to verify a downloaded file, for example with gh attestation verify or a SHA-256 hash.',
+    viewpoint:
+      'The README shows how to verify a downloaded file, for example with gh attestation verify or a SHA-256 hash.',
     fix: 'Add a short section to the README that shows how to verify a download with gh attestation verify.',
   },
   {
@@ -197,7 +198,8 @@ export const CRITERIA: Criterion[] = [
     kind: 'recommendation',
     judgedBy: 'llm',
     title: 'Contributors agree to the license and sign off',
-    viewpoint: 'CONTRIBUTING or a PR template asks contributors for license agreement, DCO sign-off, and signed commits.',
+    viewpoint:
+      'CONTRIBUTING or a PR template asks contributors for license agreement, DCO sign-off, and signed commits.',
     fix: 'Ask contributors for DCO sign-off and license agreement in CONTRIBUTING.md.',
   },
   {
@@ -242,7 +244,8 @@ export const CRITERIA: Criterion[] = [
     kind: 'recommendation',
     judgedBy: 'llm',
     title: 'OBS resources are released with RAII',
-    viewpoint: 'Calls such as bfree, obs_data_release, and obs_source_release are wrapped so that resources are released automatically.',
+    viewpoint:
+      'Calls such as bfree, obs_data_release, and obs_source_release are wrapped so that resources are released automatically.',
     fix: 'Wrap OBS resources in RAII helpers (for example, std::unique_ptr with a custom deleter).',
   },
   {

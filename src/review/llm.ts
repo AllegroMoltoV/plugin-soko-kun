@@ -48,7 +48,8 @@ export function reviewInstructions(): string {
 export function reviewPrompt(input: ReviewInput): string {
   const parts = [`Repository: ${input.repository}`];
   for (const file of input.files) parts.push(`<<<FILE ${file.path}\n${file.content}\nFILE>>>`);
-  if (input.unreadFiles.length > 0) parts.push(`Files not provided because they are too large: ${input.unreadFiles.join(', ')}`);
+  if (input.unreadFiles.length > 0)
+    parts.push(`Files not provided because they are too large: ${input.unreadFiles.join(', ')}`);
   if (input.diff !== null) parts.push(`<<<DIFF since the listed version\n${input.diff}\nDIFF>>>`);
   return parts.join('\n');
 }
@@ -75,7 +76,9 @@ export function parseReview(text: string): Finding[] | null {
     const result = RESULTS.has(entry.result as FindingResult) ? (entry.result as FindingResult) : 'unclear';
     const evidence = Array.isArray(entry.evidence)
       ? entry.evidence
-          .filter((e): e is Record<string, unknown> => typeof e === 'object' && e !== null && typeof e.file === 'string')
+          .filter(
+            (e): e is Record<string, unknown> => typeof e === 'object' && e !== null && typeof e.file === 'string',
+          )
           .slice(0, 5)
           .map((e) => ({
             file: String(e.file).slice(0, 200),

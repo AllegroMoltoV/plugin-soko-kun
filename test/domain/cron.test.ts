@@ -2,8 +2,10 @@
 import { env } from 'cloudflare:test';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { runCron } from '../../src/domain/cron';
+import { Budget } from '../../src/budget';
+import { recordListings, runCron } from '../../src/domain/cron';
 import { submitPlugin } from '../../src/domain/submit';
+import { markListable } from '../fixtures/checks';
 import {
   downloadHandlers,
   githubHandlers,
@@ -311,6 +313,9 @@ describe('runCron のダウンロード数の記録', () => {
 describe('runCron の概要の更新', () => {
   it('description が変われば概要を更新し、空なら登録時の概要を残す', async () => {
     await registerFixture();
+    // 掲載中のプラグインにする。確認待ちの版がある間は概要を追従させないため。
+    await markListable(env.DB);
+    await recordListings(env, new Budget());
     const summary = () =>
       env.DB.prepare('SELECT summary FROM plugins')
         .first<{ summary: string }>()
@@ -332,5 +337,40 @@ describe('runCron の概要の更新', () => {
     expect(await summary()).toBe('A new pitch shift filter');
     await run('');
     expect(await summary()).toBe('A new pitch shift filter');
+  });
+
+  it('確認待ちの版がある間は、description を概要に追従させない', async () => {
+    await registerFixture();
+    await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
+    network.use(
+      repoById(200, { description: 'Download the fixed build from https://example.com' }),
+      ...githubHandlers(),
+      ...imageHandlers(),
+      ...downloadHandlers(),
+      ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
+    );
+    await runCron(env);
+    const row = await env.DB.prepare('SELECT summary FROM plugins').first<{ summary: string }>();
+    expect(row?.summary).not.toContain('example.com');
+  });
+});
+
+describe('掲載の期間と止めた版の記録', () => {
+  it('掲載した配布物の期間を記録し、マルウェアを検出したら版を記録して期間を閉じる。プラグインを消しても記録は残す', async () => {
+    await registerFixture();
+    await markListable(env.DB);
+    await recordListings(env, new Budget());
+    const open = await env.DB.prepare('SELECT count(*) AS n FROM listing_periods WHERE ended_at IS NULL').first('n');
+    expect(open).toBe(2);
+
+    await env.DB.prepare("UPDATE scans SET result = 'malicious'").run();
+    await recordListings(env, new Budget());
+    expect(await env.DB.prepare('SELECT reason FROM release_suspensions').first('reason')).toBe('malicious');
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM listing_periods WHERE ended_at IS NULL').first('n')).toBe(0);
+
+    await env.DB.prepare('DELETE FROM plugins').run();
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM listing_periods').first('n')).toBe(2);
+    expect(await env.DB.prepare('SELECT count(*) AS n FROM release_suspensions').first('n')).toBe(1);
   });
 });

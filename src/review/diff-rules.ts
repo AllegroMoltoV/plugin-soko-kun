@@ -16,7 +16,9 @@ function isSameRepository(url: URL, owner: string, repo: string): boolean {
   const [first, second] = url.pathname.split('/').filter(Boolean);
   const host = url.hostname.toLowerCase();
   if (host !== 'github.com' && host !== 'raw.githubusercontent.com') return false;
-  return first?.toLowerCase() === owner.toLowerCase() && second?.toLowerCase().replace(/\.git$/, '') === repo.toLowerCase();
+  return (
+    first?.toLowerCase() === owner.toLowerCase() && second?.toLowerCase().replace(/\.git$/, '') === repo.toLowerCase()
+  );
 }
 
 function isAllowed(raw: string, owner: string, repo: string): boolean {

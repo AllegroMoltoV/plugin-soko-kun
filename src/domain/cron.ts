@@ -6,6 +6,7 @@ import { checkImage, expectedType, IMAGE_LIMITS, type ImageKind } from '../image
 import { runPreviews } from '../previews';
 import { ScannerRateLimitedError, scanWithMalwareBazaar } from '../scanners';
 import { runTranslations } from '../translate';
+import { loadAllViews } from './catalog';
 import { inferOs } from './metadata';
 import { runReleaseChecks } from './release-checks';
 import type { Scanner } from './status';
@@ -37,17 +38,24 @@ interface PendingScan {
   attempts: number;
 }
 
+// 掲載中の配布物を MalwareBazaar へ照会し直す間隔。
+const RESCAN_AFTER_DAYS = 7;
+
 async function runScans(env: Env, budget: Budget, report: CronReport): Promise<void> {
   const key = env.MALWAREBAZAAR_AUTH_KEY;
   // 鍵が無いときは照会しない。結果は検査待ちのまま残り、検査済みとは表示されない。
   if (!key) return;
   budget.takeD1Query();
+  const rescanBefore = new Date(Date.now() - RESCAN_AFTER_DAYS * 86_400_000).toISOString();
   const { results } = await env.DB.prepare(
+    // 未照会と失敗を先に、残りの件数で掲載中の配布物を照会し直す (ADR 0013)。
     `SELECT digest, scanner, attempts FROM scans
-     WHERE scanner = 'malwarebazaar' AND (result = 'pending' OR (result = 'error' AND attempts < ?))
-     ORDER BY scanned_at IS NOT NULL, scanned_at LIMIT ?`,
+     WHERE scanner = 'malwarebazaar' AND (result = 'pending' OR (result = 'error' AND attempts < ?)
+       OR (result = 'not_found' AND scanned_at < ?
+         AND digest IN (SELECT digest FROM listing_periods WHERE ended_at IS NULL)))
+     ORDER BY result = 'not_found', scanned_at IS NOT NULL, scanned_at LIMIT ?`,
   )
-    .bind(MAX_ATTEMPTS, MALWAREBAZAAR_PER_RUN)
+    .bind(MAX_ATTEMPTS, rescanBefore, MALWAREBAZAAR_PER_RUN)
     .all<PendingScan>();
   const updates: D1PreparedStatement[] = [];
   for (const row of results) {
@@ -79,6 +87,9 @@ interface SyncRow {
   releases_etag: string | null;
   images_tag: string | null;
   latest_tag: string | null;
+  latest_release_id: number | null;
+  // 掲載中の版より新しく、まだ掲載していない版がある。確認待ちの間は概要を追従させない (ADR 0013)。
+  has_pending: number;
 }
 
 // プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決、画像の一覧とダウンロード 2 件、buildspec.json。
@@ -108,7 +119,14 @@ async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: Sync
     return;
   }
 
-  const statements: D1PreparedStatement[] = [
+  const statements: D1PreparedStatement[] = [];
+  const latest = await github.getLatestRelease(repo.owner.login, repo.name, row.releases_etag ?? undefined);
+  // 新しい版が来た同期と、確認待ちの版がある間は、description を概要に追従させない。
+  // 乗っ取ったアカウントで、新しい版と同時に概要へ誘導の文言を書く経路を止めるため。
+  const newRelease =
+    latest?.release !== null && latest?.release !== undefined && latest.release.id !== row.latest_release_id;
+  const freezeSummary = row.has_pending === 1 || newRelease;
+  statements.push(
     // 概要は description が空でなければ追従させ、空なら登録時の概要 (README から作ったものを含む) を残す。
     env.DB.prepare(
       'UPDATE plugins SET owner = ?, repo = ?, license_spdx = COALESCE(?, license_spdx), summary = COALESCE(?, summary), removed = 0 WHERE id = ?',
@@ -117,11 +135,21 @@ async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: Sync
       repo.name,
       // 登録時と同じく NOASSERTION はライセンスとみなさず、保存している値を残す。
       repo.license?.spdx_id && repo.license.spdx_id !== 'NOASSERTION' ? repo.license.spdx_id : null,
-      repo.description?.trim() || null,
+      freezeSummary ? null : repo.description?.trim() || null,
       row.id,
     ),
-  ];
-  const latest = await github.getLatestRelease(repo.owner.login, repo.name, row.releases_etag ?? undefined);
+  );
+  // 名前の変更と移管では、変わる前の URL の ID を記録し、旧い URL から転送できるようにする。
+  const previousSlug = `${row.owner}/${row.repo}`.toLowerCase();
+  if (previousSlug !== `${repo.owner.login}/${repo.name}`.toLowerCase()) {
+    statements.push(
+      env.DB.prepare('INSERT OR IGNORE INTO plugin_aliases (alias, plugin_id, created_at) VALUES (?, ?, ?)').bind(
+        previousSlug,
+        row.id,
+        timestamp,
+      ),
+    );
+  }
   let latestTag = row.latest_tag;
   if (latest?.release) {
     const saved = await releaseStatements(env, budget, github, row.id, repo.owner.login, repo.name, latest.release);
@@ -338,7 +366,16 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
   const { results } = await env.DB.prepare(
     // 掲載終了のプラグインも同期し、GitHub で公開に戻れば掲載の判定へ戻す。一時的な 404 で恒久に外さないため。
     `SELECT p.id, p.github_repo_id, p.owner, p.repo, p.releases_etag, p.images_tag,
-       (SELECT r.tag FROM releases r WHERE r.plugin_id = p.id ORDER BY r.published_at DESC LIMIT 1) AS latest_tag
+       (SELECT r.tag FROM releases r WHERE r.plugin_id = p.id ORDER BY r.published_at DESC LIMIT 1) AS latest_tag,
+       (SELECT r.github_release_id FROM releases r WHERE r.plugin_id = p.id ORDER BY r.published_at DESC LIMIT 1)
+         AS latest_release_id,
+       EXISTS (SELECT 1 FROM releases r JOIN release_checks c ON c.github_release_id = r.github_release_id
+         WHERE r.plugin_id = p.id AND c.legacy = 0
+           AND NOT EXISTS (SELECT 1 FROM listing_periods l WHERE l.github_release_id = r.github_release_id)
+           AND NOT EXISTS (SELECT 1 FROM release_suspensions s WHERE s.github_release_id = r.github_release_id)
+           AND r.published_at > COALESCE((SELECT max(r2.published_at) FROM releases r2
+             JOIN listing_periods l2 ON l2.github_release_id = r2.github_release_id WHERE r2.plugin_id = p.id), '')
+       ) AS has_pending
      FROM plugins p ORDER BY p.last_synced_at LIMIT 20`,
   ).all<SyncRow>();
   for (const row of results) {
@@ -418,6 +455,45 @@ async function runDownloads(env: Env, budget: Budget, report: CronReport, today 
   report.downloadsRecorded = statements.length - 1;
 }
 
+// 掲載の期間と、マルウェアを検出した版を記録する。どちらの表も行を削除しない (ADR 0013)。
+export async function recordListings(env: Env, budget: Budget): Promise<void> {
+  if (!budget.canQuery(3)) return;
+  const timestamp = now();
+  budget.takeD1Query();
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO release_suspensions (plugin_id, github_release_id, tag, reason, suspended_at)
+     SELECT DISTINCT r.plugin_id, r.github_release_id, r.tag, 'malicious', ?
+     FROM releases r JOIN assets a ON a.release_id = r.github_release_id
+     JOIN scans s ON s.digest = a.digest AND s.scanner = 'malwarebazaar' AND s.result = 'malicious'`,
+  )
+    .bind(timestamp)
+    .run();
+  budget.takeD1Query();
+  const views = await loadAllViews(env);
+  const statements: D1PreparedStatement[] = [];
+  for (const view of views) {
+    const listed = view.status === 'listed' ? view.listedRelease : null;
+    // 掲載対象が変わった、または掲載をやめたプラグインの、それまでの期間を閉じる。
+    statements.push(
+      env.DB.prepare(
+        'UPDATE listing_periods SET ended_at = ? WHERE plugin_id = ? AND ended_at IS NULL AND github_release_id != ?',
+      ).bind(timestamp, view.id, listed?.githubReleaseId ?? -1),
+    );
+    for (const asset of listed?.assets ?? []) {
+      statements.push(
+        env.DB.prepare(
+          `INSERT INTO listing_periods (plugin_id, github_release_id, digest, tag, asset_name, started_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT (github_release_id, digest) DO UPDATE SET ended_at = NULL`,
+        ).bind(view.id, listed?.githubReleaseId, asset.digest, listed?.tag, asset.name, timestamp),
+      );
+    }
+  }
+  if (statements.length === 0) return;
+  budget.takeD1Query();
+  await env.DB.batch(statements);
+}
+
 export async function runCron(env: Env, budget = new Budget()): Promise<CronReport> {
   const report: CronReport = {
     scanned: 0,
@@ -440,6 +516,7 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
         report.stoppedBy = `github_${error.kind}`;
       }
     }
+    await recordListings(env, budget);
     if (!report.stoppedBy) await runDownloads(env, budget, report);
     report.translated = await runTranslations(env, budget);
     report.previews = await runPreviews(env, budget);
