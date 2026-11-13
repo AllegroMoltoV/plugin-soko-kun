@@ -85,6 +85,18 @@ export function githubHandlers(fixture: RepoFixture = {}, calls: string[] = []) 
   ];
 }
 
+// 新しい版の検査が読むファイル。個々のテストで上書きしなければ、どれも無いものとして 404 を返す。
+export function releaseCheckHandlers() {
+  const base = 'https://api.github.com/repos/:owner/:repo';
+  const missing = () => new HttpResponse(null, { status: 404 });
+  return [
+    http.get(`${base}/contents/.soko-kun/config.json`, missing),
+    http.get(`${base}/contents/.github/workflows`, missing),
+    http.get(`${base}/contents/:file`, missing),
+    http.get(`${base}/compare/:range`, missing),
+  ];
+}
+
 // リポジトリの .soko-kun/ に置いた画像。files を渡さなければ、画像の無いリポジトリとして 404 を返す。
 export function imageHandlers(files?: Record<string, Uint8Array>, calls: string[] = []) {
   const contents = 'https://api.github.com/repos/:owner/:repo/contents/.soko-kun';

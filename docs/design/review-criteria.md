@@ -42,7 +42,7 @@
 
 | ID | 内容 |
 | --- | --- |
-| `diff-workflow-changed` | `.github/workflows/` 配下のファイルが変わった |
+| `diff-workflow-changed` | `.github/workflows/`・`.github/actions/`・`.github/scripts/` 配下のファイルが変わった。ワークフローと、ワークフローが呼ぶ処理の置き場所 |
 | `diff-binary-added` | バイナリのファイルが追加または変更された |
 | `diff-external-link` | このリポジトリ・`obsproject.com`・倉庫くん以外のホストへのリンクやダウンロードが追加された |
 | `diff-too-large` | 差分が 24,000 文字を超えた |

@@ -4,7 +4,16 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { runCron } from '../../src/domain/cron';
 import { submitPlugin } from '../../src/domain/submit';
-import { downloadHandlers, githubHandlers, imageHandlers, OWNER, REPO, REPO_ID, USER_TOKEN } from '../fixtures/github';
+import {
+  downloadHandlers,
+  githubHandlers,
+  imageHandlers,
+  OWNER,
+  REPO,
+  REPO_ID,
+  releaseCheckHandlers,
+  USER_TOKEN,
+} from '../fixtures/github';
 import { png, svg } from '../fixtures/images';
 import { network } from '../setup';
 
@@ -51,6 +60,7 @@ describe('runCron', () => {
       ...imageHandlers(),
       ...downloadHandlers(),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     const row = await env.DB.prepare('SELECT admin_suspended FROM plugins').first<{ admin_suspended: number }>();
@@ -105,6 +115,7 @@ describe('runCron', () => {
         }),
       ),
       http.get(`https://api.github.com/repos/${OWNER}/${REPO}/commits/v1.2.0`, () => HttpResponse.json({ sha: 'abc' })),
+      ...releaseCheckHandlers(),
     );
     await runCron(env, undefined);
     const scan = await env.DB.prepare(`SELECT result FROM scans WHERE digest = ? AND scanner = 'malwarebazaar'`)
@@ -148,6 +159,7 @@ describe('runCron', () => {
         'https://api.github.com/repos/:owner/:repo/releases/latest',
         () => new HttpResponse(null, { status: 304 }),
       ),
+      ...releaseCheckHandlers(),
     );
     const report = await runCron(env);
     expect(report.subrequests).toBeLessThanOrEqual(45);
@@ -188,6 +200,7 @@ describe('runCron の同期の失敗', () => {
         `https://api.github.com/repos/${OWNER}/q2/releases/latest`,
         () => new HttpResponse(null, { status: 304 }),
       ),
+      ...releaseCheckHandlers(),
     );
     const report = await runCron(env);
     expect(report).toMatchObject({ synced: 1, failed: 1 });
@@ -205,6 +218,7 @@ describe('runCron の同期の失敗', () => {
         () => new HttpResponse(null, { status: 304 }),
       ),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     const row = await env.DB.prepare('SELECT removed FROM plugins').first<{ removed: number }>();
@@ -222,6 +236,7 @@ describe('runCron の画像の取得', () => {
       ...imageHandlers({ 'logo.png': png(64, 64), 'image.png': svg }, calls),
       ...downloadHandlers(),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     const { results } = await env.DB.prepare('SELECT kind, content_type, width FROM plugin_images').all();
@@ -250,11 +265,13 @@ describe('runCron のビルドに使った OBS の版', () => {
       ...downloadHandlers(),
       ...scannerHandlers({ mb: 0 }),
       buildspec('31.1.1'),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     expect(await env.DB.prepare('SELECT obs_build_version FROM releases').first('obs_build_version')).toBe('31.1.1');
 
-    // 同じリリースでは取得し直さない。
+    // 同じリリースでは取得し直さない。新しい版の検査も buildspec.json を読むため、この確認では検査を済ませておく。
+    await env.DB.prepare('UPDATE release_checks SET legacy = 1').run();
     calls.length = 0;
     await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
     await runCron(env);
@@ -279,6 +296,7 @@ describe('runCron のダウンロード数の記録', () => {
       ...imageHandlers(),
       ...downloadHandlers([120, 30], calls),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
     );
     await runCron(env);
     const { results } = await env.DB.prepare('SELECT total FROM download_snapshots').all();
@@ -305,6 +323,7 @@ describe('runCron の概要の更新', () => {
         ...imageHandlers(),
         ...downloadHandlers(),
         ...scannerHandlers({ mb: 0 }),
+        ...releaseCheckHandlers(),
       );
       await runCron(env);
       network.resetHandlers();

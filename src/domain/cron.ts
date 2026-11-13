@@ -7,6 +7,7 @@ import { runPreviews } from '../previews';
 import { ScannerRateLimitedError, scanWithMalwareBazaar } from '../scanners';
 import { runTranslations } from '../translate';
 import { inferOs } from './metadata';
+import { runReleaseChecks } from './release-checks';
 import type { Scanner } from './status';
 
 export const MALWAREBAZAAR_PER_RUN = 10;
@@ -22,6 +23,7 @@ export interface CronReport {
   downloadsRecorded: number;
   subrequests: number;
   d1Queries: number;
+  releasesChecked?: number;
   stoppedBy?: string;
 }
 
@@ -430,6 +432,14 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
   try {
     await runScans(env, budget, report);
     await runSync(env, budget, report);
+    if (!report.stoppedBy) {
+      try {
+        report.releasesChecked = await runReleaseChecks(env, budget);
+      } catch (error) {
+        if (!(error instanceof GitHubError)) throw error;
+        report.stoppedBy = `github_${error.kind}`;
+      }
+    }
     if (!report.stoppedBy) await runDownloads(env, budget, report);
     report.translated = await runTranslations(env, budget);
     report.previews = await runPreviews(env, budget);
