@@ -402,7 +402,14 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
     let unavailable: ReviewOutcome['kind'] | null = null;
     if (admin && budget.canFetch(12)) {
       const collected = await collectReviewFiles(asApp, repo.owner.login, repo.name, repo.default_branch);
-      const outcome = await reviewRepository(env, budget, `${repo.owner.login}/${repo.name}`, collected, null);
+      const outcome = await reviewRepository(
+        env,
+        budget,
+        `${repo.owner.login}/${repo.name}`,
+        repo.license?.spdx_id ?? null,
+        collected,
+        null,
+      );
       if (outcome.kind === 'done') review = { findings: outcome.findings, unreadFiles: collected.unreadFiles };
       else unavailable = outcome.kind;
     }

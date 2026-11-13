@@ -23,6 +23,7 @@ interface PendingRow {
   plugin_id: string;
   owner: string;
   repo: string;
+  license_spdx: string | null;
   tag: string;
   diff_state: string;
   config_state: string;
@@ -73,7 +74,7 @@ export async function runReleaseChecks(env: Env, budget: Budget): Promise<number
   if (!budget.canFetch(RELEASE_CHECK_COST) || !budget.canQuery(4)) return 0;
   budget.takeD1Query();
   const row = await env.DB.prepare(
-    `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, r.tag, c.diff_state, c.config_state, c.review_state,
+    `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, p.license_spdx, r.tag, c.diff_state, c.config_state, c.review_state,
        c.review_attempts
      FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id JOIN plugins p ON p.id = r.plugin_id
      WHERE c.legacy = 0 AND p.removed = 0 AND c.review_attempts < ? AND (c.diff_state = 'pending'
@@ -166,7 +167,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   // LLM のレビュー
   if (row.review_state !== 'done') {
     const input = await collectReviewFiles(github, row.owner, row.repo, row.tag);
-    const outcome = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, input, diff);
+    const outcome = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, row.license_spdx, input, diff);
     if (outcome.kind === 'done') {
       const findings = outcome.findings;
       const serious = findings.filter((finding) => finding.serious).length;
@@ -229,6 +230,7 @@ export async function reviewRepository(
   env: Env,
   budget: Budget,
   repository: string,
+  license: string | null,
   collected: CollectedFiles,
   diff: string | null,
 ): Promise<ReviewOutcome> {
@@ -236,7 +238,7 @@ export async function reviewRepository(
   if (!env.AI) return { kind: 'failed' };
   budget.takeSubrequest();
   try {
-    const review = await runReview(env.AI, { repository, ...collected, diff });
+    const review = await runReview(env.AI, { repository, license, ...collected, diff });
     return review ? { kind: 'done', findings: review.findings } : { kind: 'failed' };
   } catch (error) {
     const outcome = classifyAiError(error);

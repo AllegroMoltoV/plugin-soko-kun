@@ -123,7 +123,7 @@ export const CRITERIA: Criterion[] = [
     judgedBy: 'llm',
     title: 'Third-party models and binaries document their origin and license',
     viewpoint:
-      'For bundled third-party models or binaries, the repository documents the upstream URL, version, hash, and the copyright, license, patent, and redistribution terms.',
+      'For third-party models or binaries that are shipped inside the release files, the repository documents the upstream URL, version, hash, and the copyright, license, patent, and redistribution terms. Build-time dependencies that are not shipped, such as obs-studio, the prebuilt OBS dependencies, and Qt listed in buildspec.json, are not bundled third-party binaries. If nothing third-party is shipped, answer not_applicable.',
     fix: 'Document the upstream URL, version, hash, and license terms of each bundled model or binary.',
   },
   {
@@ -132,7 +132,7 @@ export const CRITERIA: Criterion[] = [
     judgedBy: 'llm',
     title: 'The plugin license is compatible with its dependencies',
     viewpoint:
-      'The plugin license and the licenses of its dependencies can be combined (for example, GPLv2 code is not linked with an incompatible library).',
+      'The plugin license given as "License detected by GitHub" and the licenses of its dependencies can be combined (for example, GPLv2 code is not linked with an incompatible library). Use the detected license as the plugin license; SPDX headers of individual documentation files are not the plugin license.',
     fix: 'Check that each dependency license is compatible with the plugin license, and replace dependencies that are not.',
   },
   {

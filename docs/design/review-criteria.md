@@ -51,7 +51,7 @@
 
 ## 審査の基準
 
-LLM は、新しい版のタグの時点の `.github/workflows/`、`CMakeLists.txt`、`buildspec.json`、`vcpkg.json`、README と、乗っ取りの兆候の判定に使った差分を読んで判定します。
+LLM は、新しい版のタグの時点の `.github/workflows/`、`CMakeLists.txt`、`buildspec.json`、`vcpkg.json`、README と、乗っ取りの兆候の判定に使った差分を読んで判定します。あわせて、GitHub が検出したリポジトリのライセンスを渡します。文書のファイルの SPDX の見出しを、プラグインのライセンスと取り違えないようにするためです。
 
 | ID | 内容 | 判定の観点 | 重大とする場合 | 出典 |
 | --- | --- | --- | --- | --- |
@@ -60,8 +60,8 @@ LLM は、新しい版のタグの時点の `.github/workflows/`、`CMakeLists.t
 | `no-security-bypass` | 利用者にセキュリティの機能を切らせない | README や導入の手順に、SmartScreen・Defender・Gatekeeper・Smart App Control を無効にさせる案内が無い | 案内がある | obs-backgroundremoval Issue 832、obs-spout2-plugin Issue 105 |
 | `dependency-pinning` | 依存をパッケージマネージャーで、版を固定して入れている | ハッシュの無い URL からのダウンロードや、リポジトリに直接入れたバイナリが無い | なし | スライド 17 枚目、obs-backgroundremoval Issue 644 |
 | `ci-hardening` | CI を最小の権限で守っている | ワークフローの `permissions` の最小化、アクションの SHA の固定、`persist-credentials: false`、Dependabot の設定 | なし | obs-backgroundremoval PR 805、スライド 19 枚目 |
-| `third-party-provenance` | 第三者のモデルやバイナリの出所とライセンスを示している | 上流の URL・版・ハッシュと、著作権・ライセンス・特許・再配布の調査の記載 | なし | obs-backgroundremoval PR 974、Issue 983 |
-| `license-compatibility` | プラグインと依存のライセンスが両立する | LICENSE と依存の一覧から、両立しない組み合わせ (例: GPLv2 と OpenCV) が無い | なし | obs-backgroundremoval Issue 644 |
+| `third-party-provenance` | 第三者のモデルやバイナリの出所とライセンスを示している | リリースの配布物に同梱する第三者のモデルやバイナリについて、上流の URL・版・ハッシュと、著作権・ライセンス・特許・再配布の調査の記載。buildspec.json に書かれた OBS Studio のビルド用の依存のように、同梱しないものは対象外 | なし | obs-backgroundremoval PR 974、Issue 983 |
+| `license-compatibility` | プラグインと依存のライセンスが両立する | GitHub が検出したリポジトリのライセンスと依存の一覧から、両立しない組み合わせ (例: GPLv2 と OpenCV) が無い | なし | obs-backgroundremoval Issue 644 |
 | `user-data-handling` | 映像・音声・設定・鍵を、利用者に知らせずに外部へ送らない | ネットワークの処理の有無と目的。送る場合は README に送り先と内容が書かれ、コードと食い違っていない | README に書かずに送る | スライド 15 枚目、obs-backgroundremoval FAQ |
 | `build-hardening` | 防御のためのビルドの設定がある | Sanitizer のビルドの設定と、スタック保護のフラグ | なし | live-backgroundremoval-lite の CMakeLists.txt |
 

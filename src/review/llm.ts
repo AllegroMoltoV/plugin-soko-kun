@@ -16,6 +16,8 @@ export interface Finding {
 
 export interface ReviewInput {
   repository: string;
+  // GitHub が検出したリポジトリのライセンス (SPDX)。文書のファイルの SPDX の見出しを、プラグインのライセンスと取り違えないようにするため。
+  license: string | null;
   files: Array<{ path: string; content: string }>;
   unreadFiles: string[];
   diff: string | null;
@@ -46,7 +48,7 @@ export function reviewInstructions(): string {
 }
 
 export function reviewPrompt(input: ReviewInput): string {
-  const parts = [`Repository: ${input.repository}`];
+  const parts = [`Repository: ${input.repository}`, `License detected by GitHub: ${input.license ?? 'unknown'}`];
   for (const file of input.files) parts.push(`<<<FILE ${file.path}\n${file.content}\nFILE>>>`);
   if (input.unreadFiles.length > 0)
     parts.push(`Files not provided because they are too large: ${input.unreadFiles.join(', ')}`);

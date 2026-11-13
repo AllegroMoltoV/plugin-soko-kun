@@ -36,9 +36,10 @@ describe('Workers AI の例外の分類', () => {
 
   it('無料枠の不足は、レビューの結果としてそのまま返す', async () => {
     const outcome = await reviewRepository(
-      envThrowing('AiError: 3036: daily free allocation'),
+      envThrowing('AiError: 4006: you have used up your daily free allocation of 10,000 neurons'),
       new Budget(),
       'a/b',
+      null,
       collected,
       null,
     );
