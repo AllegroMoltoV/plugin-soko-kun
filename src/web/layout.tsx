@@ -3,8 +3,10 @@ import type { Child, FC } from 'hono/jsx';
 import { CATEGORIES, type Category } from '../domain/metadata';
 import { type Dict, LANG_NAMES, LANGS, type Lang } from './i18n';
 import { LOGO_VERSION } from './logo';
-import { OG_VERSION } from './og-image';
 import { STYLE_VERSION } from './style';
+
+// public/og.png の SHA-256 の先頭 8 桁。URL のクエリに付け、画像が変わったときに閲覧者のキャッシュを使わせない。
+const OG_VERSION = '067219cc';
 
 export interface PageMeta {
   lang: Lang;

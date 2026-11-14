@@ -21,6 +21,8 @@
   "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-oauth-kv" }],
   "triggers": { "crons": ["*/15 * * * *"] },
   "observability": { "enabled": true },
+  // /og.png と /logo.png を PNG のファイルのまま配信する。キャッシュとヘッダーは public/_headers で指定する。
+  "assets": { "directory": "./public" },
   // テスト用の環境。Workers AI は実環境へつながるため定義せず、翻訳は行わない。
   "env": {
     // 本番の環境。binding は既定の環境から引き継がれないため、すべてここに書く。triggers と observability は引き継がれる。
