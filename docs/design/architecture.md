@@ -4,7 +4,7 @@
 
 ## 全体像
 
-本サービスは、Cloudflare Workers 上の 1 つの Worker で動きます。Worker は、MCP エンドポイント・OAuth の認可サーバー・Web カタログ・定期処理・証明の検証の受け口を兼ねます。永続データは D1 に置き、OAuth の状態は KV に置きます。Workers AI は、プラグインの概要の機械翻訳と、新しい版の開発の実践の LLM によるレビューに使います。
+本サービスは、Cloudflare Workers 上の 1 つの Worker で動きます。Worker は、MCP エンドポイント・OAuth の認可サーバー・Web カタログ・定期処理・証明の検証の受け口を兼ねます。永続データは D1 に置き、OAuth の状態は KV に置きます。Workers AI は、プラグインの概要の機械翻訳と、新しい版の開発の実践のレビューのうち、文章の意図を読む項目の判定に使います。
 
 配布物の証明の署名の検証だけは、Worker の外で行います。検証の CPU 時間が Worker の無料プランの上限に収まらないため、本サービスのリポジトリの GitHub Actions のワークフロー `verify.yaml` が検証し、結果を Worker へ送ります。この判断は [ADR 0014](../decisions/0014-attestation-verification-in-actions.md) に記載しています。
 
@@ -40,7 +40,7 @@ flowchart LR
   domain --> d1[(D1)]
   domain -->|リポジトリとリリースの情報| ghApi[GitHub API]
   domain -->|digest の照会| scanners[MalwareBazaar]
-  domain -->|翻訳と LLM のレビュー| ai[Workers AI]
+  domain -->|翻訳とレビューの LLM の判定| ai[Workers AI]
   verify -->|配布物と証明の取得| ghApi
 ```
 
@@ -58,11 +58,11 @@ MCP クライアントは、`/mcp` へ `search_plugins` または `get_plugin` �
 
 `submit_plugin` と `list_my_plugins` の呼び出しは、ルーターがリソースサーバーへ渡します。アクセストークンを持たない要求には 401 を返し、MCP クライアントにサインインを促します。サインインの流れは [認証と認可](auth.md) に記載します。
 
-検証を通ったトークンの要求は、認証ありの MCP ハンドラが処理します。`submit_plugin` では、ドメインロジックが GitHub API で管理権限とリポジトリの情報を確かめ、D1 に保存します。保存した直後のプラグインは検査待ちです。確認のモードの `submit_plugin` は保存せず、掲載の条件の判定と LLM のレビューの結果を返します。`list_my_plugins` は、利用者が管理者であるリポジトリのプラグインについて、版ごとの検査とレビューの結果を返します。作者への返し方は [作者へのレビューの返し方](author-feedback.md) に記載します。1 つの Worker で認証混在にする判断は [ADR 0002](../decisions/0002-single-worker-mixed-auth.md) に記載しています。
+検証を通ったトークンの要求は、認証ありの MCP ハンドラが処理します。`submit_plugin` では、ドメインロジックが GitHub API で管理権限とリポジトリの情報を確かめ、D1 に保存します。保存した直後のプラグインは検査待ちです。確認のモードの `submit_plugin` は保存せず、掲載の条件の判定とレビューの結果を返します。`list_my_plugins` は、利用者が管理者であるリポジトリのプラグインについて、版ごとの検査とレビューの結果を返します。作者への返し方は [作者へのレビューの返し方](author-feedback.md) に記載します。1 つの Worker で認証混在にする判断は [ADR 0002](../decisions/0002-single-worker-mixed-auth.md) に記載しています。
 
 ### 検査と同期
 
-Cron Trigger は 15 分ごとに Worker の定期処理を起動します。定期処理は、検査待ちの `digest` と掲載中の配布物の `digest` をスキャナーへ照会し、残りの予算で登録済みのプラグインの同期・新しい版の検査・ダウンロード数の記録・概要の機械翻訳を行います。新しい版の検査では、乗っ取りの兆候を差分からルールで判定し、Workers AI の LLM で開発の実践をレビューします。検査を登録時に行わず定期処理で進める理由は [ADR 0007](../decisions/0007-asynchronous-scanning-with-cron.md) に、新しい版の掲載の条件は [ADR 0013](../decisions/0013-release-provenance-and-review.md) に記載しています。予算と処理の順序は [検査と同期](scanning.md) に記載します。
+Cron Trigger は 15 分ごとに Worker の定期処理を起動します。定期処理は、検査待ちの `digest` と掲載中の配布物の `digest` をスキャナーへ照会し、残りの予算で登録済みのプラグインの同期・新しい版の検査・ダウンロード数の記録・概要の機械翻訳を行います。新しい版の検査では、乗っ取りの兆候を差分からルールで判定し、開発の実践を、機械的に決まる項目はルールで、文章の意図を読む項目は Workers AI の LLM でレビューします。検査を登録時に行わず定期処理で進める理由は [ADR 0007](../decisions/0007-asynchronous-scanning-with-cron.md) に、新しい版の掲載の条件は [ADR 0013](../decisions/0013-release-provenance-and-review.md) に記載しています。予算と処理の順序は [検査と同期](scanning.md) に記載します。
 
 ### 証明の検証
 

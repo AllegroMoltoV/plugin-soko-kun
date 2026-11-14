@@ -8,7 +8,7 @@ export interface Criterion {
   kind: CriterionKind;
   judgedBy: JudgedBy;
   title: string;
-  // LLM に渡す判定の観点。LLM が判定する項目だけが持つ。
+  // LLM に渡す判定の観点。LLM が判定する項目だけが持つ。規則で判定する項目の基準は src/review/rules.ts にある。
   viewpoint?: string;
   // 重大とする場合。審査の基準のうち、重大な指摘を管理者の確認待ちにする項目だけが持つ。
   serious?: string;
@@ -81,10 +81,8 @@ export const CRITERIA: Criterion[] = [
   {
     id: 'ci-source-build',
     kind: 'criterion',
-    judgedBy: 'llm',
+    judgedBy: 'future',
     title: 'Release files are built from source in CI',
-    viewpoint:
-      'The job that produces release files builds them from the source in the repository. It does not only attach binaries built elsewhere.',
     fix: 'Build the release files from source in the GitHub Actions job that creates the release.',
   },
   {
@@ -93,7 +91,7 @@ export const CRITERIA: Criterion[] = [
     judgedBy: 'llm',
     title: 'Tests exercise the plugin in real use scenarios',
     viewpoint:
-      'CI runs tests that load the plugin in OBS Studio and check its features, not only a build that compiles.',
+      'CI runs tests that load the plugin in OBS Studio and check its features, not only a build that compiles. The facts list the scripts under .github/scripts; read the workflows that call them.',
     fix: 'Add a CI job that starts OBS Studio with the built plugin and checks that its features work in a scene.',
   },
   {
@@ -102,44 +100,36 @@ export const CRITERIA: Criterion[] = [
     judgedBy: 'llm',
     title: 'Users are not told to turn off security features',
     viewpoint:
-      'The README and install instructions do not tell users to disable SmartScreen, Microsoft Defender, Gatekeeper, or Smart App Control.',
+      'The README and install instructions contain no step that tells users to disable SmartScreen, Microsoft Defender, Gatekeeper, or Smart App Control. If they contain such a step, answer not_met; if they contain none, answer met.',
     serious: 'The instructions tell users to disable a security feature.',
     fix: 'Remove instructions that disable security features. If a warning appears, explain how to verify the file instead.',
   },
   {
     id: 'dependency-pinning',
     kind: 'criterion',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'Dependencies are installed by a package manager with fixed versions',
-    viewpoint:
-      'Dependencies come from a package manager such as vcpkg, or from FetchContent with a fixed commit or hash. There are no downloads from URLs without a hash and no binaries committed to the repository.',
     fix: 'Manage dependencies with vcpkg (fix the baseline) or pin each download to a commit or hash.',
   },
   {
     id: 'ci-hardening',
     kind: 'criterion',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'CI runs with least privilege',
-    viewpoint:
-      'Workflows set minimal permissions, pin actions to a commit SHA, use persist-credentials: false for checkout, and the repository configures Dependabot.',
     fix: 'Set minimal permissions in each workflow, pin actions to full commit SHAs, set persist-credentials: false, and add .github/dependabot.yml.',
   },
   {
     id: 'third-party-provenance',
     kind: 'criterion',
-    judgedBy: 'llm',
+    judgedBy: 'future',
     title: 'Third-party models and binaries document their origin and license',
-    viewpoint:
-      'For third-party models or binaries that are shipped inside the release files, the repository documents the upstream URL, version, hash, and the copyright, license, patent, and redistribution terms. Build-time dependencies that are not shipped, such as obs-studio, the prebuilt OBS dependencies, and Qt listed in buildspec.json, are not bundled third-party binaries. If nothing third-party is shipped, answer not_applicable.',
     fix: 'Document the upstream URL, version, hash, and license terms of each bundled model or binary.',
   },
   {
     id: 'license-compatibility',
     kind: 'criterion',
-    judgedBy: 'llm',
+    judgedBy: 'future',
     title: 'The plugin license is compatible with its dependencies',
-    viewpoint:
-      'The plugin license given as "License detected by GitHub" and the licenses of its dependencies can be combined (for example, GPLv2 code is not linked with an incompatible library). Use the detected license as the plugin license; SPDX headers of individual documentation files are not the plugin license.',
     fix: 'Check that each dependency license is compatible with the plugin license, and replace dependencies that are not.',
   },
   {
@@ -147,17 +137,16 @@ export const CRITERIA: Criterion[] = [
     kind: 'criterion',
     judgedBy: 'llm',
     title: 'Video, audio, settings, and keys are not sent out without telling users',
+    // ソースのコードは入力に含まないため、README とワークフローから分かる範囲で判定する。重大の判定は、通信の機械的な検出を入れるまで持たない。
     viewpoint:
-      'Find code that sends data over the network. If video, audio, settings, or keys are sent, the README states where and what is sent, and the code matches the README.',
-    serious: 'The code sends video, audio, settings, or keys to another host and the README does not say so.',
+      'If the README or the workflows show that the plugin sends video, audio, settings, or keys to another host, the README states where and what is sent. If the files do not show whether the plugin sends such data, answer unclear.',
     fix: 'State in the README what data is sent and where, or remove the transmission.',
   },
   {
     id: 'build-hardening',
     kind: 'criterion',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'The build has hardening options',
-    viewpoint: 'The build can enable sanitizers (ASan, UBSan) and uses stack protection flags.',
     fix: 'Add a build option for sanitizers and enable stack protection flags such as -fstack-protector-strong or /GS.',
   },
   {
@@ -177,36 +166,29 @@ export const CRITERIA: Criterion[] = [
   {
     id: 'user-verification-guide',
     kind: 'recommendation',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'Users are shown how to verify downloads',
-    viewpoint:
-      'The README shows how to verify a downloaded file, for example with gh attestation verify or a SHA-256 hash.',
     fix: 'Add a short section to the README that shows how to verify a download with gh attestation verify.',
   },
   {
     id: 'install-location',
     kind: 'recommendation',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'Windows users install into ProgramData',
-    viewpoint:
-      'Windows install instructions place the plugin in C:\\ProgramData\\obs-studio\\plugins and not under Program Files.',
     fix: 'Tell Windows users to extract the plugin into C:\\ProgramData\\obs-studio\\plugins.',
   },
   {
     id: 'hermetic-build',
     kind: 'recommendation',
-    judgedBy: 'llm',
-    title: 'The build environment is narrowed and tool versions are fixed',
-    viewpoint: 'Build workflows limit PATH and the environment and fix the versions of build tools.',
-    fix: 'Fix tool versions and narrow PATH in the build workflows.',
+    judgedBy: 'rule',
+    title: 'Build runner images have fixed versions',
+    fix: 'Use runner images with a fixed version, such as windows-2022, instead of windows-latest.',
   },
   {
     id: 'contribution-compliance',
     kind: 'recommendation',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'Contributors agree to the license and sign off',
-    viewpoint:
-      'CONTRIBUTING or a PR template asks contributors for license agreement, DCO sign-off, and signed commits.',
     fix: 'Ask contributors for DCO sign-off and license agreement in CONTRIBUTING.md.',
   },
   {
@@ -219,9 +201,8 @@ export const CRITERIA: Criterion[] = [
   {
     id: 'license-notices',
     kind: 'recommendation',
-    judgedBy: 'llm',
+    judgedBy: 'future',
     title: 'Bundled dependencies and models are credited with their licenses',
-    viewpoint: 'The README or a notices file lists the licenses of bundled dependencies and models.',
     fix: 'List the licenses of bundled dependencies and models in the README or a notices file.',
   },
   {
@@ -243,40 +224,36 @@ export const CRITERIA: Criterion[] = [
     kind: 'recommendation',
     judgedBy: 'llm',
     title: 'Crash report templates ask users to remove personal information',
-    viewpoint: 'Issue templates for crash reports or logs ask users to check that no personal information is included.',
+    viewpoint:
+      'The issue templates for crash reports or logs ask users to check that no personal information is included. The facts list the issue templates.',
     fix: 'Add a checkbox to the crash report template that asks users to remove personal information.',
   },
   {
     id: 'resource-raii',
     kind: 'recommendation',
-    judgedBy: 'llm',
+    judgedBy: 'future',
     title: 'OBS resources are released with RAII',
-    viewpoint:
-      'Calls such as bfree, obs_data_release, and obs_source_release are wrapped so that resources are released automatically.',
     fix: 'Wrap OBS resources in RAII helpers (for example, std::unique_ptr with a custom deleter).',
   },
   {
     id: 'diagnostic-logging',
     kind: 'recommendation',
-    judgedBy: 'llm',
+    judgedBy: 'future',
     title: 'Failures are logged with enough detail to find the cause',
-    viewpoint: 'The plugin logs failures with enough detail for users to report the cause.',
     fix: 'Log failures with blog() including what failed and why.',
   },
   {
     id: 'cpu-compatibility',
     kind: 'recommendation',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'Instruction sets such as AVX2 are not required unconditionally',
-    viewpoint: 'The build does not force /arch:AVX2 or -mavx2 for all code without runtime dispatch.',
     fix: 'Use runtime CPU dispatch instead of requiring AVX2 for the whole plugin.',
   },
   {
     id: 'dll-footprint',
     kind: 'recommendation',
-    judgedBy: 'llm',
+    judgedBy: 'future',
     title: 'Few DLLs are bundled',
-    viewpoint: 'The package bundles few extra DLLs, to avoid conflicts with other plugins.',
     fix: 'Link dependencies statically where licenses allow, to reduce bundled DLLs.',
   },
   {

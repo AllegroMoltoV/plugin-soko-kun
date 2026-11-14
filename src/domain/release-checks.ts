@@ -1,29 +1,40 @@
 // 新しい版の検査 (docs/design/scanning.md の「新しい版の検査」)。Cron の定期処理から 1 回の起動で 1 件ずつ行う。
-// 宣言ファイルの判定、乗っ取りの兆候のルールの検査、LLM による開発の実践のレビューを行い、release_checks に書く。
+// 宣言ファイルの判定、乗っ取りの兆候のルールの検査、規則と LLM による開発の実践のレビューを行い、release_checks に書く。
 import type { Budget } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError } from '../github';
 import { checkDiff } from '../review/diff-rules';
 import { type Finding, runReview } from '../review/llm';
+import {
+  computeFacts,
+  judgeByRules,
+  llmCriteriaFor,
+  llmFiles,
+  mergeFindings,
+  type RepositorySnapshot,
+} from '../review/rules';
 import { getPluginViewByInternalId } from './catalog';
 import { OS_VALUES } from './metadata';
 import { MAX_REVIEW_ATTEMPTS } from './status';
 
-// 1 件の検査の外部呼び出しの上限。宣言ファイル 1、差分 1、ワークフローの一覧 1、ワークフロー 6、直下のファイル 4、LLM 1 の合計。
-export const RELEASE_CHECK_COST = 14;
+// レビューのファイルの収集の外部呼び出しの上限。ファイルの一覧 1、ワークフロー 6、README 1、CMakeLists.txt 1、
+// ビルドの設定の cmake 2、vcpkg.json 1、CONTRIBUTING 1、PR テンプレート 1、Issue テンプレート 2 の合計。
+export const REVIEW_FILES_COST = 16;
+// 1 件の検査の外部呼び出しの上限。宣言ファイル 1、差分 1、レビューのファイルの収集、LLM 1 の合計。
+export const RELEASE_CHECK_COST = 3 + REVIEW_FILES_COST;
 const MAX_DIFF_CHARS = 24_000;
 const MAX_FILE_BYTES = 32 * 1024;
 const MAX_TOTAL_CHARS = 60_000;
 const MAX_WORKFLOWS = 6;
+const MAX_COMPILER_FILES = 2;
+const MAX_ISSUE_TEMPLATES = 2;
 const MAX_CONFIG_BYTES = 16 * 1024;
-const ROOT_FILES = ['CMakeLists.txt', 'buildspec.json', 'vcpkg.json', 'README.md'];
 
 interface PendingRow {
   github_release_id: number;
   plugin_id: string;
   owner: string;
   repo: string;
-  license_spdx: string | null;
   tag: string;
   diff_state: string;
   config_state: string;
@@ -74,7 +85,7 @@ export async function runReleaseChecks(env: Env, budget: Budget): Promise<number
   if (!budget.canFetch(RELEASE_CHECK_COST) || !budget.canQuery(4)) return 0;
   budget.takeD1Query();
   const row = await env.DB.prepare(
-    `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, p.license_spdx, r.tag, c.diff_state, c.config_state, c.review_state,
+    `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, r.tag, c.diff_state, c.config_state, c.review_state,
        c.review_attempts
      FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id JOIN plugins p ON p.id = r.plugin_id
      WHERE c.legacy = 0 AND p.removed = 0 AND c.review_attempts < ? AND (c.diff_state = 'pending'
@@ -167,7 +178,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   // LLM のレビュー
   if (row.review_state !== 'done') {
     const input = await collectReviewFiles(github, row.owner, row.repo, row.tag);
-    const outcome = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, row.license_spdx, input, diff);
+    const outcome = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, input, diff);
     if (outcome.kind === 'done') {
       const findings = outcome.findings;
       const serious = findings.filter((finding) => finding.serious).length;
@@ -190,21 +201,40 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   }
 }
 
-export interface CollectedFiles {
-  files: Array<{ path: string; content: string }>;
-  unreadFiles: string[];
-}
+export type CollectedFiles = RepositorySnapshot;
 
+// ファイルの一覧から、規則と LLM が読むファイルを決めて取得する。一覧に無いファイルは取得しない。
 export async function collectReviewFiles(
   github: GitHubClient,
   owner: string,
   repo: string,
   ref: string,
 ): Promise<CollectedFiles> {
+  const tree = await github.getTree(owner, repo, ref);
+  // 一覧を得られないときは、ファイルの有無を判定できないものとして扱う。
+  const paths = tree?.paths ?? [];
+  const truncated = tree === null || tree.truncated;
   const files: CollectedFiles['files'] = [];
   const unreadFiles: string[] = [];
   let total = 0;
-  const add = (path: string, text: string | 'too_large' | null) => {
+  const fetch = async (path: string) => {
+    const slash = path.lastIndexOf('/');
+    let text: string | 'too_large' | null;
+    try {
+      text = await github.getTextFile(
+        owner,
+        repo,
+        slash < 0 ? '' : path.slice(0, slash),
+        path.slice(slash + 1),
+        ref,
+        MAX_FILE_BYTES,
+      );
+    } catch (error) {
+      // 取得の関数が受け付けない文字を含むパスは、読まずに未読として記録する。
+      if (error instanceof GitHubError) throw error;
+      unreadFiles.push(path);
+      return;
+    }
     if (text === null) return;
     if (text === 'too_large' || total + text.length > MAX_TOTAL_CHARS) {
       unreadFiles.push(path);
@@ -213,33 +243,65 @@ export async function collectReviewFiles(
     total += text.length;
     files.push({ path, content: text });
   };
-  const workflows = (await github.listDirectory(owner, repo, '.github/workflows', ref)) ?? [];
-  const yaml = workflows.filter((entry) => entry.type === 'file' && /\.ya?ml$/i.test(entry.name));
-  for (const entry of yaml.slice(0, MAX_WORKFLOWS)) {
-    add(
-      `.github/workflows/${entry.name}`,
-      await github.getTextFile(owner, repo, '.github/workflows', entry.name, ref, MAX_FILE_BYTES),
-    );
-  }
-  for (const entry of yaml.slice(MAX_WORKFLOWS)) unreadFiles.push(`.github/workflows/${entry.name}`);
-  for (const file of ROOT_FILES) add(file, await github.getTextFile(owner, repo, '', file, ref, MAX_FILE_BYTES));
-  return { files, unreadFiles };
+  const plan = reviewFilePlan(paths);
+  for (const path of plan.fetch) await fetch(path);
+  unreadFiles.push(...plan.skipped);
+  return { paths, truncated, files, unreadFiles };
 }
 
+// 取得するファイルの順番と、上限で読まないファイル。上限は REVIEW_FILES_COST の内訳に合わせる。
+export function reviewFilePlan(paths: string[]): { fetch: string[]; skipped: string[] } {
+  const sorted = [...paths].sort();
+  const workflows = sorted.filter((path) => /^\.github\/workflows\/[^/]+\.ya?ml$/i.test(path));
+  // テンプレートの config.yml はテンプレートの選び方の設定で、中身ではないため読まない。
+  const templates = sorted.filter(
+    (path) => /^\.github\/ISSUE_TEMPLATE\/[^/]+\.(md|ya?ml)$/i.test(path) && !/\/config\.ya?ml$/i.test(path),
+  );
+  // ビルドの設定は、パスに compiler を含む cmake のファイルを windows から順に読む。
+  const compiler = sorted
+    .filter((path) => /^cmake\/.*compiler[^/]*\.cmake$/i.test(path))
+    .sort((a, b) => Number(!a.includes('windows')) - Number(!b.includes('windows')));
+  const first = (candidates: string[]) => candidates.filter((path) => paths.includes(path)).slice(0, 1);
+  const fetch = [
+    ...workflows.slice(0, MAX_WORKFLOWS),
+    ...first(['README.md']),
+    ...first(['CMakeLists.txt']),
+    ...compiler.slice(0, MAX_COMPILER_FILES),
+    ...first(['vcpkg.json']),
+    ...first(['CONTRIBUTING.md', '.github/CONTRIBUTING.md']),
+    ...first(['.github/PULL_REQUEST_TEMPLATE.md', '.github/pull_request_template.md']),
+    ...templates.slice(0, MAX_ISSUE_TEMPLATES),
+  ];
+  const skipped = [
+    ...workflows.slice(MAX_WORKFLOWS),
+    ...compiler.slice(MAX_COMPILER_FILES),
+    ...templates.slice(MAX_ISSUE_TEMPLATES),
+  ];
+  return { fetch, skipped };
+}
+
+// 規則の判定、事実の計算、LLM の呼び出し、結果のまとめを行う。新しい版の検査、確認のモード、手元の確認が同じ関数を呼ぶ。
 export async function reviewRepository(
   env: Env,
   budget: Budget,
   repository: string,
-  license: string | null,
   collected: CollectedFiles,
   diff: string | null,
 ): Promise<ReviewOutcome> {
   // テストの環境には Workers AI が無い。レビューできない版は失敗として記録し、管理者の判断に回る。
   if (!env.AI) return { kind: 'failed' };
+  const ruled = judgeByRules(collected);
   budget.takeSubrequest();
   try {
-    const review = await runReview(env.AI, { repository, license, ...collected, diff });
-    return review ? { kind: 'done', findings: review.findings } : { kind: 'failed' };
+    const review = await runReview(env.AI, {
+      repository,
+      files: llmFiles(collected.files),
+      unreadFiles: collected.unreadFiles,
+      facts: computeFacts(collected, ruled),
+      criteria: llmCriteriaFor(collected),
+      diff,
+    });
+    return review ? { kind: 'done', findings: mergeFindings(ruled, review.findings) } : { kind: 'failed' };
   } catch (error) {
     const outcome = classifyAiError(error);
     // 例外の形は本番で確かめる (3036 を binding で受けた実例はまだ無い)。

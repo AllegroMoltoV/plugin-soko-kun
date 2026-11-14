@@ -36,6 +36,7 @@
 | 0013 | [新しい版の掲載の条件と開発の実践のレビュー](decisions/0013-release-provenance-and-review.md) | 採用 |
 | 0014 | [証明の署名の検証を GitHub Actions で行う](decisions/0014-attestation-verification-in-actions.md) | 採用 |
 | 0015 | [リポジトリの名前の変更と移管を ID で追い、所有者の変更は管理者が確かめる](decisions/0015-repository-rename-and-transfer.md) | 採用 |
+| 0016 | [開発の実践のレビューを、項目ごとにルールと LLM に分け、ルールの事実を LLM に渡す](decisions/0016-review-by-rules-and-facts.md) | 採用 |
 
 ## 運用手順
 

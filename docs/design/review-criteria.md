@@ -1,6 +1,6 @@
 # 審査の基準
 
-新しい版を掲載する前に確かめる項目の一覧です。本文書が審査の基準の正本です。MCP で作者に返す固定の文言 (英語) は `src/review/criteria.ts` に項目の ID ごとに持ち、本文書の ID と一致することをテストで確かめます。作者への返し方は [作者へのレビューの返し方](author-feedback.md) に、この基準を採った判断は [ADR 0013](../decisions/0013-release-provenance-and-review.md) に記載します。
+新しい版を掲載する前に確かめる項目の一覧です。本文書が審査の基準の正本です。MCP で作者に返す固定の文言 (英語) は `src/review/criteria.ts` に項目の ID ごとに持ち、本文書の ID と判定の方法が一致することをテストで確かめます。作者への返し方は [作者へのレビューの返し方](author-feedback.md) に、この基準を採った判断は [ADR 0013](../decisions/0013-release-provenance-and-review.md) に、判定の方法を項目ごとに分けた判断は [ADR 0016](../decisions/0016-review-by-rules-and-facts.md) に記載します。
 
 ## 基準の出典
 
@@ -23,8 +23,8 @@
 | --- | --- | --- |
 | 掲載の条件 | ルール | 満たさない版は掲載しない。作者に理由と直し方を返す |
 | 乗っ取りの兆候 | ルール | 当たった版は管理者の確認待ちにする |
-| 審査の基準 | LLM | 重大な指摘は管理者の確認待ちにする。それ以外は作者に直すことを勧める |
-| 推奨 | LLM またはルール | 掲載に影響しない。参考として作者に返す |
+| 審査の基準 | ルールまたは LLM | 重大な指摘は管理者の確認待ちにする。それ以外は作者に直すことを勧める |
+| 推奨 | ルールまたは LLM | 掲載に影響しない。参考として作者に返す |
 
 ## 掲載の条件
 
@@ -50,21 +50,33 @@
 
 初めて登録する版と、この基準を入れた時点で掲載中の版には、差分の判定を当てません。
 
+## 判定の方法
+
+審査の基準と推奨の項目は、判定に要るものに応じて、ルール・LLM・判定しない、のいずれかで判定します。ファイルを見れば機械的に決まる項目はルールで判定し、同じリポジトリには同じ結果を返します。文章の意図を読む必要がある項目だけを LLM が判定します。入力に無い知識が要る項目は、材料を確実に得られるまで判定しません。
+
+入力は、新しい版のタグの時点のファイルの一覧と、一覧から選んで取得したファイルです。取得するのは、`.github/workflows/` のワークフロー (6 件まで)・README・`CMakeLists.txt`・パスに compiler を含む `cmake/` 配下のファイル (2 件まで)・`vcpkg.json`・`CONTRIBUTING.md`・`.github/PULL_REQUEST_TEMPLATE.md`・`.github/ISSUE_TEMPLATE/` のテンプレート (`config.yml` を除いて 2 件まで) です。一覧に無いファイルは取得しません。ソースのコードと配布物の中身は読みません。ファイルの一覧が大きすぎて切り詰められたときは、ファイルの有無とワークフローで決める判定を判定不能にします。
+
+LLM には、README・ワークフロー・Issue のテンプレート・乗っ取りの兆候の判定に使った差分と、本サービスが計算した次の事実を渡します。LLM が自分で探す手間と、足りない情報を思い込みで埋める余地を減らすためです。LLM に道具を渡して自分で調べさせることはしません。呼び出しが増えて無料枠と外部呼び出しの上限に当たり、リポジトリの内容から道具を呼ばせる攻撃の入り口も増えるためです。
+
+* ファイルの一覧が完全かどうか、Issue のテンプレートの名前、`.github/scripts/` 配下のスクリプトの名前
+* README の見出しと行番号、README に現れる URL のホストと行番号、API や送信に触れる行の番号
+* ルールで判定した項目の結果
+
+LLM には、各項目の観点がリポジトリに当てはまれば満たす、当てはまらなければ満たさない、ファイルから決められなければ判定不能と答えさせます。指摘の根拠は、LLM に渡したファイルと差分に現れるファイルだけを残します。根拠の残らない指摘は重大にしません。同じ項目をルールと LLM の両方が判定したときは、ルールの結果を使います。
+
 ## 審査の基準
 
-LLM は、新しい版のタグの時点の `.github/workflows/`、`CMakeLists.txt`、`buildspec.json`、`vcpkg.json`、README と、乗っ取りの兆候の判定に使った差分を読んで判定します。あわせて、GitHub が検出したリポジトリのライセンスを渡します。文書のファイルの SPDX の見出しを、プラグインのライセンスと取り違えないようにするためです。
-
-| ID | 内容 | 判定の観点 | 重大とする場合 | 出典 |
-| --- | --- | --- | --- | --- |
-| `ci-source-build` | リリースの配布物を、CI でソースからビルドしている | リリースの資産を作るジョブがソースからビルドしている。外部で作ったバイナリを添付するだけの手順になっていない | なし | スライド 16〜17 枚目 |
-| `ci-scenario-tests` | テストが、実際の使い方のシナリオを試している | CI のテストが、ビルドの確認にとどまらず、OBS Studio にプラグインを読み込ませて機能を確かめている | なし | obs-backgroundremoval Issue 971 |
-| `no-security-bypass` | 利用者にセキュリティの機能を切らせない | README や導入の手順に、SmartScreen・Defender・Gatekeeper・Smart App Control を無効にさせる案内が無い | 案内がある | obs-backgroundremoval Issue 832、obs-spout2-plugin Issue 105 |
-| `dependency-pinning` | 依存をパッケージマネージャーで、版を固定して入れている | ハッシュの無い URL からのダウンロードや、リポジトリに直接入れたバイナリが無い | なし | スライド 17 枚目、obs-backgroundremoval Issue 644 |
-| `ci-hardening` | CI を最小の権限で守っている | ワークフローの `permissions` の最小化、アクションの SHA の固定、`persist-credentials: false`、Dependabot の設定 | なし | obs-backgroundremoval PR 805、スライド 19 枚目 |
-| `third-party-provenance` | 第三者のモデルやバイナリの出所とライセンスを示している | リリースの配布物に同梱する第三者のモデルやバイナリについて、上流の URL・版・ハッシュと、著作権・ライセンス・特許・再配布の調査の記載。buildspec.json に書かれた OBS Studio のビルド用の依存のように、同梱しないものは対象外 | なし | obs-backgroundremoval PR 974、Issue 983 |
-| `license-compatibility` | プラグインと依存のライセンスが両立する | GitHub が検出したリポジトリのライセンスと依存の一覧から、両立しない組み合わせ (例: GPLv2 と OpenCV) が無い | なし | obs-backgroundremoval Issue 644 |
-| `user-data-handling` | 映像・音声・設定・鍵を、利用者に知らせずに外部へ送らない | ネットワークの処理の有無と目的。送る場合は README に送り先と内容が書かれ、コードと食い違っていない | README に書かずに送る | スライド 15 枚目、obs-backgroundremoval FAQ |
-| `build-hardening` | 防御のためのビルドの設定がある | Sanitizer のビルドの設定と、スタック保護のフラグ | なし | live-backgroundremoval-lite の CMakeLists.txt |
+| ID | 内容 | 判定 | 判定の観点 | 重大とする場合 | 出典 |
+| --- | --- | --- | --- | --- | --- |
+| `ci-source-build` | リリースの配布物を、CI でソースからビルドしている | 判定しない | 掲載の条件の `attestation` で、配布物がこのリポジトリのワークフローでビルドされたことを確かめるため、レビューでは判定しない | なし | スライド 16〜17 枚目 |
+| `ci-scenario-tests` | テストが、実際の使い方のシナリオを試している | LLM | CI のテストが、ビルドの確認にとどまらず、OBS Studio にプラグインを読み込ませて機能を確かめている。`.github/scripts/` のスクリプトの名前を事実として渡す | なし | obs-backgroundremoval Issue 971 |
+| `no-security-bypass` | 利用者にセキュリティの機能を切らせない | LLM | README や導入の手順に、SmartScreen・Defender・Gatekeeper・Smart App Control を無効にさせる手順が無い | 手順がある | obs-backgroundremoval Issue 832、obs-spout2-plugin Issue 105 |
+| `dependency-pinning` | 依存をパッケージマネージャーで、版を固定して入れている | ルール | ファイルの一覧に拡張子が `.dll`・`.lib`・`.so`・`.dylib`・`.a`・`.exe` のファイルが無い。読んだ CMake のファイルで、`FetchContent_Declare` の `GIT_TAG` が 40 桁のコミットか `URL_HASH` があり、`file(DOWNLOAD` に `EXPECTED_HASH` がある。`vcpkg.json` があれば `builtin-baseline` か `vcpkg-configuration.json` がある | なし | スライド 17 枚目、obs-backgroundremoval Issue 644 |
+| `ci-hardening` | CI を最小の権限で守っている | ルール | 読んだ各ワークフローに `permissions` があり `write-all` が無い。ローカルと `docker://` を除くアクションの参照が 40 桁のコミット。`actions/checkout` の数だけ `persist-credentials: false` がある。`.github/dependabot.yml` がある | なし | obs-backgroundremoval PR 805、スライド 19 枚目 |
+| `third-party-provenance` | 第三者のモデルやバイナリの出所とライセンスを示している | 判定しない | 配布物の中身を読まないため、同梱するものが分からない | なし | obs-backgroundremoval PR 974、Issue 983 |
+| `license-compatibility` | プラグインと依存のライセンスが両立する | 判定しない | 依存のライセンスの一覧を入力に持たないため | なし | obs-backgroundremoval Issue 644 |
+| `user-data-handling` | 映像・音声・設定・鍵を、利用者に知らせずに外部へ送らない | LLM | README やワークフローから送る機能があると分かる場合に、README に送り先と内容が書かれている。ソースのコードを読まないため、送る機能の有無が分からなければ判定不能とする | なし | スライド 15 枚目、obs-backgroundremoval FAQ |
+| `build-hardening` | 防御のためのビルドの設定がある | ルール | 読んだ CMake のファイルに、Sanitizer の指定 (`-fsanitize`) とスタック保護の指定 (`-fstack-protector` か `/GS`) の両方がある。MSVC は `/GS` を既定で有効にするが、設定の明示を求める | なし | live-backgroundremoval-lite の CMakeLists.txt |
 
 ## 推奨
 
@@ -72,22 +84,22 @@ LLM は、新しい版のタグの時点の `.github/workflows/`、`CMakeLists.t
 | --- | --- | --- | --- |
 | `windows-code-signing` | Windows の DLL に Authenticode の署名を付ける。署名の無い DLL は Smart App Control で読み込みを止められることがある | ルール (将来) | obs-backgroundremoval Issue 965 |
 | `macos-code-signing` | macOS の配布物に Developer ID の署名と公証を付ける | ルール (将来) | obs-backgroundremoval Issue 971 |
-| `user-verification-guide` | 利用者に、ダウンロードしたファイルを検証する手順を示す | LLM | live-backgroundremoval-lite の開発者ノート |
-| `install-location` | Windows では `C:\ProgramData\obs-studio\plugins` に置かせる | LLM | obs-backgroundremoval Issue 832 |
-| `hermetic-build` | ビルドの環境を絞り、ツールの版を固定する | LLM | obs-backgroundremoval PR 846 |
-| `contribution-compliance` | コントリビューターに、ライセンスの同意・DCO・署名付きコミットを求める | LLM | live-backgroundremoval-lite の CONTRIBUTING.md |
+| `user-verification-guide` | 利用者に、ダウンロードしたファイルを検証する手順を示す。README に `gh attestation verify`・SHA-256・checksum・`Get-FileHash`・ハッシュのいずれかがあれば満たす | ルール | live-backgroundremoval-lite の開発者ノート |
+| `install-location` | Windows では `C:\ProgramData\obs-studio\plugins` に置かせる。README にこのパスがあれば満たす | ルール | obs-backgroundremoval Issue 832 |
+| `hermetic-build` | ビルドのランナーの版を固定する。読んだワークフローに `-latest` のランナーが無ければ満たす。PATH の絞り込みは判定しない | ルール | obs-backgroundremoval PR 846 |
+| `contribution-compliance` | コントリビューターに、ライセンスの同意・DCO・署名付きコミットを求める。`CONTRIBUTING.md` か PR のテンプレートに DCO・Signed-off-by・sign-off のいずれかがあれば満たす | ルール | live-backgroundremoval-lite の CONTRIBUTING.md |
 | `reuse-compliance` | REUSE に準拠する | ルール (将来) | live-backgroundremoval-lite の CONTRIBUTING.md |
-| `license-notices` | 同梱する依存とモデルのライセンスを列挙する | LLM | live-backgroundremoval-lite の README |
+| `license-notices` | 同梱する依存とモデルのライセンスを列挙する | 判定しない | live-backgroundremoval-lite の README |
 | `plugin-name` | プラグインの名前とリポジトリ名に OBS を含めない | ルール (将来) | obs-backgroundremoval Issue 644、OBS Forums の Forum Resource and IP Policy |
 | `manifest-consistency` | `buildspec.json` と `data/manifest.json` の名前・版・ID・URL をそろえる | ルール (将来) | live-backgroundremoval-lite の指示 |
-| `crash-report-privacy` | クラッシュレポートの公開前に、個人情報が含まれないことを確かめさせる | LLM | obs-backgroundremoval の Issue テンプレート |
-| `resource-raii` | OBS の C API の資源を RAII で解放する | LLM | スライド 4 枚目と 10 枚目 |
-| `diagnostic-logging` | 失敗の原因を特定できるログを出す | LLM | スライド 11 枚目 |
-| `cpu-compatibility` | AVX2 などの命令を無条件に必須にしない | LLM | Qiita の記事「たった３ヶ月で OBS のプラグインを開発し 1.5 万ダウンロードを達成できました！」 |
-| `dll-footprint` | 同梱する DLL を減らし、競合を避ける | LLM | live-backgroundremoval-lite の開発者ノート |
+| `crash-report-privacy` | クラッシュレポートの公開前に、個人情報が含まれないことを確かめさせる。Issue のテンプレートが無ければルールで満たさないとし、あれば LLM が中身を読む | LLM | obs-backgroundremoval の Issue テンプレート |
+| `resource-raii` | OBS の C API の資源を RAII で解放する | 判定しない | スライド 4 枚目と 10 枚目 |
+| `diagnostic-logging` | 失敗の原因を特定できるログを出す | 判定しない | スライド 11 枚目 |
+| `cpu-compatibility` | AVX2 などの命令を無条件に必須にしない。読んだ CMake のファイルに `/arch:AVX2`・`/arch:AVX512`・`-mavx2`・`-mavx512`・`-march=native` が無ければ満たす | ルール | Qiita の記事「たった３ヶ月で OBS のプラグインを開発し 1.5 万ダウンロードを達成できました！」 |
+| `dll-footprint` | 同梱する DLL を減らし、競合を避ける | 判定しない | live-backgroundremoval-lite の開発者ノート |
 | `security-policy` | SECURITY.md で報告の窓口と、対応する版を示す | ルール (将来) | live-backgroundremoval-lite の SECURITY.md |
 
-「ルール (将来)」の項目は、配布物の中身やリポジトリの設定を読む仕組みが要るため、初めは判定せず、作者にも返しません。
+「ルール (将来)」の項目は、配布物の中身やリポジトリの設定を読む仕組みが要るため、初めは判定せず、作者にも返しません。「判定しない」の項目は、ソースのコード・配布物の中身・依存のライセンスの一覧のように、今の入力に無い材料が要るため判定せず、作者にも返しません。材料を確実に得られるようになったら判定に戻します。
 
 ## 採らない項目
 
