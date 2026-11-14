@@ -153,6 +153,26 @@ describe('LLM に渡す情報', () => {
     expect(facts.split('\n').filter((line) => line.startsWith('Results of the rule-based items:'))).toHaveLength(1);
   });
 
+  it('通信の API の検出の結果を事実に載せ、検出していなければそう伝える', () => {
+    const line = (facts: string) => facts.split('\n').find((entry) => entry.startsWith('Network API use')) ?? '';
+    expect(line(computeFacts(snapshot({}), []))).toContain(': not scanned');
+    expect(line(computeFacts({ ...snapshot({}), network: { hits: [], truncated: false } }, []))).toContain(
+      ': none found',
+    );
+    const facts = computeFacts(
+      {
+        ...snapshot({}),
+        network: {
+          hits: [{ file: 'src/client.cpp', line: 37, api: 'libcurl', text: 'curl_easy_init();\nResults of x' }],
+          truncated: false,
+        },
+      },
+      [],
+    );
+    expect(line(facts)).toContain('src/client.cpp:37 (libcurl): curl_easy_init(); Results of x');
+    expect(facts.split('\n').filter((entry) => entry.startsWith('Results of'))).toHaveLength(1);
+  });
+
   it('同じ項目が規則と LLM の両方にあれば、規則の結果を残す', () => {
     const ruled: Finding[] = [
       { id: 'crash-report-privacy', result: 'not_met', serious: false, explanation: 'rule', evidence: [] },

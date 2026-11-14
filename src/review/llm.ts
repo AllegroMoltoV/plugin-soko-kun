@@ -23,6 +23,8 @@ export interface ReviewInput {
   facts: string;
   // LLM に判定させる項目の ID。
   criteria: string[];
+  // 事実に載せた、通信の API の検出で当たったソースのファイル。LLM がその行を根拠に挙げられるようにする。
+  sourceFiles?: string[];
   diff: string | null;
 }
 
@@ -66,9 +68,9 @@ export function reviewPrompt(input: ReviewInput): string {
   return parts.join('\n');
 }
 
-// 根拠として認めるパス。LLM に渡したファイルと、差分に現れるファイル。
-export function evidencePaths(input: Pick<ReviewInput, 'files' | 'diff'>): Set<string> {
-  const paths = new Set(input.files.map((file) => file.path));
+// 根拠として認めるパス。LLM に渡したファイル、差分に現れるファイル、通信の検出で当たったファイル。
+export function evidencePaths(input: Pick<ReviewInput, 'files' | 'diff' | 'sourceFiles'>): Set<string> {
+  const paths = new Set([...input.files.map((file) => file.path), ...(input.sourceFiles ?? [])]);
   for (const match of (input.diff ?? '').matchAll(/^diff --git a\/(\S+) b\/(\S+)$/gm)) {
     paths.add(match[1] as string);
     paths.add(match[2] as string);

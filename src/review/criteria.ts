@@ -137,9 +137,12 @@ export const CRITERIA: Criterion[] = [
     kind: 'criterion',
     judgedBy: 'llm',
     title: 'Video, audio, settings, and keys are not sent out without telling users',
-    // ソースのコードは入力に含まないため、README とワークフローから分かる範囲で判定する。重大の判定は、通信の機械的な検出を入れるまで持たない。
+    // ソースのコードは入力に含まない。通信の API の検出の結果 (事実) と、README とワークフローから判定する。
+    // 重大は、通信の API があり、README が外部への送信に一切触れていないときに限る。README で説明している作者を止めないため。
     viewpoint:
-      'If the README or the workflows show that the plugin sends video, audio, settings, or keys to another host, the README states where and what is sent. If the files do not show whether the plugin sends such data, answer unclear.',
+      'If the facts show network API use in the source, or the README or the workflows show that the plugin sends video, audio, settings, or keys to another host, the README states where and what is sent. Read the network API lines in the facts to see what is sent. If the facts say none found and the files show no sending, answer met. If the facts say not scanned and the files do not show whether the plugin sends such data, answer unclear.',
+    serious:
+      'The facts show network API use in the source, and the README mentions no external host and no sending of data at all.',
     fix: 'State in the README what data is sent and where, or remove the transmission.',
   },
   {

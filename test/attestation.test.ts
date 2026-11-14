@@ -171,3 +171,69 @@ describe('証明の検証の結果', () => {
     expect(await resultOf(first)).toMatchObject({ result: 'failed' });
   });
 });
+
+describe('通信の API の検出の結果', () => {
+  const releaseId = () =>
+    env.DB.prepare('SELECT github_release_id FROM release_checks').first<number>('github_release_id');
+
+  async function register(): Promise<void> {
+    network.use(...githubHandlers());
+    const result = await submitPlugin(
+      env,
+      { githubUserId: 4242, githubToken: USER_TOKEN },
+      `https://github.com/${OWNER}/${REPO}`,
+    );
+    if (!result.ok) throw new Error(result.code);
+  }
+
+  it('検出を待つ版を一覧に載せ、結果を保存したら一覧から外す', async () => {
+    await register();
+    const pending = async () => {
+      const response = await SELF.fetch(PENDING, { headers: { Authorization: `Bearer ${await sign(valid())}` } });
+      return ((await response.json()) as { releases: Array<{ releaseId: number; repository: string }> }).releases;
+    };
+    const id = await releaseId();
+    expect((await pending()).map((entry) => entry.releaseId)).toEqual([id]);
+    const response = await SELF.fetch(RESULTS, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${await sign(valid())}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        results: [],
+        networkScans: [
+          {
+            releaseId: id,
+            result: 'done',
+            truncated: false,
+            hits: [
+              { file: 'src/client.cpp', line: 37, api: 'libcurl', text: 'curl_easy_init();' },
+              { file: 'src/evil.cpp', line: 1, api: 'made-up', text: 'x' },
+              { file: 'src/bad.cpp', line: 'one', api: 'libcurl', text: 'x' },
+            ],
+          },
+        ],
+      }),
+    });
+    expect(response.status).toBe(200);
+    const row = await env.DB.prepare('SELECT network_state, network_hits FROM release_checks').first<{
+      network_state: string;
+      network_hits: string;
+    }>();
+    expect(row?.network_state).toBe('done');
+    expect(JSON.parse(row?.network_hits ?? '{}')).toEqual({
+      hits: [{ file: 'src/client.cpp', line: 37, api: 'libcurl', text: 'curl_easy_init();' }],
+      truncated: false,
+    });
+    expect(await pending()).toEqual([]);
+  });
+
+  it('トークンの無い要求では、検出の結果を書き換えない', async () => {
+    await register();
+    const response = await SELF.fetch(RESULTS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ results: [], networkScans: [{ releaseId: await releaseId(), result: 'done', hits: [] }] }),
+    });
+    expect(response.status).toBe(401);
+    expect(await env.DB.prepare('SELECT network_state FROM release_checks').first('network_state')).toBe('pending');
+  });
+});

@@ -1,6 +1,6 @@
 {
   "name": "plugin-soko-kun",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Independent, MCP-first registry of third-party plugins for OBS Studio (unofficial)",
   "directories": {
     "doc": "docs"

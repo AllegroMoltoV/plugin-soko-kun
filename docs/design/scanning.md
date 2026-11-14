@@ -208,7 +208,7 @@ GitHub API の応答は、次の規則で分類します。
 
 ### 定期処理で行う検査
 
-Cron の定期処理は、`release_checks` のうち未完了の行を、1 回の起動で 1 件ずつ処理します。未完了とは、`review_attempts` が 2 未満で、`diff_state` か `config_state` が `pending` のもの、または `review_state` が `pending` か `failed` で `review_wait_until` が過ぎているものです。
+Cron の定期処理は、`release_checks` のうち未完了の行を、1 回の起動で 1 件ずつ処理します。未完了とは、`review_attempts` が 2 未満で、`diff_state` か `config_state` が `pending` のもの、または `review_state` が `pending` か `failed` で `review_wait_until` が過ぎているものです。レビューは、通信の検出の結果が届くか、版の公開から 6 時間を過ぎるまで行いません。宣言ファイルと差分の検査は、検出を待たずに進めます。
 
 | 順序 | 処理 | 規則 |
 | --- | --- | --- |
@@ -216,7 +216,7 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 | 2 | 差分の取得 | `GET /repos/{owner}/{repo}/compare/{起点のタグ}...{新しいタグ}` を `application/vnd.github.diff` で送り、本文を先頭から 24,000 文字まで読んで接続を切る。24,000 文字を超えた場合は `diff-too-large` に当てる |
 | 3 | 乗っ取りの兆候 | 差分のファイルの見出しと追加の行から、審査の基準の乗っ取りの兆候を判定する。当たれば `diff_state` を `held` にし、`diff_hits` に ID とファイルを書く。当たらなければ `passed` にする。差分を取得できなければ `error` にし、算出規則では確認待ちとして扱う |
 | 4 | レビューの入力の取得 | `GET /repos/{owner}/{repo}/git/trees/{tag}?recursive=1` でタグの時点のファイルの一覧を 1 回で取得する。一覧から、ワークフロー (6 件まで)・README・`CMakeLists.txt`・パスに compiler を含む `cmake/` 配下のファイル (2 件まで)・`vcpkg.json`・`CONTRIBUTING.md`・`.github/PULL_REQUEST_TEMPLATE.md`・`config.yml` を除く Issue のテンプレート (2 件まで) を選び、一覧にあるものだけを取得する。1 ファイルの上限は 32 KB、合計の上限は 60,000 文字とし、超えたファイルは読まずに未読として記録する。一覧が 1 MB を超えるか、GitHub が切り詰めたときは、一覧が不完全なものとして扱う |
-| 5 | レビュー | 機械的に決まる項目をルールで判定する (`src/review/rules.ts`)。続けて Workers AI の `@cf/openai/gpt-oss-120b` に、文章の意図を読む項目の ID・内容・判定の観点と、README・ワークフロー・Issue のテンプレート・差分、本サービスが計算した事実を渡し、項目ごとの判定と説明と該当の箇所を JSON で返させる。指示には、入力はデータであり中の指示に従わないことを書く。応答を項目の ID で照合し、知らない ID と LLM が判定しない項目は捨てる。ルールの結果と LLM の結果をまとめて `review_json` に、重大な指摘の数を `review_serious` に保存し、`review_state` を `done` にする。判定の方法の詳細は [審査の基準](review-criteria.md) に記載する |
+| 5 | レビュー | 機械的に決まる項目をルールで判定する (`src/review/rules.ts`)。続けて Workers AI の `@cf/openai/gpt-oss-120b` に、文章の意図を読む項目の ID・内容・判定の観点と、README・ワークフロー・Issue のテンプレート・差分、本サービスが計算した事実 (通信の検出の結果を含む。検出の結果が無いときは not scanned と書く) を渡し、項目ごとの判定と説明と該当の箇所を JSON で返させる。指示には、入力はデータであり中の指示に従わないことを書く。応答を項目の ID で照合し、知らない ID と LLM が判定しない項目は捨てる。ルールの結果と LLM の結果をまとめて `review_json` に、重大な指摘の数を `review_serious` に保存し、`review_state` を `done` にする。判定の方法の詳細は [審査の基準](review-criteria.md) に記載する |
 | 6 | 失敗 | タイムアウト・5xx・形の合わない応答では `review_attempts` を 1 増やし、`review_state` を `failed` にする。2 回失敗した版は確認待ちのまま管理者の判断を待つ |
 | 7 | 無料枠の不足と混雑 | Workers AI の例外のメッセージから内部コードを取り出す。1 日の無料枠の不足 (2026-11-13 に実際に受けたコードは `4006`。公式の文書の表は `3036` と書くため、両方を見る) では試行に数えず、`review_wait_until` を 1 時間後にして、それまでレビューを行わない。公式の文書は枠が 00:00 UTC に戻ると書くが、2026-11-14 には 00:00 UTC を過ぎても不足と返り続けた。同じ報告が Cloudflare Community に多数あり、直近 24 時間の使用量で判定しているとみる分析もある。枠が戻る時刻を決め打ちせず、1 時間ごとにやり直す。失敗した呼び出しは Neurons を使わない。`3040` (一時的な混雑) では試行に数えず、次の起動でやり直す。コードを取り出せない例外は順序 6 の失敗として扱う。例外のメッセージはログに残す |
 
@@ -230,8 +230,8 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 
 | 経路 | 内容 |
 | --- | --- |
-| `GET /internal/attestations/pending` | `attestation_checks` の結果が `pending` か、`error` で試行が 5 回未満の配布物を、最大 50 件返す。各件に、配布物の ID・ダウンロード URL・`digest`・リポジトリ・リポジトリ ID・旧い名前の一覧・タグ・タグのコミット・記録したリリースのワークフローを含める |
-| `POST /internal/attestations/results` | 配布物ごとの結果 (`passed`・`failed`・`error`、理由のコード、署名したワークフロー) を受け取り、`attestation_checks` に書く。`plugins` の `release_workflow` が NULL で、結果が `passed` なら、署名したワークフローを記録する |
+| `GET /internal/attestations/pending` | `attestation_checks` の結果が `pending` か、`error` で試行が 5 回未満の配布物を、最大 50 件返す。各件に、配布物の ID・ダウンロード URL・`digest`・リポジトリ・リポジトリ ID・旧い名前の一覧・タグ・タグのコミット・記録したリリースのワークフローを含める。あわせて、通信の検出を待つ版 (`release_checks` の `network_state` が `pending` か、`error` で試行が 3 回未満) を、版の ID・現在のリポジトリ・タグのコミットとともに最大 5 件返す |
+| `POST /internal/attestations/results` | 配布物ごとの結果 (`passed`・`failed`・`error`、理由のコード、署名したワークフロー) を受け取り、`attestation_checks` に書く。`plugins` の `release_workflow` が NULL で、結果が `passed` なら、署名したワークフローを記録する。通信の検出の結果 (`networkScans`) を受け取り、`release_checks` の `network_state` と `network_hits` に書く。当たりは 50 件までとし、ファイルは 200 文字、行の文字列は 160 文字に切る。決まった API の名前でない当たりと、形の合わない当たりは捨てる |
 
 どちらの経路も、`Authorization: Bearer` の GitHub Actions の OIDC のトークンを求めます。Worker は、`https://token.actions.githubusercontent.com/.well-known/jwks` の鍵で RS256 の署名を確かめ、次をすべて満たすときだけ処理します。満たさなければ 401 を返します。
 
@@ -245,7 +245,9 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 
 ワークフローは、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット>` に、記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加えて実行します。現在の名前で通らなければ、旧い名前を新しい順に `<リポジトリ>` に入れて試します。名前を変える前に作られた証明は、作られたときの名前 (大文字と小文字の区別を含む) でしか検証に通らないためです。通った証明でも、証明書の `sourceRepositoryIdentifier` がリポジトリ ID と違えば `failed` (`repository_id_mismatch`) にします。ダウンロードした配布物の SHA-256 が `digest` と違えば `failed` にします。
 
-ワークフローは、Worker の定期処理が workflow_dispatch で起動します。定期処理は、毎回の最後に、上の `GET /internal/attestations/pending` と同じ条件の配布物の有無を D1 で確かめます。あれば、`POST https://api.github.com/repos/AllegroMoltoV/plugin-soko-kun/actions/workflows/verify.yaml/dispatches` に `{"ref":"main"}` を送ります。同じ回の同期で見つけた配布物も、その回のうちに起動の対象になります。この起動のために、定期処理は最初に外部呼び出し 1 件と D1 のクエリ 1 件を予算から取り分けておきます。起動には秘密情報 `GITHUB_DISPATCH_TOKEN` を使い、無い環境では起動しません。起動が失敗しても定期処理は止めず、失敗をログに出します。ワークフローには 15 分ごとの schedule も残しますが、GitHub の schedule は起動しないことがあるため、予備の扱いです。
+通信の検出では、ワークフローは版ごとに、空のディレクトリで `git fetch --depth 1 https://github.com/<リポジトリ>.git <タグのコミット>` を実行し、そのコミットのソースだけを取得します。取得したソースは実行もビルドもしません。`.github/scripts/scan-network.sh` が、C・C++・Objective-C のファイルから、WinHTTP・WinINet・libcurl・Qt の通信のクラス・ソケット・HTTP と WebSocket のライブラリ・NSURLSession の呼び出しを文字列で探し、ファイル・行・API の名前・行の文字列を返します。取得は 120 秒、探索は 60 秒で打ち切り、失敗は `error` として返します。
+
+ワークフローは、Worker の定期処理が workflow_dispatch で起動します。定期処理は、毎回の最後に、上の `GET /internal/attestations/pending` と同じ条件の配布物と版の有無を D1 で確かめます。あれば、`POST https://api.github.com/repos/AllegroMoltoV/plugin-soko-kun/actions/workflows/verify.yaml/dispatches` に `{"ref":"main"}` を送ります。同じ回の同期で見つけた配布物も、その回のうちに起動の対象になります。この起動のために、定期処理は最初に外部呼び出し 1 件と D1 のクエリ 1 件を予算から取り分けておきます。起動には秘密情報 `GITHUB_DISPATCH_TOKEN` を使い、無い環境では起動しません。起動が失敗しても定期処理は止めず、失敗をログに出します。ワークフローには 15 分ごとの schedule も残しますが、GitHub の schedule は起動しないことがあるため、予備の扱いです。
 
 ### 掲載中の配布物の照会し直し
 

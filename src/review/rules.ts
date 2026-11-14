@@ -2,6 +2,7 @@
 // 同じ入力には同じ結果を返す純粋な関数にする。LLM には、ここで計算した事実を渡し、文章の意図を読む項目だけを判定させる。
 import { LLM_CRITERIA } from './criteria';
 import type { Finding, FindingResult } from './llm';
+import type { NetworkScan } from './network';
 
 export interface RepositorySnapshot {
   // ref の時点のファイルのパスの一覧。
@@ -11,6 +12,8 @@ export interface RepositorySnapshot {
   files: Array<{ path: string; content: string }>;
   // 上限のため読まなかったファイル。
   unreadFiles: string[];
+  // 通信の API の検出の結果。null か未設定なら、検出していない (確認のモード、期限切れ、検出の失敗)。
+  network?: NetworkScan | null;
 }
 
 type Evidence = Finding['evidence'][number];
@@ -340,8 +343,23 @@ export function computeFacts(snapshot: RepositorySnapshot, ruled: Finding[]): st
   } else {
     lines.push('README: not present');
   }
+  lines.push(networkFact(snapshot.network));
   lines.push(`Results of the rule-based items: ${ruled.map((entry) => `${entry.id}=${entry.result}`).join(', ')}`);
   return lines.join('\n');
+}
+
+// 通信の API の検出の結果の事実。行の文字列はリポジトリのコードから取ったデータで、1 行に収める。
+function networkFact(network: NetworkScan | null | undefined): string {
+  const label = 'Network API use found in the source by the catalog';
+  if (!network) return `${label}: not scanned`;
+  if (network.hits.length === 0) return `${label}: none found`;
+  const hits = network.hits.map((hit) => `${clean(hit.file)}:${hit.line} (${hit.api}): ${clean(hit.text)}`);
+  return `${label}${network.truncated ? ' (first 50 only)' : ''}: ${hits.join(' | ')}`;
+}
+
+// 根拠として認める、検出で当たったソースのファイル。
+export function networkFiles(snapshot: RepositorySnapshot): string[] {
+  return [...new Set((snapshot.network?.hits ?? []).map((hit) => hit.file))];
 }
 
 // 同じ項目が規則と LLM の両方にあれば、規則の結果を使う。

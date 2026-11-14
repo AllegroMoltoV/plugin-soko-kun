@@ -1,6 +1,6 @@
 # データモデル
 
-D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0010_release_urls_current_name.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
+D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0011_network_scans.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
 
 ## テーブルの一覧
 
@@ -155,6 +155,10 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `review_serious` | INTEGER | NOT NULL、既定値 0 | 重大な指摘の件数 |
 | `reviewed_at` | TEXT | | レビューした日時 |
 | `admin_approved_at` | TEXT | | 管理者が確認待ちを承認した日時。NULL は未承認 |
+| `network_state` | TEXT | NOT NULL、既定値 `pending` | 通信の API の検出の状態。`pending`・`done`・`error`・`skipped`。`skipped` はマイグレーション 0011 の時点で既にあった版 |
+| `network_hits` | TEXT | | 検出で当たった箇所の JSON (`{hits: [{file, line, api, text}], truncated}`) |
+| `network_attempts` | INTEGER | NOT NULL、既定値 0 | 検出の結果を受け取った回数。`error` が 3 回になったら、検出の結果なしでレビューする |
+| `network_checked_at` | TEXT | | 最後に検出の結果を受け取った日時 |
 
 ## attestation_checks
 
