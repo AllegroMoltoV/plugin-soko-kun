@@ -530,7 +530,7 @@ export async function getPluginImage(
   const view = await getPluginView(env, id);
   if (view?.status !== 'listed' || !view.images[kind]) return null;
   const row = await env.DB.prepare('SELECT content_type, bytes FROM plugin_images WHERE plugin_id = ? AND kind = ?')
-    .bind(view.id, kind)
+    .bind(view.internalId, kind)
     .first<{ content_type: string; bytes: ArrayBuffer | number[] }>();
   if (!row) return null;
   const bytes = Array.isArray(row.bytes) ? new Uint8Array(row.bytes).buffer : row.bytes;
@@ -546,7 +546,7 @@ export async function getPluginPreview(
   const image = view?.images.image;
   if (view?.status !== 'listed' || !image?.preview) return null;
   const row = await env.DB.prepare('SELECT bytes FROM plugin_image_previews WHERE plugin_id = ? AND source_sha = ?')
-    .bind(view.id, image.sha)
+    .bind(view.internalId, image.sha)
     .first<{ bytes: ArrayBuffer | number[] }>();
   if (!row) return null;
   const bytes = Array.isArray(row.bytes) ? new Uint8Array(row.bytes).buffer : row.bytes;
