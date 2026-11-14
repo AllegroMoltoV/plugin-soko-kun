@@ -3,6 +3,8 @@
 import { type Budget, budgetedFetch } from './budget';
 
 const API = 'https://api.github.com';
+// ファイルの一覧の応答の上限。無料プランの CPU 時間の内で JSON を解析できる大きさに抑える。
+const MAX_TREE_BYTES = 1024 * 1024;
 
 export type GitHubAuth = { kind: 'user'; token: string } | { kind: 'app'; clientId: string; clientSecret: string };
 
@@ -159,6 +161,28 @@ export class GitHubClient {
   // 新しい順に最大 100 件のリリースを返す。ダウンロード数の集計に使う。
   async listReleases(owner: string, repo: string): Promise<GitHubRelease[]> {
     return (await this.request(`${API}/repos/${path(owner, repo)}/releases?per_page=100`)).json();
+  }
+
+  // ref の時点のファイルのパスの一覧を 1 回の呼び出しで返す。GitHub が一覧を切り詰めたとき、
+  // または応答が上限を超えたときは truncated を true にする。ref が無ければ null を返す。
+  async getTree(owner: string, repo: string, ref: string): Promise<{ paths: string[]; truncated: boolean } | null> {
+    try {
+      const response = await this.request(
+        `${API}/repos/${path(owner, repo)}/git/trees/${encodeURIComponent(path(ref))}?recursive=1`,
+      );
+      if (Number(response.headers.get('Content-Length') ?? '0') > MAX_TREE_BYTES) {
+        await response.body?.cancel();
+        return { paths: [], truncated: true };
+      }
+      const body = (await response.json()) as { truncated?: boolean; tree?: Array<{ path?: string; type?: string }> };
+      const paths = (body.tree ?? [])
+        .filter((entry) => entry.type === 'blob' && typeof entry.path === 'string')
+        .map((entry) => entry.path as string);
+      return { paths, truncated: body.truncated === true };
+    } catch (error) {
+      if (error instanceof GitHubError && error.kind === 'not_found') return null;
+      throw error;
+    }
   }
 
   // ディレクトリが無ければ null を返す。

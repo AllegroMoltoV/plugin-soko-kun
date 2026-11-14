@@ -28,6 +28,28 @@ describe('審査の基準', () => {
     }
   });
 
+  it('審査の基準と推奨の判定の方法が、正本の判定の列と一致する', () => {
+    const judged: Record<string, string> = {
+      ルール: 'rule',
+      LLM: 'llm',
+      判定しない: 'future',
+      'ルール (将来)': 'future',
+    };
+    for (const [heading, column] of [
+      ['審査の基準', 2],
+      ['推奨', 2],
+    ] as const) {
+      const start = doc.indexOf(`## ${heading}\n`);
+      const next = doc.indexOf('\n## ', start + 1);
+      const section = doc.slice(start, next < 0 ? undefined : next);
+      for (const match of section.matchAll(/^\| `([a-z0-9-]+)` \|(.*)\|$/gm)) {
+        const cells = (match[2] ?? '').split(' | ').map((cell) => cell.trim());
+        const id = match[1] ?? '';
+        expect(CRITERIA.find((criterion) => criterion.id === id)?.judgedBy, id).toBe(judged[cells[column - 1] ?? '']);
+      }
+    }
+  });
+
   it('重大とする場合を持つのは、正本で重大とする場合を書いた審査の基準だけ', () => {
     const start = doc.indexOf('## 審査の基準\n');
     const section = doc.slice(start, doc.indexOf('\n## ', start + 1));

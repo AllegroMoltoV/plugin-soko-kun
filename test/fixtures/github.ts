@@ -104,7 +104,7 @@ export function releaseCheckHandlers() {
   const missing = () => new HttpResponse(null, { status: 404 });
   return [
     http.get(`${base}/contents/.soko-kun/config.json`, missing),
-    http.get(`${base}/contents/.github/workflows`, missing),
+    http.get(`${base}/git/trees/:ref`, () => HttpResponse.json({ tree: [], truncated: false })),
     http.get(`${base}/contents/:file`, missing),
     http.get(`${base}/compare/:range`, missing),
   ];

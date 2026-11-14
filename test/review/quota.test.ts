@@ -4,7 +4,7 @@ import { Budget } from '../../src/budget';
 import { classifyAiError, quotaRetryAt, reviewRepository } from '../../src/domain/release-checks';
 import type { Env } from '../../src/env';
 
-const collected = { files: [], unreadFiles: [] };
+const collected = { paths: [], truncated: false, files: [], unreadFiles: [] };
 const envThrowing = (message: string) =>
   ({
     AI: {
@@ -39,7 +39,6 @@ describe('Workers AI の例外の分類', () => {
       envThrowing('AiError: 4006: you have used up your daily free allocation of 10,000 neurons'),
       new Budget(),
       'a/b',
-      null,
       collected,
       null,
     );

@@ -54,9 +54,9 @@ Both fields are optional. A release whose `config.json` is invalid, or that has 
 
 ## Check before releasing: `submit_plugin` in check mode
 
-Call `submit_plugin` with `mode: "check"` and the repository URL. It does not register anything. It returns each listing condition judged on the latest release, and an LLM review of the latest commit on the default branch, with how to fix each finding. Check mode can be used 5 times in 24 hours per person. When the review cannot run, `review.status` is `unavailable`, with a reason and, when the daily quota ran out, a `resumesAt` time; such a call is not counted.
+Call `submit_plugin` with `mode: "check"` and the repository URL. It does not register anything. It returns each listing condition judged on the latest release, and a review of the latest commit on the default branch (rules for the items that files decide, and an LLM for the items that need reading text), with how to fix each finding. Check mode can be used 5 times in 24 hours per person. When the review cannot run, `review.status` is `unavailable`, with a reason and, when the daily quota ran out, a `resumesAt` time; such a call is not counted.
 
-Fix the findings with the author before the release. Review findings come from an LLM and can be wrong; only blockers stop a listing.
+Fix the findings with the author before the release. Findings whose explanation starts with "Checked by rules" are deterministic; the other findings come from an LLM and can be wrong. Only blockers stop a listing.
 
 ## Register: `submit_plugin`
 

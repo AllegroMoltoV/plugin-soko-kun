@@ -14,7 +14,13 @@ import {
   inferOs,
   summarizeReadme,
 } from './metadata';
-import { collectReviewFiles, quotaRetryAt, type ReviewOutcome, reviewRepository } from './release-checks';
+import {
+  collectReviewFiles,
+  quotaRetryAt,
+  REVIEW_FILES_COST,
+  type ReviewOutcome,
+  reviewRepository,
+} from './release-checks';
 
 export const SUBMITS_PER_DAY = 10;
 
@@ -415,16 +421,9 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
     const admin = evaluated.conditions.find((item) => item.code === 'not_admin')?.result === 'passed';
     let review: { findings: Finding[]; unreadFiles: string[] } | null = null;
     let unavailable: ReviewOutcome['kind'] | null = null;
-    if (admin && budget.canFetch(12)) {
+    if (admin && budget.canFetch(REVIEW_FILES_COST + 1)) {
       const collected = await collectReviewFiles(asApp, repo.owner.login, repo.name, repo.default_branch);
-      const outcome = await reviewRepository(
-        env,
-        budget,
-        `${repo.owner.login}/${repo.name}`,
-        repo.license?.spdx_id ?? null,
-        collected,
-        null,
-      );
+      const outcome = await reviewRepository(env, budget, `${repo.owner.login}/${repo.name}`, collected, null);
       if (outcome.kind === 'done') review = { findings: outcome.findings, unreadFiles: collected.unreadFiles };
       else unavailable = outcome.kind;
     }
