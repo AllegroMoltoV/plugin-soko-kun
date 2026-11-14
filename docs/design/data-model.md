@@ -149,7 +149,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `config_state` | TEXT | NOT NULL、既定値 `pending` | `.soko-kun/config.json` の判定。`pending`・`ok`・`missing`・`invalid`・`no_declared_assets` のいずれか |
 | `review_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`done`・`failed` のいずれか |
 | `review_attempts` | INTEGER | NOT NULL、既定値 0 | レビューを試みた回数。Workers AI の無料枠の不足と混雑は数えない |
-| `review_wait_until` | TEXT | | Workers AI の無料枠を使い切ったとき、枠が戻る 00:00 UTC の日時。それまでレビューを行わない |
+| `review_wait_until` | TEXT | | Workers AI の無料枠を使い切ったとき、次にレビューを試す日時。ふだんは次の 00:15 UTC、00:00〜00:59 UTC に不足と返ったときは 15 分後。それまでレビューを行わない |
 | `review_json` | TEXT | | レビューの指摘の JSON。説明と該当の箇所は外部データ |
 | `review_serious` | INTEGER | NOT NULL、既定値 0 | 重大な指摘の件数 |
 | `reviewed_at` | TEXT | | レビューした日時 |

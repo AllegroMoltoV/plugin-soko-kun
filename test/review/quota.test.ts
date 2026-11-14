@@ -46,8 +46,13 @@ describe('Workers AI の例外の分類', () => {
     expect(outcome).toEqual({ kind: 'quota' });
   });
 
-  it('枠が戻る時刻は次の 00:00 UTC', () => {
-    expect(nextQuotaReset(new Date('2026-11-13T23:59:00Z'))).toBe('2026-11-14T00:00:00.000Z');
-    expect(nextQuotaReset(new Date('2026-11-14T00:00:01Z'))).toBe('2026-11-15T00:00:00.000Z');
+  it('ふだんは次の 00:15 UTC まで待つ', () => {
+    expect(nextQuotaReset(new Date('2026-11-13T23:59:00Z'))).toBe('2026-11-14T00:15:00.000Z');
+    expect(nextQuotaReset(new Date('2026-11-14T01:00:00Z'))).toBe('2026-11-15T00:15:00.000Z');
+  });
+
+  it('00:00〜00:59 UTC の不足は戻りの遅れとみなし、丸 1 日待たずに 15 分後にやり直す', () => {
+    expect(nextQuotaReset(new Date('2026-11-14T00:00:14Z'))).toBe('2026-11-14T00:15:14.000Z');
+    expect(nextQuotaReset(new Date('2026-11-14T00:59:59Z'))).toBe('2026-11-14T01:14:59.000Z');
   });
 });

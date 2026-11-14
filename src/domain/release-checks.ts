@@ -251,7 +251,7 @@ export async function reviewRepository(
 export type ReviewOutcome =
   | { kind: 'done'; findings: Finding[] }
   | { kind: 'failed' }
-  // 無料枠の不足 (4006 か 3036)。試行に数えず、枠が戻る 00:00 UTC まで待つ。
+  // 無料枠の不足 (4006 か 3036)。試行に数えず、nextQuotaReset の時刻まで待つ。
   | { kind: 'quota' }
   // 一時的な混雑 (3040)。試行に数えず、次の起動でやり直す。
   | { kind: 'busy' };
@@ -268,7 +268,13 @@ export function classifyAiError(error: unknown): ReviewOutcome {
   return { kind: 'failed' };
 }
 
-// 次の 00:00 UTC。Workers AI の無料枠が戻る時刻。
+// 無料枠の不足のあと、次にレビューを試す時刻。
+// 枠は 00:00 UTC に戻るが、2026-11-14 00:00:14Z の起動ではまだ不足と返った。次の 00:00 UTC ちょうどにすると、
+// 戻りが少し遅れただけで丸 1 日待つことになる。そのため次の 00:15 UTC にし、00:00〜00:59 UTC の不足は戻りの遅れとみなして 15 分後にする。
+const QUOTA_RETRY_MS = 15 * 60 * 1000;
+
 export function nextQuotaReset(now = new Date()): string {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
+  if (now.getUTCHours() === 0) return new Date(now.getTime() + QUOTA_RETRY_MS).toISOString();
+  const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return new Date(midnight + QUOTA_RETRY_MS).toISOString();
 }
