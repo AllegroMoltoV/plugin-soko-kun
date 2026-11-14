@@ -31,7 +31,7 @@ describe('parseReview', () => {
         findings: [
           bypass,
           { id: 'ci-scenario-tests', result: 'not_met', serious: true, evidence: [{ file: 'README.md' }] },
-          { id: 'user-data-handling', result: 'not_met', serious: true, evidence: [{ file: 'README.md' }] },
+          { id: 'user-data-handling', result: 'met', serious: true, evidence: [{ file: 'README.md' }] },
         ],
       }),
       README,
@@ -82,6 +82,28 @@ describe('parseReview', () => {
     });
     const findings = parseReview(
       JSON.stringify({ findings: [{ ...bypass, evidence: [{ file: 'docs/INSTALL.md' }] }] }),
+      paths,
+    );
+    expect(findings?.[0]?.serious).toBe(true);
+  });
+
+  it('通信の検出で当たったソースのファイルを根拠にした重大は残す', () => {
+    const paths = evidencePaths({
+      files: [{ path: 'README.md', content: '' }],
+      diff: null,
+      sourceFiles: ['src/a.cpp'],
+    });
+    const findings = parseReview(
+      JSON.stringify({
+        findings: [
+          {
+            id: 'user-data-handling',
+            result: 'not_met',
+            serious: true,
+            evidence: [{ file: 'src/a.cpp', lines: '9-9' }],
+          },
+        ],
+      }),
       paths,
     );
     expect(findings?.[0]?.serious).toBe(true);

@@ -450,6 +450,30 @@ describe('新しい版の検査の無料枠の待ち', () => {
   });
 });
 
+describe('新しい版の検査の通信の検出の待ち', () => {
+  const attempts = () => env.DB.prepare('SELECT review_attempts FROM release_checks').first('review_attempts');
+
+  it('通信の検出の結果が届くまでは、レビューだけが残った版を選ばない', async () => {
+    await registerFixture();
+    await env.DB.prepare("UPDATE release_checks SET config_state = 'missing', diff_state = 'skipped'").run();
+    await env.DB.prepare(`UPDATE releases SET published_at = '${new Date().toISOString()}'`).run();
+    expect(await runReleaseChecks(env, new Budget())).toBe(0);
+    expect(await attempts()).toBe(0);
+  });
+
+  // verify.yaml の schedule が止まっても、新しい版のレビューが止まり続けないことを確かめる。
+  it('版の公開から 6 時間を過ぎたら、検出の結果なしでレビューする', async () => {
+    await registerFixture();
+    await env.DB.prepare("UPDATE release_checks SET config_state = 'missing', diff_state = 'skipped'").run();
+    const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    await env.DB.prepare(`UPDATE releases SET published_at = '${old}'`).run();
+    network.use(...releaseCheckHandlers());
+    await runReleaseChecks(env, new Budget());
+    // テストの環境には Workers AI が無いため、レビューは失敗として 1 回に数える。レビューに進んだことの確認に使う。
+    expect(await attempts()).toBe(1);
+  });
+});
+
 describe('証明の検証のワークフローの起動', () => {
   const DISPATCH_URL =
     'https://api.github.com/repos/AllegroMoltoV/plugin-soko-kun/actions/workflows/verify.yaml/dispatches';
@@ -491,9 +515,22 @@ describe('証明の検証のワークフローの起動', () => {
   it('検証待ちが無ければ起動しない', async () => {
     await registerFixture();
     await env.DB.prepare("UPDATE attestation_checks SET result = 'passed'").run();
+    await env.DB.prepare("UPDATE release_checks SET network_state = 'done'").run();
     network.use(repoById(503), ...scannerHandlers({ mb: 0 }));
     const report = await runCron(withToken);
     expect(report.verifyDispatch).toBe('skipped_no_pending');
+  });
+
+  it('証明の検証が済んでも、通信の検出を待つ版があれば起動する', async () => {
+    await registerFixture();
+    await env.DB.prepare("UPDATE attestation_checks SET result = 'passed'").run();
+    network.use(
+      repoById(503),
+      ...scannerHandlers({ mb: 0 }),
+      http.post(DISPATCH_URL, () => HttpResponse.json({ workflow_run_id: 1 })),
+    );
+    const report = await runCron(withToken);
+    expect(report.verifyDispatch).toBe('dispatched');
   });
 
   it('トークンが拒否されても定期処理は最後まで進み、失敗を返す', async () => {

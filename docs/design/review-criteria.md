@@ -60,6 +60,7 @@ LLM には、README・ワークフロー・Issue のテンプレート・乗っ�
 
 * ファイルの一覧が完全かどうか、Issue のテンプレートの名前、`.github/scripts/` 配下のスクリプトの名前
 * README の見出しと行番号、README に現れる URL のホストと行番号、API や送信に触れる行の番号
+* 新しい版のソースのコードから検出した通信の API の使用 (ファイル・行・API の名前・行の文字列)。検出は GitHub Actions で行い、ソースは実行しない。確認のモードと、検出の結果が届かないまま期限を過ぎた版では、検出していないことを伝える
 * ルールで判定した項目の結果
 
 LLM には、各項目の観点がリポジトリに当てはまれば満たす、当てはまらなければ満たさない、ファイルから決められなければ判定不能と答えさせます。指摘の根拠は、LLM に渡したファイルと差分に現れるファイルだけを残します。根拠の残らない指摘は重大にしません。同じ項目をルールと LLM の両方が判定したときは、ルールの結果を使います。
@@ -75,7 +76,7 @@ LLM には、各項目の観点がリポジトリに当てはまれば満たす�
 | `ci-hardening` | CI を最小の権限で守っている | ルール | 読んだ各ワークフローに `permissions` があり `write-all` が無い。ローカルと `docker://` を除くアクションの参照が 40 桁のコミット。`actions/checkout` の数だけ `persist-credentials: false` がある。`.github/dependabot.yml` がある | なし | obs-backgroundremoval PR 805、スライド 19 枚目 |
 | `third-party-provenance` | 第三者のモデルやバイナリの出所とライセンスを示している | 判定しない | 配布物の中身を読まないため、同梱するものが分からない | なし | obs-backgroundremoval PR 974、Issue 983 |
 | `license-compatibility` | プラグインと依存のライセンスが両立する | 判定しない | 依存のライセンスの一覧を入力に持たないため | なし | obs-backgroundremoval Issue 644 |
-| `user-data-handling` | 映像・音声・設定・鍵を、利用者に知らせずに外部へ送らない | LLM | README やワークフローから送る機能があると分かる場合に、README に送り先と内容が書かれている。ソースのコードを読まないため、送る機能の有無が分からなければ判定不能とする | なし | スライド 15 枚目、obs-backgroundremoval FAQ |
+| `user-data-handling` | 映像・音声・設定・鍵を、利用者に知らせずに外部へ送らない | LLM | 通信の API の検出の結果、README、ワークフローから送る機能があると分かる場合に、README に送り先と内容が書かれている。検出していない版で送る機能の有無が分からなければ判定不能とする | 通信の API が見つかり、README が外部のホストにも送信にも一切触れていない | スライド 15 枚目、obs-backgroundremoval FAQ |
 | `build-hardening` | 防御のためのビルドの設定がある | ルール | 読んだ CMake のファイルに、Sanitizer の指定 (`-fsanitize`) とスタック保護の指定 (`-fstack-protector` か `/GS`) の両方がある。MSVC は `/GS` を既定で有効にするが、設定の明示を求める | なし | live-backgroundremoval-lite の CMakeLists.txt |
 
 ## 推奨
