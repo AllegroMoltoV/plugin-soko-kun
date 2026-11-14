@@ -178,7 +178,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
         new Date().toISOString(),
       );
     } else if (outcome.kind === 'quota') {
-      update('review_wait_until = ?', nextQuotaReset());
+      update('review_wait_until = ?', quotaRetryAt());
     } else if (outcome.kind === 'failed') {
       update("review_state = 'failed', review_attempts = review_attempts + 1");
     }
@@ -251,7 +251,7 @@ export async function reviewRepository(
 export type ReviewOutcome =
   | { kind: 'done'; findings: Finding[] }
   | { kind: 'failed' }
-  // 無料枠の不足 (4006 か 3036)。試行に数えず、枠が戻る 00:00 UTC まで待つ。
+  // 無料枠の不足 (4006 か 3036)。試行に数えず、quotaRetryAt の時刻まで待つ。
   | { kind: 'quota' }
   // 一時的な混雑 (3040)。試行に数えず、次の起動でやり直す。
   | { kind: 'busy' };
@@ -268,7 +268,11 @@ export function classifyAiError(error: unknown): ReviewOutcome {
   return { kind: 'failed' };
 }
 
-// 次の 00:00 UTC。Workers AI の無料枠が戻る時刻。
-export function nextQuotaReset(now = new Date()): string {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
+// 無料枠の不足のあと、次にレビューを試す時刻。
+// 公式の文書は 00:00 UTC に戻ると書くが、2026-11-14 には 00:00 UTC を過ぎても不足と返り続けた
+// (docs/design/scanning.md の順序 7)。戻る時刻を決め打ちせず、1 時間ごとにやり直す。失敗した呼び出しは Neurons を使わない。
+const QUOTA_RETRY_MS = 60 * 60 * 1000;
+
+export function quotaRetryAt(now = new Date()): string {
+  return new Date(now.getTime() + QUOTA_RETRY_MS).toISOString();
 }
