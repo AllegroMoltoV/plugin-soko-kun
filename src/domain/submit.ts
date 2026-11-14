@@ -14,7 +14,7 @@ import {
   inferOs,
   summarizeReadme,
 } from './metadata';
-import { collectReviewFiles, nextQuotaReset, type ReviewOutcome, reviewRepository } from './release-checks';
+import { collectReviewFiles, quotaRetryAt, type ReviewOutcome, reviewRepository } from './release-checks';
 
 export const SUBMITS_PER_DAY = 10;
 
@@ -430,7 +430,7 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
           ? {
               message:
                 'The daily review capacity of this service is used up. This check was not counted. Try again after resumesAt.',
-              resumesAt: nextQuotaReset(),
+              resumesAt: quotaRetryAt(),
             }
           : {}),
         ...(unavailable === 'busy'
