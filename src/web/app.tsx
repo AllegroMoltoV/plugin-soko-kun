@@ -15,8 +15,6 @@ import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
 import { DICTS, LANGS, type Lang, negotiate } from './i18n';
 import { Layout, type PageMeta, toJsonLd, websiteJsonLd, withLang } from './layout';
 import { LOGO_SVG } from './logo';
-import { LOGO_PNG } from './logo-png';
-import { OG_PNG } from './og-image';
 import {
   NoticesPage,
   PluginCards,
@@ -142,14 +140,6 @@ const PAGE_SIZE = 20;
 
 app.get('/style.css', (c) =>
   c.body(STYLE_CSS, 200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }),
-);
-
-app.get('/og.png', (c) =>
-  c.body(OG_PNG, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }),
-);
-
-app.get('/logo.png', (c) =>
-  c.body(LOGO_PNG, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }),
 );
 
 app.get('/logo.svg', (c) =>
