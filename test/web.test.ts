@@ -59,6 +59,35 @@ describe('Web', () => {
     expect(response.headers.get('Location')).toContain(`/plugins/${OWNER}/fixture-pitchshift`);
   });
 
+  // 画像の表は内部の ID (名前を変える前の owner/repo) で引く。URL の ID で引くと、名前を変えたプラグインの画像が 404 になる。
+  it('名前を変えたプラグインの画像を、新しい URL で配信する', async () => {
+    await register();
+    await markListable(env.DB);
+    const internalId = `${OWNER}/${REPO}`.toLowerCase();
+    await env.DB.prepare(
+      "INSERT INTO plugin_images (plugin_id, kind, blob_sha, content_type, width, height, bytes, fetched_at) VALUES (?, 'logo', 'x', 'image/png', 64, 64, ?, '2026-11-09T00:00:00Z')",
+    )
+      .bind(internalId, png(64, 64))
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO plugin_images (plugin_id, kind, blob_sha, content_type, width, height, bytes, fetched_at) VALUES (?, 'image', 'g1', 'image/gif', 640, 360, ?, '2026-11-09T00:00:00Z')",
+    )
+      .bind(internalId, new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x80, 0x02, 0x68, 0x01]))
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO plugin_image_previews (plugin_id, source_sha, width, height, bytes, made_at) VALUES (?, 'g1', 640, 360, ?, '2026-11-09T00:00:00Z')",
+    )
+      .bind(internalId, new Uint8Array([1]))
+      .run();
+    await env.DB.prepare("UPDATE plugins SET repo = 'fixture-pitchshift'").run();
+
+    for (const kind of ['logo', 'image', 'preview']) {
+      const response = await SELF.fetch(`${ORIGIN}/plugins/${OWNER}/fixture-pitchshift/${kind}`);
+      expect(response.status, kind).toBe(200);
+      await response.arrayBuffer();
+    }
+  });
+
   it('止めた版は、詳細ページと告知ページに警告として出し、告知の文はエスケープする', async () => {
     await register();
     await markListable(env.DB);
