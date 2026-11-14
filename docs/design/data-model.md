@@ -1,6 +1,6 @@
 # データモデル
 
-D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0008_release_checks.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
+D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0010_release_urls_current_name.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
 
 ## テーブルの一覧
 

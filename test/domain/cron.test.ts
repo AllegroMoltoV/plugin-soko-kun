@@ -350,6 +350,21 @@ describe('runCron の名前の変更と移管', () => {
     expect(alias).toEqual({ alias: `${OWNER}/${REPO}`.toLowerCase(), name: `${OWNER}/${REPO}` });
   });
 
+  it('名前を変えたら、保存済みの古い版のリリースとダウンロードの URL を新しい名前にする', async () => {
+    await registerFixture();
+    await sync({ owner: { login: 'NewOwner' }, name: 'Renamed-Plugin' });
+    const urls = await env.DB.prepare(
+      'SELECT r.html_url, a.download_url FROM releases r JOIN assets a ON a.release_id = r.github_release_id',
+    ).all<{ html_url: string; download_url: string }>();
+    expect(urls.results.length).toBeGreaterThan(0);
+    for (const row of urls.results) {
+      expect(row.html_url).toMatch(/^https:\/\/github\.com\/NewOwner\/Renamed-Plugin\/releases\/tag\/v1\.1\.0$/);
+      expect(row.download_url).toMatch(
+        /^https:\/\/github\.com\/NewOwner\/Renamed-Plugin\/releases\/download\/v1\.1\.0\//,
+      );
+    }
+  });
+
   it('同じ所有者のままの名前の変更では、所有者の変更として記録しない', async () => {
     await registerFixture();
     await sync({ name: 'Renamed-Plugin' });

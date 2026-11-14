@@ -11,6 +11,7 @@ import { runTranslations } from '../translate';
 import { loadAllViews } from './catalog';
 import { inferOs } from './metadata';
 import { runReleaseChecks } from './release-checks';
+import { REWRITE_ASSET_URLS, REWRITE_RELEASE_URLS } from './release-urls';
 import type { Scanner } from './status';
 
 export const MALWAREBAZAAR_PER_RUN = 10;
@@ -150,6 +151,8 @@ async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: Sync
       env.DB.prepare(
         'INSERT OR IGNORE INTO plugin_aliases (alias, plugin_id, created_at, name) VALUES (?, ?, ?, ?)',
       ).bind(previousSlug, row.id, timestamp, `${row.owner}/${row.repo}`),
+      env.DB.prepare(REWRITE_RELEASE_URLS).bind(repo.owner.login, repo.name, row.id),
+      env.DB.prepare(REWRITE_ASSET_URLS).bind(repo.owner.login, repo.name, row.id),
     );
   }
   // 所有者が変わったら、管理者が版を承認するまで、まだ掲載していない新しい版を確認待ちにする (ADR 0015)。
