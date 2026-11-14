@@ -84,7 +84,9 @@ if (command === 'suspend') {
 } else if (command === 'approve-release') {
   // 乗っ取りの兆候とレビューの指摘による確認待ちだけを解く。証明・不変・配布の形の条件は解けない。
   if (!reason || !TAG.test(reason)) fail('a release tag is required');
+  // 所有者の変更による確認待ちも、この承認で解く (ADR 0015)。
   sql = `UPDATE release_checks SET admin_approved_at = ${quote(now)} WHERE github_release_id = ${releaseOf(reason)};
+         UPDATE plugins SET owner_changed_at = NULL WHERE id = ${PID} AND ${releaseOf(reason)} IS NOT NULL;
          SELECT r.tag, c.admin_approved_at FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id
            WHERE c.github_release_id = ${releaseOf(reason)};`;
 } else if (command === 'suspend-release') {

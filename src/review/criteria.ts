@@ -72,6 +72,13 @@ export const CRITERIA: Criterion[] = [
     fix: 'No action is needed. An administrator reviews it before listing. Smaller releases are checked automatically.',
   },
   {
+    id: 'owner-changed',
+    kind: 'takeover',
+    judgedBy: 'rule',
+    title: 'The repository owner changed since the plugin was registered',
+    fix: 'No action is needed if the transfer is intended. An administrator reviews the next release before listing.',
+  },
+  {
     id: 'ci-source-build',
     kind: 'criterion',
     judgedBy: 'llm',

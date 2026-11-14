@@ -311,6 +311,54 @@ describe('runCron のダウンロード数の記録', () => {
   });
 });
 
+// 名前の変更には追従し、所有者の変更は管理者が確かめる (ADR 0015)。
+describe('runCron の名前の変更と移管', () => {
+  const sync = async (extra: Record<string, unknown>) => {
+    await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
+    network.use(
+      repoById(200, extra),
+      // 新しい名前でのリリースの取得。このテストは所有者と名前の記録だけを確かめるため、リリースなしを返す。
+      http.get('https://api.github.com/repos/:owner/:repo/releases/latest', ({ params }) =>
+        params.owner === OWNER && params.repo === REPO ? undefined : new HttpResponse(null, { status: 404 }),
+      ),
+      ...githubHandlers(),
+      ...imageHandlers(),
+      ...downloadHandlers(),
+      ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
+    );
+    await runCron(env);
+    network.resetHandlers();
+  };
+  const plugin = () =>
+    env.DB.prepare('SELECT owner, repo, owner_changed_at FROM plugins').first<{
+      owner: string;
+      repo: string;
+      owner_changed_at: string | null;
+    }>();
+
+  it('所有者が変わったら日時を記録し、旧い名前を大文字と小文字を保って残す', async () => {
+    await registerFixture();
+    await sync({ owner: { login: 'NewOwner' } });
+    const row = await plugin();
+    expect(row?.owner).toBe('NewOwner');
+    expect(row?.owner_changed_at).not.toBeNull();
+    const alias = await env.DB.prepare('SELECT alias, name FROM plugin_aliases').first<{
+      alias: string;
+      name: string;
+    }>();
+    expect(alias).toEqual({ alias: `${OWNER}/${REPO}`.toLowerCase(), name: `${OWNER}/${REPO}` });
+  });
+
+  it('同じ所有者のままの名前の変更では、所有者の変更として記録しない', async () => {
+    await registerFixture();
+    await sync({ name: 'Renamed-Plugin' });
+    const row = await plugin();
+    expect(row?.repo).toBe('Renamed-Plugin');
+    expect(row?.owner_changed_at).toBeNull();
+  });
+});
+
 describe('runCron の概要の更新', () => {
   it('description が変われば概要を更新し、空なら登録時の概要を残す', async () => {
     await registerFixture();

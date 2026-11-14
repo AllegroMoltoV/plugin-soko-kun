@@ -143,13 +143,21 @@ async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: Sync
     ),
   );
   // 名前の変更と移管では、変わる前の URL の ID を記録し、旧い URL から転送できるようにする。
+  // 旧い名前は大文字と小文字を保って残す。名前を変える前に作られた証明は、その名前でしか検証に通らないため (ADR 0015)。
   const previousSlug = `${row.owner}/${row.repo}`.toLowerCase();
   if (previousSlug !== `${repo.owner.login}/${repo.name}`.toLowerCase()) {
     statements.push(
-      env.DB.prepare('INSERT OR IGNORE INTO plugin_aliases (alias, plugin_id, created_at) VALUES (?, ?, ?)').bind(
-        previousSlug,
-        row.id,
+      env.DB.prepare(
+        'INSERT OR IGNORE INTO plugin_aliases (alias, plugin_id, created_at, name) VALUES (?, ?, ?, ?)',
+      ).bind(previousSlug, row.id, timestamp, `${row.owner}/${row.repo}`),
+    );
+  }
+  // 所有者が変わったら、管理者が版を承認するまで、まだ掲載していない新しい版を確認待ちにする (ADR 0015)。
+  if (row.owner.toLowerCase() !== repo.owner.login.toLowerCase()) {
+    statements.push(
+      env.DB.prepare('UPDATE plugins SET owner_changed_at = COALESCE(owner_changed_at, ?) WHERE id = ?').bind(
         timestamp,
+        row.id,
       ),
     );
   }

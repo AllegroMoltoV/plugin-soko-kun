@@ -658,7 +658,7 @@ export const StaticPage: FC<{
       </p>
     ) : null}
     {content.sections.map((section, index) => (
-      <section id={anchorMcp && index === 1 ? 'mcp' : undefined}>
+      <section id={section.id ?? (anchorMcp && index === 1 ? 'mcp' : undefined)}>
         <h2 class="bar">{section.heading}</h2>
         {section.paragraphs.map((block) => (
           <BlockView block={block} origin={origin} t={t} lang={lang} />

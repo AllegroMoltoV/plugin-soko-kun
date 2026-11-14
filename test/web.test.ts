@@ -59,6 +59,28 @@ describe('Web', () => {
     expect(response.headers.get('Location')).toContain(`/plugins/${OWNER}/fixture-pitchshift`);
   });
 
+  // 旧い名前に別のプラグインができても、旧い URL は元のプラグインに向ける (ADR 0015)。
+  it('旧い URL は、同じ名前の別のプラグインより、名前を変えた元のプラグインに向ける', async () => {
+    await register();
+    await markListable(env.DB);
+    await env.DB.prepare("UPDATE plugins SET repo = 'fixture-pitchshift'").run();
+    await env.DB.prepare(
+      "INSERT INTO plugin_aliases (alias, plugin_id, created_at) VALUES (?, (SELECT id FROM plugins), '2026-11-13T00:00:00Z')",
+    )
+      .bind(`${OWNER}/${REPO}`.toLowerCase())
+      .run();
+    // 旧い名前を使う別のプラグイン (この修正の前に登録できた場合を想定)。
+    await env.DB.prepare(
+      `INSERT INTO plugins (id, github_repo_id, owner, repo, license_spdx, submitter_github_id, created_at, updated_at, last_synced_at)
+       VALUES ('attacker/x', 777, ?, ?, 'MIT', 2, '2026-11-14T00:00:00Z', '2026-11-14T00:00:00Z', '2026-11-14T00:00:00Z')`,
+    )
+      .bind(OWNER, REPO)
+      .run();
+    const response = await SELF.fetch(`${ORIGIN}/plugins/${OWNER}/${REPO}?lang=en`, { redirect: 'manual' });
+    expect(response.status).toBe(301);
+    expect(response.headers.get('Location')).toContain(`/plugins/${OWNER}/fixture-pitchshift`);
+  });
+
   // 画像の表は内部の ID (名前を変える前の owner/repo) で引く。URL の ID で引くと、名前を変えたプラグインの画像が 404 になる。
   it('名前を変えたプラグインの画像を、新しい URL で配信する', async () => {
     await register();

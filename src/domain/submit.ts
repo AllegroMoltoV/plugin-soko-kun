@@ -34,6 +34,7 @@ export type SubmitErrorCode =
   | 'installer_not_allowed'
   | 'no_attestation'
   | 'duplicate'
+  | 'name_reserved'
   | 'github_unavailable';
 
 export type SubmitResult =
@@ -292,6 +293,20 @@ async function validateAndStore(
       .first<{ id: string }>();
     if (duplicate) {
       return fail('duplicate', 'The repository is already registered.', `See the existing entry: ${duplicate.id}`);
+    }
+    // 名前を変えたプラグインの旧い名前を、別のリポジトリに使わせない。旧い URL の行き先を変えないため (ADR 0015)。
+    const slug = `${repo.owner.login}/${repo.name}`.toLowerCase();
+    const reserved = await env.DB.prepare(
+      'SELECT 1 FROM plugins WHERE id = ? UNION ALL SELECT 1 FROM plugin_aliases WHERE alias = ? LIMIT 1',
+    )
+      .bind(slug, slug)
+      .first();
+    if (reserved) {
+      return fail(
+        'name_reserved',
+        'Another listed plugin used this repository name before it was renamed, so this name cannot be registered.',
+        'Rename the repository to a name that no listed plugin has used, then submit it again.',
+      );
     }
 
     const owner = repo.owner.login;

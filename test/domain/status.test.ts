@@ -142,6 +142,13 @@ describe('releaseBlockers (新しい版の条件)', () => {
     );
   });
 
+  // 所有者が変わったら、管理者が版を承認するまで新しい版を掲載しない (ADR 0015)。
+  it('所有者の変更のあとの新しい版は、管理者の承認があるまで掲載しない', () => {
+    expect(releaseBlockers({ ...withChecks({}), ownerChanged: true }, clean)).toEqual(['owner_changed']);
+    expect(releaseBlockers({ ...withChecks({ adminApproved: true }), ownerChanged: true }, clean)).toEqual([]);
+    expect(releaseBlockers({ ...withChecks({}), ownerChanged: false }, clean)).toEqual([]);
+  });
+
   it('管理者の承認でも、証明・不変・配布の形の条件は解けない', () => {
     const release = {
       ...withChecks({ adminApproved: true, immutable: false }),

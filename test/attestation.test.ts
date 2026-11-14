@@ -5,7 +5,7 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ACTIONS_JWKS_URL, clearJwksCache, EXPECTED_REPOSITORY, EXPECTED_WORKFLOW_REF } from '../src/attestation/oidc';
 import { submitPlugin } from '../src/domain/submit';
-import { githubHandlers, OWNER, REPO, USER_TOKEN } from './fixtures/github';
+import { githubHandlers, OWNER, REPO, REPO_ID, USER_TOKEN } from './fixtures/github';
 import { network } from './setup';
 
 const ORIGIN = 'http://localhost:8787';
@@ -134,6 +134,22 @@ describe('証明の検証の結果', () => {
 
   const resultOf = (id: number) =>
     env.DB.prepare('SELECT result, reason FROM attestation_checks WHERE github_asset_id = ?').bind(id).first();
+
+  // 名前を変える前に作られた証明は、作られたときの名前 (大文字と小文字を含む) でしか検証に通らない (ADR 0015)。
+  it('検証待ちの一覧に、リポジトリ ID と、大文字と小文字を保った旧い名前を新しい順に含める', async () => {
+    await register();
+    await env.DB.prepare(
+      "INSERT INTO plugin_aliases (alias, plugin_id, created_at, name) VALUES ('allegromoltov/older', (SELECT id FROM plugins), '2026-11-01T00:00:00Z', 'AllegroMoltoV/Older')",
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO plugin_aliases (alias, plugin_id, created_at, name) VALUES ('allegromoltov/newer', (SELECT id FROM plugins), '2026-11-10T00:00:00Z', 'AllegroMoltoV/Newer')",
+    ).run();
+    const response = await SELF.fetch(PENDING, { headers: { Authorization: `Bearer ${await sign(valid())}` } });
+    const body = (await response.json()) as { assets: Array<{ repositoryId: number; previousRepositories: string[] }> };
+    expect(body.assets.length).toBeGreaterThan(0);
+    expect(body.assets[0]?.repositoryId).toBe(REPO_ID);
+    expect(body.assets[0]?.previousRepositories).toEqual(['AllegroMoltoV/Newer', 'AllegroMoltoV/Older']);
+  });
 
   it('初めて検証できたワークフローを記録し、別のワークフローが署名した証明は通さない', async () => {
     const [first = 0, second = 0] = await register();

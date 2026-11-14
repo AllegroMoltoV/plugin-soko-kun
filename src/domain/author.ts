@@ -118,6 +118,12 @@ const BLOCKER_TEXT: Record<BlockerCode, { message: string; fix: string; criterio
       'The change since the listed version touches workflows, binaries, or links to other hosts, so an administrator reviews it before listing. Every workflow change is reviewed, including action updates by Dependabot. The review has no fixed schedule.',
     fix: 'No action is needed if the change is intended. An administrator reviews it before listing.',
   },
+  owner_changed: {
+    message:
+      'The repository owner changed since the plugin was registered, so an administrator reviews the next release before listing. The listed version stays listed. The review has no fixed schedule.',
+    fix: 'No action is needed if the transfer is intended. An administrator reviews it before listing.',
+    criterion: 'owner-changed',
+  },
   diff_error: {
     message: 'The change since the listed version could not be read.',
     fix: 'No action is needed. An administrator reviews it before listing.',
@@ -229,6 +235,7 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
         })),
         checks: check ? toChecks(check) : undefined,
         suspended: suspendedIds.has(row.github_release_id),
+        ownerChanged: view.ownerChanged,
       };
       const blockers = releaseBlockers(forStatus, (digest) => scanOf.get(digest) as ScanResult | undefined);
       const state = versionState(row.github_release_id === listedId, suspendedIds.has(row.github_release_id), blockers);
