@@ -67,6 +67,8 @@ export interface PluginView {
   id: string;
   // 内部のプラグイン ID。登録したときの owner/repo で、名前の変更では変えない。
   internalId: string;
+  // 所有者が変わり、管理者がまだ版を承認していない。作者向けの理由の算出にだけ使う (ADR 0015)。
+  ownerChanged: boolean;
   // 表示名。.soko-kun/config.json の name、無ければリポジトリ名。外部データ。
   name: string;
   owner: string;
@@ -108,6 +110,7 @@ interface PluginRow {
   images_hidden: number;
   display_name: string | null;
   declared_os: string | null;
+  owner_changed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -367,6 +370,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
       })),
       checks: checksByRelease.get(release.github_release_id),
       suspended: suspendedReleases.has(release.github_release_id),
+      ownerChanged: plugin.owner_changed_at !== null,
     }));
     const status = computeStatus(
       { adminSuspended: plugin.admin_suspended === 1, removed: plugin.removed === 1 },
@@ -383,6 +387,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     return {
       id: `${plugin.owner}/${plugin.repo}`.toLowerCase(),
       internalId: plugin.id,
+      ownerChanged: plugin.owner_changed_at !== null,
       name: plugin.display_name ?? plugin.repo,
       owner: plugin.owner,
       repo: plugin.repo,
@@ -476,12 +481,14 @@ export async function searchPlugins(env: Env, query: SearchQuery): Promise<{ tot
 }
 
 // URL と MCP の ID (現在の owner/repo) か、名前を変える前の ID からプラグインを引く。
+// 旧い ID の記録を現在の名前より優先する。旧い名前に別のリポジトリができても、旧い URL を元のプラグインに向けるため (ADR 0015)。
 // 呼び出し側は、返ったプラグインの id と要求の ID を比べて、旧い ID からの転送を判定する。
 export async function getPluginView(env: Env, slug: string): Promise<PluginView | null> {
   const lower = slug.toLowerCase();
   const row = await env.DB.prepare(
-    `SELECT id FROM plugins WHERE lower(owner || '/' || repo) = ?
-     UNION ALL SELECT plugin_id AS id FROM plugin_aliases WHERE alias = ? LIMIT 1`,
+    `SELECT plugin_id AS id, 0 AS rank FROM plugin_aliases WHERE alias = ?
+     UNION ALL SELECT id, 1 AS rank FROM plugins WHERE lower(owner || '/' || repo) = ?
+     ORDER BY rank LIMIT 1`,
   )
     .bind(lower, lower)
     .first<{ id: string }>();

@@ -92,3 +92,13 @@ While a new version is being checked or held, the previously listed version stay
 ## Updating and withdrawing
 
 Publish a new release to update the listing. To withdraw, make the repository private or delete it, or follow the steps on https://soko-kun.allegromoltov.jp/report?lang=en .
+
+## Renaming or transferring the repository
+
+The author's steps are on https://soko-kun.allegromoltov.jp/submit?lang=en#rename . In short:
+
+- Plugin Soko-kun follows the repository by its GitHub ID. Renaming needs no action. The listing moves to the new name within 15 minutes, and links and MCP calls with the old id keep working.
+- Do not create another repository with the old name. Plugin Soko-kun keeps the old name for the renamed plugin and refuses to register another repository under it (`name_reserved`).
+- After a transfer to another account or organization, the listed release stays listed, and the next release waits for an administrator (`owner_changed` in `list_my_plugins`).
+- To change the display name, change `name` in `.soko-kun/config.json` and publish a new release.
+- If you also change the module name (`name` in `buildspec.json`), the install folder name changes. Tell users to delete the old folder, because OBS loads both folders when both exist.

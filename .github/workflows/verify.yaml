@@ -46,6 +46,9 @@ jobs:
             url=$(jq -r '.downloadUrl' <<< "${item}")
             digest=$(jq -r '.digest' <<< "${item}")
             repository=$(jq -r '.repository' <<< "${item}")
+            repository_id=$(jq -r '.repositoryId // empty' <<< "${item}")
+            # 現在の名前、旧い名前 (新しい順) の順に試す。名前を変える前に作られた証明は、作られたときの名前でしか通らない (ADR 0015)。
+            mapfile -t names < <(jq -r '.repository, (.previousRepositories // [])[]' <<< "${item}")
             tag=$(jq -r '.tag' <<< "${item}")
             commit=$(jq -r '.commitSha' <<< "${item}")
             signer=$(jq -r '.signerWorkflow // empty' <<< "${item}")
@@ -61,19 +64,29 @@ jobs:
                 result=failed
                 reason=digest_mismatch
               else
-                args=(attestation verify "${file}" --repo "${repository}" --source-ref "refs/tags/${tag}" --source-digest "${commit}" --format json)
-                if [ -n "${signer}" ]; then args+=(--signer-workflow "${repository}/${signer}"); fi
-                if gh "${args[@]}" > "${work}/out.json" 2> "${work}/err.txt"; then
-                  # buildSignerURI は https://github.com/<owner>/<repo>/<workflow のパス>@<ref> の形。
-                  uri=$(jq -r '.[0].verificationResult.signature.certificate.buildSignerURI // empty' "${work}/out.json")
-                  signer_found=$(sed -E 's#^https://github\.com/[^/]+/[^/]+/##; s#@.*$##' <<< "${uri}")
-                  result=passed
-                  reason=""
-                else
-                  result=failed
-                  reason=verification_failed
-                  sed 's/^/  /' "${work}/err.txt" | head -5
-                fi
+                result=failed
+                reason=verification_failed
+                for name in "${names[@]}"; do
+                  args=(attestation verify "${file}" --repo "${name}" --source-ref "refs/tags/${tag}" --source-digest "${commit}" --format json)
+                  if [ -n "${signer}" ]; then args+=(--signer-workflow "${name}/${signer}"); fi
+                  if gh "${args[@]}" > "${work}/out.json" 2> "${work}/err.txt"; then
+                    # 名前は別のリポジトリに使われうるため、証明書のリポジトリ ID が登録したものと同じことも確かめる。
+                    found_id=$(jq -r '.[0].verificationResult.signature.certificate.sourceRepositoryIdentifier // empty' "${work}/out.json")
+                    if [ -n "${repository_id}" ] && [ "${found_id}" != "${repository_id}" ]; then
+                      reason=repository_id_mismatch
+                      echo "  ${name}: repository id ${found_id} differs from ${repository_id}"
+                      continue
+                    fi
+                    # buildSignerURI は https://github.com/<owner>/<repo>/<workflow のパス>@<ref> の形。
+                    uri=$(jq -r '.[0].verificationResult.signature.certificate.buildSignerURI // empty' "${work}/out.json")
+                    signer_found=$(sed -E 's#^https://github\.com/[^/]+/[^/]+/##; s#@.*$##' <<< "${uri}")
+                    result=passed
+                    reason=""
+                    break
+                  fi
+                  echo "  ${name}: not verified"
+                  sed 's/^/    /' "${work}/err.txt" | head -5
+                done
               fi
             fi
             rm -f "${file}"

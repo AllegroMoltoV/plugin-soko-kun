@@ -37,6 +37,8 @@ export interface ReleaseForStatus {
   // 検査の行が無いリリースは、どの条件も確かめていないものとして掲載しない。
   checks?: ReleaseChecks;
   suspended?: boolean;
+  // プラグインの所有者が変わり、管理者がまだ版を承認していない (ADR 0015)。
+  ownerChanged?: boolean;
 }
 
 export interface PluginForStatus {
@@ -61,6 +63,7 @@ export type BlockerCode =
   | 'config_no_declared_assets'
   | 'diff_pending'
   | 'diff_held'
+  | 'owner_changed'
   | 'diff_error'
   | 'review_pending'
   | 'review_failed'
@@ -82,6 +85,7 @@ export const BLOCKER_WAITS_FOR: Record<BlockerCode, WaitsFor> = {
   config_no_declared_assets: 'author',
   diff_pending: 'system',
   diff_held: 'admin',
+  owner_changed: 'admin',
   diff_error: 'admin',
   review_pending: 'system',
   review_failed: 'admin',
@@ -132,6 +136,7 @@ export function releaseBlockers(release: ReleaseForStatus, lookup: ScanLookup): 
   if (!checks.adminApproved) {
     if (checks.diffState === 'pending') blockers.push('diff_pending');
     if (checks.diffState === 'held') blockers.push('diff_held');
+    if (release.ownerChanged) blockers.push('owner_changed');
     if (checks.diffState === 'error') blockers.push('diff_error');
     if (checks.reviewState === 'pending') blockers.push('review_pending');
     if (checks.reviewState === 'failed') {

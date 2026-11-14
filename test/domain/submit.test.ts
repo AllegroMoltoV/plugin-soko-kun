@@ -62,6 +62,23 @@ describe('submitPlugin', () => {
     expect(second).toMatchObject({ ok: false, code: 'duplicate' });
   });
 
+  // 名前を変えたプラグインの旧い名前を、別のリポジトリに使わせない (ADR 0015)。
+  it('名前を変えたほかのプラグインの旧い名前と同じ名前のリポジトリは登録しない', async () => {
+    await env.DB.prepare(
+      `INSERT INTO plugins (id, github_repo_id, owner, repo, license_spdx, submitter_github_id, created_at, updated_at, last_synced_at)
+       VALUES ('someone/renamed', 999, 'someone', 'renamed', 'MIT', 1, '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')`,
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO plugin_aliases (alias, plugin_id, created_at, name) VALUES (?, 'someone/renamed', '2026-11-02T00:00:00Z', ?)",
+    )
+      .bind(`${OWNER}/${REPO}`.toLowerCase(), `${OWNER}/${REPO}`)
+      .run();
+    network.use(...githubHandlers());
+    expect(await submitPlugin(env, submitter, url)).toMatchObject({ ok: false, code: 'name_reserved' });
+    const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM plugins').first<{ n: number }>();
+    expect(count?.n).toBe(1);
+  });
+
   it('digest の無い配布物しかないリリースは登録しない', async () => {
     network.use(...githubHandlers({ release: 'no-digest' }));
     expect(await submitPlugin(env, submitter, url)).toMatchObject({ ok: false, code: 'no_verifiable_asset' });

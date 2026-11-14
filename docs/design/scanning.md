@@ -17,6 +17,7 @@
 | 7 | `archived` が `false` である | `archived_repository` |
 | 8 | `license.spdx_id` があり、`NOASSERTION` でない | `no_license` |
 | 9 | `github_repo_id` が未登録である | `duplicate` |
+| 9a | 小文字にした `owner/repo` が、登録済みのプラグインの内部の ID とも、`plugin_aliases` の旧い ID とも重ならない。名前を変えたプラグインの旧い名前を、別のリポジトリに使わせないため ([ADR 0015](../decisions/0015-repository-rename-and-transfer.md)) | `name_reserved` |
 | 10 | `GET /repos/{owner}/{repo}/languages` が C または C++ を含む | `not_obs_plugin` |
 | 11 | contents API で取得したルートの `CMakeLists.txt` が libobs を参照する。`find_package(libobs)`、pkg-config での `pkg_check_modules` か `pkg_search_module` による `libobs` の指定、または `target_link_libraries` での `libobs` か `OBS::libobs` の指定を参照とみなす | `not_obs_plugin`。ファイルが無い場合も同じ |
 | 12 | `GET /repos/{owner}/{repo}/releases/latest` で、下書きでない公開済みのリリースを取得できる | `no_release` |
@@ -103,7 +104,7 @@ MalwareBazaar が 429 を返した場合は、その起動の照会を止めま�
 
 | 項目 | 規則 |
 | --- | --- |
-| リポジトリの取得 | `GET /repositories/{github_repo_id}` で引き直す。所有者名・リポジトリ名を更新し、名前の変更と移管に追従する。変わったときは、変わる前の URL の ID を `plugin_aliases` に記録する。ライセンスは、GitHub が `NOASSERTION` 以外の値を返したときだけ更新する。description が空でなく、保存している概要と異なるときは、概要を description で更新する。ただし、確認待ちの新しい版があるあいだは更新しない。description が空のときは、保存している概要を残す |
+| リポジトリの取得 | `GET /repositories/{github_repo_id}` で引き直す。所有者名・リポジトリ名を更新し、名前の変更と移管に追従する。変わったときは、変わる前の URL の ID と、大文字と小文字を保った旧い名前を `plugin_aliases` に記録する。所有者が変わったときは、`plugins` の `owner_changed_at` に日時を記録する (既に値があれば残す)。ライセンスは、GitHub が `NOASSERTION` 以外の値を返したときだけ更新する。description が空でなく、保存している概要と異なるときは、概要を description で更新する。ただし、確認待ちの新しい版があるあいだは更新しない。description が空のときは、保存している概要を残す |
 | 削除と非公開化 | 404 または非公開のとき `removed` を 1 にする |
 | リリースの取得 | `GET /repos/{owner}/{repo}/releases/latest` を、`releases_etag` を使った条件付き要求で送る。304 のときはリリースと配布物を変更しない |
 | 対象外のリリース | 下書き・未公開・`digest` を持つ配布物が無い・タグ名が規則に合わない、のいずれかに当てはまるリリースは保存しない |
@@ -229,7 +230,7 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 
 | 経路 | 内容 |
 | --- | --- |
-| `GET /internal/attestations/pending` | `attestation_checks` の結果が `pending` か、`error` で試行が 5 回未満の配布物を、最大 50 件返す。各件に、配布物の ID・ダウンロード URL・`digest`・リポジトリ・タグ・タグのコミット・記録したリリースのワークフローを含める |
+| `GET /internal/attestations/pending` | `attestation_checks` の結果が `pending` か、`error` で試行が 5 回未満の配布物を、最大 50 件返す。各件に、配布物の ID・ダウンロード URL・`digest`・リポジトリ・リポジトリ ID・旧い名前の一覧・タグ・タグのコミット・記録したリリースのワークフローを含める |
 | `POST /internal/attestations/results` | 配布物ごとの結果 (`passed`・`failed`・`error`、理由のコード、署名したワークフロー) を受け取り、`attestation_checks` に書く。`plugins` の `release_workflow` が NULL で、結果が `passed` なら、署名したワークフローを記録する |
 
 どちらの経路も、`Authorization: Bearer` の GitHub Actions の OIDC のトークンを求めます。Worker は、`https://token.actions.githubusercontent.com/.well-known/jwks` の鍵で RS256 の署名を確かめ、次をすべて満たすときだけ処理します。満たさなければ 401 を返します。
@@ -242,7 +243,7 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 | `job_workflow_ref` | `AllegroMoltoV/plugin-soko-kun/.github/workflows/verify.yaml@refs/heads/main` |
 | `exp` | 現在より後 |
 
-ワークフローは、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット>` に、記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加えて実行します。ダウンロードした配布物の SHA-256 が `digest` と違えば `failed` にします。
+ワークフローは、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット>` に、記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加えて実行します。現在の名前で通らなければ、旧い名前を新しい順に `<リポジトリ>` に入れて試します。名前を変える前に作られた証明は、作られたときの名前 (大文字と小文字の区別を含む) でしか検証に通らないためです。通った証明でも、証明書の `sourceRepositoryIdentifier` がリポジトリ ID と違えば `failed` (`repository_id_mismatch`) にします。ダウンロードした配布物の SHA-256 が `digest` と違えば `failed` にします。
 
 ワークフローは、Worker の定期処理が workflow_dispatch で起動します。定期処理は、毎回の最後に、上の `GET /internal/attestations/pending` と同じ条件の配布物の有無を D1 で確かめます。あれば、`POST https://api.github.com/repos/AllegroMoltoV/plugin-soko-kun/actions/workflows/verify.yaml/dispatches` に `{"ref":"main"}` を送ります。同じ回の同期で見つけた配布物も、その回のうちに起動の対象になります。この起動のために、定期処理は最初に外部呼び出し 1 件と D1 のクエリ 1 件を予算から取り分けておきます。起動には秘密情報 `GITHUB_DISPATCH_TOKEN` を使い、無い環境では起動しません。起動が失敗しても定期処理は止めず、失敗をログに出します。ワークフローには 15 分ごとの schedule も残しますが、GitHub の schedule は起動しないことがあるため、予備の扱いです。
 

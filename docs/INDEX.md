@@ -35,6 +35,7 @@
 | 0012 | [VirusTotal を照会先から外す](decisions/0012-drop-virustotal.md) | 採用 |
 | 0013 | [新しい版の掲載の条件と開発の実践のレビュー](decisions/0013-release-provenance-and-review.md) | 採用 |
 | 0014 | [証明の署名の検証を GitHub Actions で行う](decisions/0014-attestation-verification-in-actions.md) | 採用 |
+| 0015 | [リポジトリの名前の変更と移管を ID で追い、所有者の変更は管理者が確かめる](decisions/0015-repository-rename-and-transfer.md) | 採用 |
 
 ## 運用手順
 

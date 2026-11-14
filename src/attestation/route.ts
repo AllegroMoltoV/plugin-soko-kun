@@ -18,6 +18,8 @@ interface PendingAsset {
   tag: string;
   commit_sha: string;
   release_workflow: string | null;
+  github_repo_id: number;
+  previous_names: string | null;
 }
 
 interface ResultInput {
@@ -52,7 +54,10 @@ export async function handleAttestations(request: Request, env: Env): Promise<Re
 
   if (url.pathname === '/internal/attestations/pending' && request.method === 'GET') {
     const { results } = await env.DB.prepare(
-      `SELECT t.github_asset_id, a.download_url, a.digest, p.owner, p.repo, r.tag, r.commit_sha, p.release_workflow
+      `SELECT t.github_asset_id, a.download_url, a.digest, p.owner, p.repo, r.tag, r.commit_sha, p.release_workflow,
+         p.github_repo_id,
+         (SELECT group_concat(name, ' ') FROM (SELECT name FROM plugin_aliases
+            WHERE plugin_id = p.id AND name IS NOT NULL ORDER BY created_at DESC)) AS previous_names
        FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
        JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id
        WHERE p.removed = 0 AND (t.result = 'pending' OR (t.result = 'error' AND t.attempts < ?))
@@ -66,6 +71,9 @@ export async function handleAttestations(request: Request, env: Env): Promise<Re
         downloadUrl: row.download_url,
         digest: row.digest,
         repository: `${row.owner}/${row.repo}`,
+        // 名前を変える前に作られた証明は、作られたときの名前でしか検証に通らない。新しい順の旧い名前と、照合に使う ID (ADR 0015)。
+        repositoryId: row.github_repo_id,
+        previousRepositories: row.previous_names ? row.previous_names.split(' ') : [],
         tag: row.tag,
         commitSha: row.commit_sha,
         signerWorkflow: row.release_workflow,

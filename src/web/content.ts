@@ -11,7 +11,8 @@ export type Block = string | { code: string } | { list: string[] } | { contact: 
 
 export interface PageContent {
   title: string;
-  sections: Array<{ heading: string; paragraphs: Block[] }>;
+  // id は見出しのアンカー。MCP の説明やスキルから節へ直接リンクするときに付ける。
+  sections: Array<{ id?: string; heading: string; paragraphs: Block[] }>;
 }
 
 // 正とする版。利用規約とプライバシーポリシーは日本語版、ほかは英語版。
@@ -196,6 +197,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'To update a listing, publish a new release on GitHub. This platform picks it up automatically and lists it after it passes the checks. This platform also updates the summary from the repository description.',
             'If a new release is not listed, ask your AI agent to check it with list_my_plugins. The agent shows the reason and how to fix it.',
             'To withdraw a listing, make the repository private or delete it, or send a request as described on the Report page.',
+          ],
+        },
+        {
+          id: 'rename',
+          heading: 'Renaming or transferring the repository',
+          paragraphs: [
+            'This platform follows the repository by its GitHub ID, so you do not need to do anything when you rename the repository. The listing moves to the new name within 15 minutes, and links to the old name redirect to the new one.',
+            'Do not create another repository with the old name. This platform keeps the old name for the renamed plugin and does not register another repository under it.',
+            'If you transfer the repository to another account or organization, the listed release stays listed, and an administrator reviews the next release before listing it.',
+            'To change the display name, change name in .soko-kun/config.json and publish a new release.',
           ],
         },
       ],
@@ -539,6 +550,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '掲載を更新するときは、GitHub で新しいリリースを公開してください。このプラットフォームは新しいリリースを自動で取り込み、検査を通ったら掲載します。リポジトリの説明から概要も更新します。',
             '新しいリリースが掲載されないときは、AI エージェントに list_my_plugins で理由を確かめさせてください。AI エージェントは理由と直し方を示します。',
             '掲載を取り下げるときは、リポジトリを非公開にするか削除してください。通報ページの方法で取り下げを依頼することもできます。',
+          ],
+        },
+        {
+          id: 'rename',
+          heading: 'リポジトリの名前の変更と移管',
+          paragraphs: [
+            'このプラットフォームは GitHub のリポジトリの ID でリポジトリを追うので、リポジトリの名前を変えても作業は要りません。掲載は 15 分以内に新しい名前へ移り、旧い名前へのリンクは新しい名前へ転送されます。',
+            '旧い名前で別のリポジトリを作らないでください。旧い名前は、名前を変えたプラグインのためにこのプラットフォームが取っておき、その名前では別のリポジトリを登録しません。',
+            'リポジトリを別のアカウントや組織へ移管すると、掲載中のリリースはそのまま掲載し、次のリリースは管理者が確かめてから掲載します。',
+            '表示名を変えるときは、.soko-kun/config.json の name を変えて新しいリリースを公開してください。',
           ],
         },
       ],
@@ -888,6 +909,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '撤下收录时，请将仓库设为私有或删除仓库。您也可以按举报页面的方法申请撤下。',
           ],
         },
+        {
+          id: 'rename',
+          heading: '重命名或转移仓库',
+          paragraphs: [
+            '本平台通过 GitHub 的仓库 ID 跟踪仓库，因此重命名仓库时无需任何操作。收录会在 15 分钟内转到新名称，指向旧名称的链接会重定向到新名称。',
+            '请不要用旧名称创建另一个仓库。本平台会为已重命名的插件保留旧名称，不会以该名称收录其他仓库。',
+            '如果将仓库转移到其他账号或组织，已收录的版本会继续收录，下一个版本由管理员确认后再收录。',
+            '要更改显示名称，请修改 .soko-kun/config.json 中的 name 并发布新版本。',
+          ],
+        },
       ],
     },
     security: {
@@ -1211,6 +1242,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '撤下收錄時，請將儲存庫設為私人或刪除儲存庫。您也可以依檢舉頁面的方法申請撤下。',
           ],
         },
+        {
+          id: 'rename',
+          heading: '重新命名或轉移儲存庫',
+          paragraphs: [
+            '本平台透過 GitHub 的儲存庫 ID 追蹤儲存庫，因此重新命名儲存庫時不需要任何操作。收錄會在 15 分鐘內移到新名稱，指向舊名稱的連結會轉址到新名稱。',
+            '請不要用舊名稱建立另一個儲存庫。本平台會為已重新命名的外掛保留舊名稱，不會以該名稱收錄其他儲存庫。',
+            '如果將儲存庫轉移到其他帳號或組織，已收錄的版本會繼續收錄，下一個版本由管理員確認後再收錄。',
+            '要變更顯示名稱，請修改 .soko-kun/config.json 中的 name 並發布新版本。',
+          ],
+        },
       ],
     },
     security: {
@@ -1532,6 +1573,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '게재 내용을 업데이트하려면 GitHub에서 새 릴리스를 공개해 주세요. 이 플랫폼은 새 릴리스를 자동으로 가져와 검사를 통과하면 게재합니다. 저장소 설명에서 개요도 업데이트합니다.',
             '새 릴리스가 게재되지 않으면 AI 에이전트에게 list_my_plugins로 이유를 확인하게 해 주세요. 에이전트는 이유와 고치는 방법을 보여 줍니다.',
             '게재를 철회하려면 저장소를 비공개로 하거나 삭제해 주세요. 신고 페이지의 방법으로 철회를 요청할 수도 있습니다.',
+          ],
+        },
+        {
+          id: 'rename',
+          heading: '저장소 이름 변경과 이전',
+          paragraphs: [
+            '이 플랫폼은 GitHub의 저장소 ID로 저장소를 추적하므로, 저장소 이름을 바꿔도 따로 할 일은 없습니다. 게재는 15분 안에 새 이름으로 옮겨지고, 이전 이름으로 된 링크는 새 이름으로 전송됩니다.',
+            '이전 이름으로 다른 저장소를 만들지 마세요. 이전 이름은 이 플랫폼이 이름을 바꾼 플러그인을 위해 남겨 두며, 그 이름으로는 다른 저장소를 등록하지 않습니다.',
+            '저장소를 다른 계정이나 조직으로 이전하면, 게재 중인 릴리스는 그대로 게재하고 다음 릴리스는 관리자가 확인한 뒤 게재합니다.',
+            '표시 이름을 바꾸려면 .soko-kun/config.json의 name을 바꾸고 새 릴리스를 공개해 주세요.',
           ],
         },
       ],
@@ -1870,6 +1921,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Para atualizar a listagem, publique uma nova versão no GitHub. Esta plataforma a obtém automaticamente e a lista depois que ela passa nas verificações. Esta plataforma também atualiza o resumo a partir da descrição do repositório.',
             'Se uma nova versão não for listada, peça ao agente de IA para verificá-la com list_my_plugins. O agente mostra o motivo e como corrigir.',
             'Para retirar a listagem, torne o repositório privado ou exclua-o. Você também pode pedir a retirada como descrito na página Denunciar.',
+          ],
+        },
+        {
+          id: 'rename',
+          heading: 'Renomear ou transferir o repositório',
+          paragraphs: [
+            'Esta plataforma acompanha o repositório pelo ID do GitHub, então você não precisa fazer nada ao renomear o repositório. A listagem passa para o novo nome em até 15 minutos, e os links para o nome antigo redirecionam para o novo.',
+            'Não crie outro repositório com o nome antigo. Esta plataforma reserva o nome antigo para o plugin renomeado e não registra outro repositório com ele.',
+            'Se você transferir o repositório para outra conta ou organização, a versão listada continua listada, e um administrador revisa a próxima versão antes de listá-la.',
+            'Para mudar o nome de exibição, altere name em .soko-kun/config.json e publique uma nova versão.',
           ],
         },
       ],
@@ -2219,6 +2280,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Para actualizar la publicación, publica una nueva versión en GitHub. Esta plataforma la obtiene automáticamente y la incluye después de que pasa las revisiones. Esta plataforma también actualiza el resumen a partir de la descripción del repositorio.',
             'Si una nueva versión no aparece en la lista, pide al agente de IA que la revise con list_my_plugins. El agente muestra el motivo y cómo corregirlo.',
             'Para retirar la publicación, haz privado el repositorio o elimínalo. También puedes pedir el retiro como se describe en la página Reportar.',
+          ],
+        },
+        {
+          id: 'rename',
+          heading: 'Cambiar el nombre o transferir el repositorio',
+          paragraphs: [
+            'Esta plataforma sigue el repositorio por su ID de GitHub, así que no necesitas hacer nada al cambiar el nombre del repositorio. La publicación pasa al nuevo nombre en un máximo de 15 minutos, y los enlaces al nombre anterior redirigen al nuevo.',
+            'No crees otro repositorio con el nombre anterior. Esta plataforma reserva el nombre anterior para el plugin renombrado y no registra otro repositorio con ese nombre.',
+            'Si transfieres el repositorio a otra cuenta u organización, la versión publicada sigue publicada, y un administrador revisa la siguiente versión antes de publicarla.',
+            'Para cambiar el nombre visible, cambia name en .soko-kun/config.json y publica una nueva versión.',
           ],
         },
       ],

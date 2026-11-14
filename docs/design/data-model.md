@@ -49,6 +49,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `display_name` | TEXT | | `.soko-kun/config.json` の `name`。外部データ。NULL のときはリポジトリ名を表示する |
 | `declared_os` | TEXT | | `.soko-kun/config.json` の `os` を JSON の配列で保存した値。NULL のときは宣言が無い |
 | `release_workflow` | TEXT | | 初めて証明を検証できた版の、署名したワークフローのパス (例: `.github/workflows/push.yaml`) |
+| `owner_changed_at` | TEXT | | 同期で所有者の変更を検出した日時。値がある間は、まだ掲載していない新しい版を管理者の確認待ちにする。管理者が版を承認すると NULL に戻す ([ADR 0015](../decisions/0015-repository-rename-and-transfer.md)) |
 
 ## releases
 
@@ -203,10 +204,11 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | 列 | 型 | 制約 | 内容 |
 | --- | --- | --- | --- |
 | `alias` | TEXT | 主キー | 旧い URL の ID。`owner/repo` を小文字にした文字列 |
+| `name` | TEXT | | 旧い `owner/repo` を、大文字と小文字を保ったまま記録した文字列。名前を変える前に作られた証明の検証に使う。マイグレーション 0009 より前の行は、現在の所有者名と `alias` のリポジトリ名から作った値 |
 | `plugin_id` | TEXT | NOT NULL、`plugins.id` を参照、親の削除で連鎖削除 | 内部のプラグイン ID |
 | `created_at` | TEXT | NOT NULL | 記録した日時 |
 
-同期で `owner` か `repo` が変わったとき、変わる前の ID を記録します。旧い ID の詳細ページは新しい ID へ 301 で転送し、`get_plugin` は旧い ID も受け付けます。
+同期で `owner` か `repo` が変わったとき、変わる前の ID を記録します。旧い ID の詳細ページは新しい ID へ 301 で転送し、`get_plugin` は旧い ID も受け付けます。旧い ID は、現在の名前の一致より優先して、記録した元のプラグインに向けます。旧い名前に別のリポジトリが作られても、旧い URL の行き先を変えないためです。
 
 ## check_log
 
