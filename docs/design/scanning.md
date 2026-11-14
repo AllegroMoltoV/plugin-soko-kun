@@ -104,7 +104,7 @@ MalwareBazaar が 429 を返した場合は、その起動の照会を止めま�
 
 | 項目 | 規則 |
 | --- | --- |
-| リポジトリの取得 | `GET /repositories/{github_repo_id}` で引き直す。所有者名・リポジトリ名を更新し、名前の変更と移管に追従する。変わったときは、変わる前の URL の ID と、大文字と小文字を保った旧い名前を `plugin_aliases` に記録する。所有者が変わったときは、`plugins` の `owner_changed_at` に日時を記録する (既に値があれば残す)。ライセンスは、GitHub が `NOASSERTION` 以外の値を返したときだけ更新する。description が空でなく、保存している概要と異なるときは、概要を description で更新する。ただし、確認待ちの新しい版があるあいだは更新しない。description が空のときは、保存している概要を残す |
+| リポジトリの取得 | `GET /repositories/{github_repo_id}` で引き直す。所有者名・リポジトリ名を更新し、名前の変更と移管に追従する。変わったときは、変わる前の URL の ID と、大文字と小文字を保った旧い名前を `plugin_aliases` に記録する。あわせて、保存済みの古い版の `releases.html_url` と `assets.download_url` の `https://github.com/<owner>/<repo>/` の部分を、現在の名前に書き換える。同期は最新のリリースしか取り直さないため。所有者が変わったときは、`plugins` の `owner_changed_at` に日時を記録する (既に値があれば残す)。ライセンスは、GitHub が `NOASSERTION` 以外の値を返したときだけ更新する。description が空でなく、保存している概要と異なるときは、概要を description で更新する。ただし、確認待ちの新しい版があるあいだは更新しない。description が空のときは、保存している概要を残す |
 | 削除と非公開化 | 404 または非公開のとき `removed` を 1 にする |
 | リリースの取得 | `GET /repos/{owner}/{repo}/releases/latest` を、`releases_etag` を使った条件付き要求で送る。304 のときはリリースと配布物を変更しない |
 | 対象外のリリース | 下書き・未公開・`digest` を持つ配布物が無い・タグ名が規則に合わない、のいずれかに当てはまるリリースは保存しない |
