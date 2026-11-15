@@ -89,7 +89,7 @@ In a listed plugin, `isImmutable` was `true` and every asset had a `digest` star
 2. With the author's approval, create an annotated tag such as `v1.0.0` on that commit and push it.
 3. Wait until every job of the tag's workflow run passes.
 4. The workflow creates a draft release. Download the Windows zip from the draft and check its contents: the DLL's version and the `data` folder match `main`.
-5. Install that zip into a portable OBS and check that the plugin works (see [local-verification.md](local-verification.md)).
+5. Install that zip into a portable OBS and check that the plugin works (see [local-verification.md](local-verification.md)). The zip from the template has `<name>\bin\64bit\<name>.dll` and `<name>\data\`, which only an installed OBS reads from `%ProgramData%`. A portable OBS 33 does not read that layout: in the portable folder, put the DLL at `plugins\<name>\<name>.dll` and the data folder at `plugins\<name>\data\`.
 6. With the author's approval, publish the release.
 7. Download every release file into an empty folder, compare each SHA-256 with the asset's `digest`, and run `gh attestation verify <file> --repo <owner>/<repo>` on each file.
 8. Check that `https://github.com/<owner>/<repo>/releases/latest` points to the new release.

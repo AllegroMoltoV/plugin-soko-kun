@@ -16,11 +16,11 @@ MCP クライアントの利用者が本サービスを見つけられるよう�
 
 ## 登録と更新の手順
 
-Registry への書き込みには、`AllegroMoltoV` の GitHub アカウントでの認証が要ります。認証はブラウザーでの確認を伴うため、依頼者が実行します。
+Registry への書き込みには、`AllegroMoltoV` の GitHub アカウントでの認証が要ります。登録は外部への公開なので、依頼者の承認を得てから行います。コマンドは Claude Code から実行できます。GitHub のデバイスコードの認可は、依頼者の承認を得て、依頼者のブラウザーで行います。認証の結果のトークンは時間がたつと切れるため、登録のたびに `login` からやり直します。
 
-1. 公式の配布物から `mcp-publisher` を入手します。手順は Registry の Quickstart (https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/quickstart.mdx) にあります。
+1. 公式の配布物から `mcp-publisher` を入手し、配布物のチェックサムを照合します。手順は Registry の Quickstart (https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/quickstart.mdx) にあります。Windows では、配布物の展開に Git Bash の `tar` ではなく Windows 標準の `tar.exe` を使います。
 2. リポジトリの直下で `mcp-publisher validate` を実行し、`server.json` の形を確かめます。
-3. `mcp-publisher login github` を実行し、表示に従って GitHub で認証します。
+3. `mcp-publisher login github` を実行します。表示されたコードを `https://github.com/login/device` に入力し、MCP Registry Login (Prod) を認可します。
 4. `mcp-publisher publish` を実行します。
 5. `https://registry.modelcontextprotocol.io/v0/servers?search=plugin-soko-kun` で、登録された内容を確かめます。
 
