@@ -251,6 +251,37 @@ describe('ci-scenario-tests', () => {
     ).toBe('not_met');
   });
 
+  it('ワークフローで OBS Studio を起動すれば、テストを実行する行が無くても met', () => {
+    for (const line of [
+      'Start-Process -FilePath "$env:OBS_DIR\\bin\\64bit\\obs64.exe" -ArgumentList "--portable"',
+      'obs --startreplaybuffer --minimize-to-tray &',
+      'flatpak run com.obsproject.Studio --portable',
+      '"/Applications/OBS.app/Contents/MacOS/OBS" --portable',
+    ]) {
+      expect(
+        judge({ '.github/workflows/obs.yaml': `jobs:\n  o:\n    steps:\n      - run: ${line}` })?.result,
+        line,
+      ).toBe('met');
+    }
+  });
+
+  // 危険側: 起動ではない OBS の言及を、プラグインを読み込む実行とみなすこと。
+  it('OBS の導入、版の表示、OBS.app のコピーと署名の確認だけでは met にならない', () => {
+    for (const line of [
+      'sudo apt-get install -y obs-studio',
+      'flatpak install -y flathub com.obsproject.Studio',
+      '/usr/local/bin/obs --version',
+      'cp -R /Volumes/OBS/OBS.app/Contents/MacOS/OBS /tmp/',
+      'codesign --verify /Applications/OBS.app/Contents/MacOS/OBS',
+      'Copy-Item obs64.exe build/',
+    ]) {
+      expect(
+        judge({ '.github/workflows/obs.yaml': `jobs:\n  o:\n    steps:\n      - run: ${line}` })?.result,
+        line,
+      ).toBe('not_met');
+    }
+  });
+
   it('テストのソースは integration と e2e を先にし、依存のディレクトリのものは候補にしない', () => {
     expect(
       testSources([

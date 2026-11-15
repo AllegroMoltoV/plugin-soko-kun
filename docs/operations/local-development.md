@@ -1,6 +1,6 @@
 # ローカルでの開発
 
-手元の PC で Worker を起動し、Web カタログ・MCP・Cron の定期処理を確かめる手順です。ローカルの D1 と KV は、`wrangler` が `.wrangler/state/` に作ります。概要の機械翻訳だけは、ローカルでも実環境の Workers AI を呼びます。そのため、`wrangler login` で Cloudflare にログインしておく必要があり、翻訳の分だけ Workers AI の無料枠を使います。
+手元の PC で Worker を起動し、Web カタログ・MCP・Cron の定期処理を確かめる手順です。ローカルの D1 と KV は、`wrangler` が `.wrangler/state/` に作ります。概要の機械翻訳と開発の実践のレビューは、ローカルでも実環境の Workers AI を呼びます。そのため、`wrangler login` で Cloudflare にログインしておく必要があります。定期処理で新しい版を検査したときと、`submit_plugin` の確認のモードを呼んだときは、翻訳に加えてレビューの分も Workers AI を使います。
 
 ## 前提
 
