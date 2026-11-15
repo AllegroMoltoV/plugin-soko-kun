@@ -94,7 +94,7 @@ async function readLimited(response: Response, maxBytes: number): Promise<string
   for (;;) {
     const chunk = await reader.read();
     if (chunk.done) break;
-    total += chunk.value.length;
+    total += chunk.value.byteLength;
     if (total > maxBytes) {
       await reader.cancel();
       return null;
@@ -105,7 +105,7 @@ async function readLimited(response: Response, maxBytes: number): Promise<string
   let offset = 0;
   for (const chunk of chunks) {
     bytes.set(chunk, offset);
-    offset += chunk.length;
+    offset += chunk.byteLength;
   }
   return new TextDecoder().decode(bytes);
 }

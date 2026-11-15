@@ -100,11 +100,11 @@ interface SyncRow {
 }
 
 // プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決、画像の一覧とダウンロード 2 件、buildspec.json。
-const SYNC_COST = 7;
+export const SYNC_COST = 7;
 // 同期 1 件の D1 のクエリの上限。
 const SYNC_QUERIES = 3;
 // 証明の検証のワークフローの起動 (dispatchVerify) に取り分ける外部呼び出しと D1 のクエリ。
-const DISPATCH_RESERVE = 1;
+export const DISPATCH_RESERVE = 1;
 
 async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: SyncRow): Promise<void> {
   const timestamp = now();

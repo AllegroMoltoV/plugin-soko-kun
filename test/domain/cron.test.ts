@@ -3,8 +3,8 @@ import { env } from 'cloudflare:test';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { Budget } from '../../src/budget';
-import { recordListings, runCron } from '../../src/domain/cron';
-import { runReleaseChecks } from '../../src/domain/release-checks';
+import { DISPATCH_RESERVE, MALWAREBAZAAR_PER_RUN, recordListings, runCron, SYNC_COST } from '../../src/domain/cron';
+import { RELEASE_CHECK_COST, runReleaseChecks } from '../../src/domain/release-checks';
 import { submitPlugin } from '../../src/domain/submit';
 import { markListable } from '../fixtures/checks';
 import {
@@ -169,6 +169,16 @@ describe('runCron', () => {
     expect(report.subrequests).toBeLessThanOrEqual(45);
     expect(report.d1Queries).toBeLessThanOrEqual(45);
     expect(counter.mb).toBeLessThanOrEqual(10);
+  });
+});
+
+// 予算の算式: 照会の上限・検査の間の取り分け (同期 1 件と起動 1 件)・検査 1 件の上限が、1 回の起動の予算に収まること。
+// 1 件の処理の外部呼び出しの件数を上げたときに、検査が始まらない不具合 (2026-11-15、sd0) が戻らないよう固定する。
+describe('定期処理の予算の算式', () => {
+  it('照会の上限と検査の間の取り分けを引いても、新しい版の検査 1 件の外部呼び出しが残る', () => {
+    expect(MALWAREBAZAAR_PER_RUN + DISPATCH_RESERVE + SYNC_COST + RELEASE_CHECK_COST).toBeLessThanOrEqual(
+      new Budget().maxSubrequests,
+    );
   });
 });
 

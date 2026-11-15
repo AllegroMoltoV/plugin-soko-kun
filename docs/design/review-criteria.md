@@ -55,7 +55,7 @@
 
 審査の基準と推奨の項目は、判定に要るものに応じて、ルール・LLM・判定しない、のいずれかで判定します。ファイルを見れば機械的に決まる項目はルールで判定し、同じリポジトリには同じ結果を返します。文章の意図を読む必要がある項目だけを LLM が判定します。入力に無い知識が要る項目は、材料を確実に得られるまで判定しません。
 
-入力は、新しい版のタグの時点のファイルの一覧と、一覧から選んで取得したファイルです。取得するのは、`.github/workflows/` のワークフロー (6 件まで)・README・`CMakeLists.txt`・パスに compiler を含む `cmake/` 配下のファイル (2 件まで)・`vcpkg.json`・`CONTRIBUTING.md`・`.github/PULL_REQUEST_TEMPLATE.md`・`.github/ISSUE_TEMPLATE/` のテンプレート (`config.yml` を除いて 2 件まで) です。一覧に無いファイルは取得しません。あわせて、リポジトリの有効な ruleset の一覧と、詳細を 3 件まで読みます。ソースのコードと配布物の中身は読みません。ファイルの一覧が大きすぎて切り詰められたときは、ファイルの有無とワークフローで決める判定を判定不能にします。
+入力は、新しい版のタグの時点のファイルの一覧と、一覧から選んで取得したファイルです。取得するのは、README・`.github/workflows/` のワークフロー (6 件まで)・`CMakeLists.txt`・パスに compiler を含む `cmake/` 配下のファイル (2 件まで)・`vcpkg.json`・`CONTRIBUTING.md`・`.github/PULL_REQUEST_TEMPLATE.md`・`.github/ISSUE_TEMPLATE/` のテンプレート (`config.yml` を除いて 2 件まで) です。一覧に無いファイルは取得しません。あわせて、リポジトリの有効な ruleset の一覧と、詳細を 2 件まで読みます。README は最初に取得し、128 KB まで読んで全文をルールで照合します。LLM には README の先頭 32 KB だけを渡します。128 KB を超える README と読めなかった README は、`no-security-bypass` と `no-terminal-paste` で重大の指摘にします。大きな README で照合を逃れられないようにするためです。`ci-scenario-tests` の判定のために、パスに test・integration・scenario・e2e を含むテストのソース (C・C++・Python) を、integration と e2e を含むものから読みます。読んだソースの `#include "..."` のうち一覧にあるファイルを続けて読み、合わせて 3 件まで読みます。テストのソースは規則だけが読み、LLM には渡しません。それ以外のソースのコードと配布物の中身は読みません。ファイルの一覧が大きすぎて切り詰められたときは、ファイルの有無とワークフローで決める判定を判定不能にします。
 
 LLM には、README・ワークフロー・Issue のテンプレート・乗っ取りの兆候の判定に使った差分と、本サービスが計算した次の事実を渡します。LLM が自分で探す手間と、足りない情報を思い込みで埋める余地を減らすためです。LLM に道具を渡して自分で調べさせることはしません。呼び出しが増えて無料枠と外部呼び出しの上限に当たり、リポジトリの内容から道具を呼ばせる攻撃の入り口も増えるためです。
 
@@ -71,14 +71,19 @@ LLM には、各項目の観点がリポジトリに当てはまれば満たす�
 | ID | 内容 | 判定 | 判定の観点 | 重大とする場合 | 出典 |
 | --- | --- | --- | --- | --- | --- |
 | `ci-source-build` | リリースの配布物を、CI でソースからビルドしている | 判定しない | 掲載の条件の `attestation` で、配布物がこのリポジトリのワークフローでビルドされたことを確かめるため、レビューでは判定しない | なし | スライド 16〜17 枚目 |
-| `ci-scenario-tests` | テストが、実際の使い方のシナリオを試している | LLM | CI のテストが、ビルドの確認にとどまらず、OBS Studio にプラグインを読み込ませて機能を確かめている。`.github/scripts/` のスクリプトの名前を事実として渡す | なし | obs-backgroundremoval Issue 971 |
-| `no-security-bypass` | 利用者にセキュリティの機能を切らせない | LLM | README や導入の手順に、SmartScreen・Defender・Gatekeeper・Smart App Control を無効にさせる手順が無い | 手順がある | obs-backgroundremoval Issue 832、obs-spout2-plugin Issue 105 |
+| `ci-scenario-tests` | テストが、実際の使い方のシナリオを試している | ルール | 読んだワークフローに、テストを実行する行がある。実行の行は、`ctest`・`pytest`・`npm test`・`cargo test`・`make test` のコマンドか、integration・scenario・e2e の語を含む行とする。かつ、読んだテストのソースに libobs の初期化と読み込みの関数 (`obs_startup`・`obs_load_module`・`obs_init_module`・`obs_reset_video`) があるか、ワークフローが OBS Studio の実行ファイルを起動している。`xvfb-run` は画面の無い実行を示すだけで、OBS Studio の起動に数えない。テストが機能の結果を確かめているかは判定しない | なし | obs-backgroundremoval Issue 971 |
+| `no-security-bypass` | 利用者にセキュリティの機能を切らせない | ルール | README の行に、次の案内の型が無い。macOS の `xattr` の `-d`・`-c` による隔離属性の除去 (`xattr -rd com.apple.quarantine`・`xattr -cr` など)、`spctl --master-disable`・`spctl --global-disable` による Gatekeeper の無効化、「このまま開く」と「Open Anyway」の誘導、`Add-MpPreference`・`Set-MpPreference` の除外と無効化の設定、SmartScreen・Defender・Smart App Control の語と無効化や除外の語を同じ行に含む案内 | 案内がある | obs-backgroundremoval Issue 832、obs-spout2-plugin Issue 105 |
+| `no-terminal-paste` | 導入のために、端末へ取得したものを実行するコマンドを貼り付けさせない | ルール | README の行に、ネットワークから取得した内容をその場で実行させるコマンドの型が無い。型は、`curl` や `wget` の出力をシェル・`osascript`・スクリプトの処理系へパイプで渡すもの、`bash -c "$(curl ...)"` と `bash <(curl ...)`、PowerShell の `irm ... \| iex` と `iex` で取得した文字列を実行するもの、base64 で埋め込んだ文字列を復号して実行するもの、`powershell -EncodedCommand`、`osascript` で取得したスクリプトを実行するものである。ソースからビルドする手順の `cmake` のコマンドは当たらない | 案内がある | 姉妹版の音のプラグイン倉庫くんの審査の基準 (プラグインを装うマルウェアの手口) |
 | `dependency-pinning` | 依存をパッケージマネージャーで、版を固定して入れている | ルール | ファイルの一覧に拡張子が `.dll`・`.lib`・`.so`・`.dylib`・`.a`・`.exe` のファイルが無い。読んだ CMake のファイルで、`FetchContent_Declare` の `GIT_TAG` が 40 桁のコミットか `URL_HASH` があり、`file(DOWNLOAD` に `EXPECTED_HASH` がある。`vcpkg.json` があれば `builtin-baseline` か `vcpkg-configuration.json` がある | なし | スライド 17 枚目、obs-backgroundremoval Issue 644 |
 | `ci-hardening` | CI を最小の権限で守っている | ルール | 読んだ各ワークフローに `permissions` があり `write-all` が無い。ローカルと `docker://` を除くアクションの参照が 40 桁のコミット。`actions/checkout` の数だけ `persist-credentials: false` がある。`.github/dependabot.yml` がある | なし | obs-backgroundremoval PR 805、スライド 19 枚目 |
 | `third-party-provenance` | 第三者のモデルやバイナリの出所とライセンスを示している | 判定しない | 配布物の中身を読まないため、同梱するものが分からない | なし | obs-backgroundremoval PR 974、Issue 983 |
 | `license-compatibility` | プラグインと依存のライセンスが両立する | 判定しない | 依存のライセンスの一覧を入力に持たないため | なし | obs-backgroundremoval Issue 644 |
 | `user-data-handling` | 映像・音声・設定・鍵を、利用者に知らせずに外部へ送らない | LLM | 通信の API の検出の結果、README、ワークフローから送る機能があると分かる場合に、README に送り先と内容が書かれている。検出していない版で送る機能の有無が分からなければ判定不能とする | 通信の API が見つかり、README が外部のホストにも送信にも一切触れていない | スライド 15 枚目、obs-backgroundremoval FAQ |
 | `build-hardening` | 防御のためのビルドの設定がある | ルール | 読んだ CMake のファイルに、Sanitizer の指定 (`-fsanitize`) とスタック保護の指定 (`-fstack-protector` か `/GS`) の両方がある。MSVC は `/GS` を既定で有効にするが、設定の明示を求める | なし | live-backgroundremoval-lite の CMakeLists.txt |
+
+`no-security-bypass` と `no-terminal-paste` は、案内の書き方の型がはっきりしているため、ルールで判定します (0.2.7 で `no-security-bypass` を LLM からルールに移し、`no-terminal-paste` を足した)。判定が揺れず、Workers AI も使いません。型は姉妹版の音のプラグイン倉庫くんと同じものを使います。型に当たる行は、「〜しないでください」のような否定の文脈でも当たります。重大の指摘は管理者の確認待ちになり、管理者が根拠の行を見て判断します。`no-terminal-paste` は、プラグインを装う配布で、README から端末へのコマンドの貼り付けに誘導する手口に備える項目です。
+
+`ci-scenario-tests` は、ルールで判定します。0.2.6 までは LLM が判定しており、同じリポジトリの同じ版でも、回によって満たす・満たさないが分かれました。ねらいは、ビルドが通るだけで動作しないプラグインを見分けることです。そのため、CI でテストを実行していることと、そのテストが libobs か OBS Studio でプラグインを読み込むことの 2 点を、ファイルから機械的に確かめます。libobs の初期化は補助のヘッダーに置かれることが多いため、テストの本体の `#include` をたどって読みます。include されずにリンクだけされるソースの初期化は、読まないため見つけられません。
 
 ## 推奨
 
