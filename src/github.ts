@@ -49,6 +49,8 @@ export interface GitHubRelease {
   html_url: string;
   // 不変のリリース (immutable release) のとき true。古い応答には無いことがある。
   immutable?: boolean;
+  // リリースノート (本文)。案内の型を照合し、本文そのものは保存しない (src/domain/release-notes.ts)。
+  body?: string | null;
   assets: GitHubAsset[];
 }
 

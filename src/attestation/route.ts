@@ -119,10 +119,16 @@ export async function handleAttestations(request: Request, env: Env): Promise<Re
     for (const scan of scans) {
       statements.push(
         env.DB.prepare(
-          `UPDATE release_checks SET network_state = ?, network_hits = ?, network_attempts = network_attempts + 1,
+          `UPDATE release_checks SET network_state = ?, network_hits = ?, doc_hits = ?, network_attempts = network_attempts + 1,
              network_checked_at = ?
            WHERE github_release_id = ? AND network_state IN ('pending', 'error')`,
-        ).bind(scan.result, scan.scan ? JSON.stringify(scan.scan) : null, timestamp, scan.releaseId),
+        ).bind(
+          scan.result,
+          scan.scan ? JSON.stringify(scan.scan) : null,
+          scan.docs ? JSON.stringify(scan.docs) : null,
+          timestamp,
+          scan.releaseId,
+        ),
       );
     }
     if (results.length === 0) {

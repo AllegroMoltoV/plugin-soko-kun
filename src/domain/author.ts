@@ -145,6 +145,11 @@ const BLOCKER_TEXT: Record<BlockerCode, { message: string; fix: string; criterio
     message: 'The repository review found a serious issue.',
     fix: 'Fix the findings with severity serious and publish a new release, or explain the change through an issue.',
   },
+  notes_held: {
+    message:
+      'The release notes were edited after they were checked, and the new text tells users to turn off a security feature or to run a downloaded command. An administrator reviews it before listing. The review has no fixed schedule.',
+    fix: 'Remove the instruction from the release notes, or explain the change through an issue.',
+  },
 };
 
 export type VersionState = 'listed' | 'checking' | 'held' | 'rejected' | 'suspended' | 'superseded';
@@ -178,6 +183,7 @@ interface CheckRow {
   review_serious: number;
   reviewed_at: string | null;
   admin_approved_at: string | null;
+  notes_held: number;
 }
 
 function parseJson<T>(text: string | null, fallback: T): T {
@@ -299,6 +305,7 @@ function toChecks(row: CheckRow): ReleaseChecks {
     reviewAttempts: row.review_attempts,
     reviewSerious: row.review_serious,
     adminApproved: row.admin_approved_at !== null,
+    notesHeld: row.notes_held === 1,
   };
 }
 

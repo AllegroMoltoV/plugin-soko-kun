@@ -5,7 +5,7 @@ import type { Env } from '../env';
 import { GitHubClient, GitHubError } from '../github';
 import { checkDiff, type DiffHit } from '../review/diff-rules';
 import { type Finding, runReview } from '../review/llm';
-import { NETWORK_WAIT_MS, NETWORK_WAITING, readNetworkScan } from '../review/network';
+import { NETWORK_WAIT_MS, NETWORK_WAITING, readDocScan, readNetworkScan } from '../review/network';
 import {
   computeFacts,
   judgeByRules,
@@ -20,6 +20,7 @@ import {
 } from '../review/rules';
 import { getPluginViewByInternalId } from './catalog';
 import { OS_VALUES } from './metadata';
+import { readReleaseNotesHits } from './release-notes';
 import { MAX_REVIEW_ATTEMPTS } from './status';
 
 // ruleset の詳細を読む上限。テストのソースを読む分と合わせて、検査 1 件の予算に収める (docs/design/scanning.md)。
@@ -58,6 +59,8 @@ interface PendingRow {
   review_attempts: number;
   network_state: string;
   network_hits: string | null;
+  notes_hits: string | null;
+  doc_hits: string | null;
   network_ready: number;
 }
 
@@ -111,7 +114,7 @@ export async function runReleaseChecks(env: Env, budget: Budget): Promise<number
   budget.takeD1Query();
   const row = await env.DB.prepare(
     `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, r.tag, r.commit_sha, c.diff_state, c.config_state, c.review_state,
-       c.review_attempts, c.network_state, c.network_hits, ${NETWORK_READY} AS network_ready
+       c.review_attempts, c.network_state, c.network_hits, c.notes_hits, c.doc_hits, ${NETWORK_READY} AS network_ready
      FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id JOIN plugins p ON p.id = r.plugin_id
      WHERE c.legacy = 0 AND p.removed = 0 AND c.review_attempts < ? AND (c.diff_state = 'pending'
        OR c.config_state = 'pending'
@@ -217,6 +220,9 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   if (row.review_state !== 'done' && row.network_ready === 1) {
     const input = await collectReviewFiles(github, row.owner, row.repo, row.tag);
     input.network = row.network_state === 'done' ? readNetworkScan(row.network_hits) : null;
+    // リリースノートは同期の時点で照合してある。照合していない版 (この仕組みより前の版) は未設定のままにする。
+    input.releaseNotesHits = readReleaseNotesHits(row.notes_hits);
+    input.docScan = docScanForReview(row.network_state, row.doc_hits);
     const outcome = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, input, diff);
     if (outcome.kind === 'done') {
       const findings = outcome.findings;
@@ -238,6 +244,15 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
     budget.takeD1Query();
     await env.DB.batch(statements);
   }
+}
+
+// レビューに渡す README 以外の文書の照合の結果。文書は通信の検出と同じ結果で届く。
+// レビューの時点で検出が済んでいない版 (期限切れか、error のまま試行を使い切った版) は 'missing' とし、規則が重大にする。
+// 検出を入れる前の版 (skipped) と、文書の照合を入れる前に検出した版 (done で doc_hits が NULL) は照合していないものとする。
+export function docScanForReview(networkState: string, docHits: string | null): RepositorySnapshot['docScan'] {
+  if (networkState === 'done') return readDocScan(docHits) ?? undefined;
+  if (networkState === 'skipped') return undefined;
+  return 'missing';
 }
 
 export type CollectedFiles = RepositorySnapshot;

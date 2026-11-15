@@ -104,7 +104,7 @@ jobs:
               results.json > results.next && mv results.next results.json
           done
 
-          # 版ごとに、そのコミットのソースだけを取得して通信の API を探す。ソースは実行もビルドもしない (ADR 0016)。
+          # 版ごとに、そのコミットのソースだけを取得して通信の API と、README 以外の文書の案内を探す。ソースは実行もビルドもしない (ADR 0016)。
           for i in $(seq 0 $((releases - 1))); do
             item=$(jq -c ".releases[${i}]" pending.json)
             release_id=$(jq -r '.releaseId' <<< "${item}")
@@ -112,6 +112,7 @@ jobs:
             commit=$(jq -r '.commitSha' <<< "${item}")
             src="${work}/src-${release_id}"
             scan=""
+            docs=""
             # 第三者のソースで、同じ回のほかの版の検証を止めないよう、取得と取り出しに時間の上限を付け、
             # 取り出しの前後でディスクの空きを確かめる。Git LFS のファイルは取得しない。足りなければその版は error にして先へ進む。
             if [[ "${repository}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] && [[ "${commit}" =~ ^[0-9a-f]{40}$ ]] \
@@ -122,12 +123,16 @@ jobs:
                   && timeout 120 git checkout -q FETCH_HEAD) \
                   && [ "$(df --output=avail -B1 "${work}" | tail -1 | tr -d ' ')" -ge "${MIN_FREE_BYTES}" ]; then
                 scan=$(timeout 60 bash .github/scripts/scan-network.sh "${src}" || true)
+                # 同じ取り出しで、README 以外の文書の案内を照合する。どちらかが失敗した版は error として送り、やり直させる。
+                docs=$(timeout 60 node .github/scripts/scan-docs.mjs "${src}" || true)
+                if [ -z "${docs}" ]; then scan=""; fi
               fi
             fi
             rm -rf "${src}"
             if [ -n "${scan}" ]; then
-              echo "${repository} ${commit}: $(jq '.hits | length' <<< "${scan}") network API hits"
-              jq --argjson id "${release_id}" --argjson scan "${scan}" '. + [{releaseId: $id, result: "done"} + $scan]' \
+              echo "${repository} ${commit}: $(jq '.hits | length' <<< "${scan}") network API hits, $(jq '.hits | length' <<< "${docs}") document hits"
+              jq --argjson id "${release_id}" --argjson scan "${scan}" --argjson docs "${docs}" \
+                '. + [{releaseId: $id, result: "done"} + $scan + {docHits: $docs.hits, docTruncated: $docs.truncated}]' \
                 scans.json > scans.next && mv scans.next scans.json
             else
               echo "${repository} ${commit}: network scan error"

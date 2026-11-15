@@ -3,8 +3,9 @@
 
 import type { RulesetSnapshot } from '../github';
 import { LLM_CRITERIA } from './criteria';
+import { type GuidanceRule, matchesSecurityBypass, matchesTerminalPaste } from './guidance-patterns.mjs';
 import type { Finding, FindingResult } from './llm';
-import type { NetworkScan } from './network';
+import type { DocScan, NetworkScan } from './network';
 
 export interface RepositorySnapshot {
   // ref の時点のファイルのパスの一覧。
@@ -18,6 +19,10 @@ export interface RepositorySnapshot {
   readmePath?: string | null;
   // README はあるが、上限を超えたか読めなかった。
   readmeUnread?: boolean;
+  // 新しい版のリリースノートで、案内の型に当たった行。未設定なら照合していない (確認のモード)。
+  releaseNotesHits?: Array<{ line: number; rule: 'no-security-bypass' | 'no-terminal-paste' }>;
+  // README 以外の文書の照合の結果 (GitHub Actions)。'missing' は、期限までに結果が届かなかった。未設定なら照合していない。
+  docScan?: DocScan | 'missing';
   // 通信の API の検出の結果。null か未設定なら、検出していない (確認のモード、期限切れ、検出の失敗)。
   network?: NetworkScan | null;
   // 有効な ruleset。未設定か readable が false なら、読めなかった。
@@ -321,73 +326,92 @@ function repositoryProtection(snapshot: RepositorySnapshot): Finding {
   return finding(id, 'not_met', `Checked by rules: the repository does not have ${missing.join(' or ')}. ${note}`);
 }
 
-// README の案内の型。姉妹版 (音のプラグイン倉庫くん) の src/review/rules.ts を写した。両方にある処理として同じ実装に保つ。
-// 否定の文脈 (「〜しないでください」) も当たるが、重大の指摘は管理者が根拠の行を見て判断する。
-const SECURITY_BYPASS: RegExp[] = [
-  // xattr -d com.apple.quarantine、xattr -rd、xattr -c、xattr -cr による隔離属性の除去。-l や -p の表示は当たらない。
-  /\bxattr\s+(?:-[a-z]+\s+)*-[a-z]*[cd][a-z]*\b/i,
-  /\bspctl\s+--(?:master|global)-disable\b/i,
-  /open anyway|このまま開く/i,
-  /\b(?:Add|Set)-MpPreference\b[^\n]*-(?:Exclusion|Disable)/i,
-];
-const WINDOWS_PROTECTION = /smartscreen|defender|smart app control/i;
-const TURN_OFF = /disabl|turn(?:ing)? off|switch(?:ing)? off|deactivat|exclu|whitelist|allowlist|無効|オフ|除外/i;
+// README・リリースノート・README 以外の文書の案内の型は、GitHub Actions と共有する guidance-patterns.mjs に置く。
+export {
+  type GuidanceRule,
+  guidanceHits,
+  matchesSecurityBypass,
+  matchesTerminalPaste,
+} from './guidance-patterns.mjs';
 
-const TERMINAL_PASTE: RegExp[] = [
-  // 取得した内容をシェルや osascript へパイプで渡す。
-  /\b(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:(?:ba|z|da|k)?sh|osascript|python3?|perl|ruby)\b/i,
-  // シェルにコマンド置換やプロセス置換で渡す。
-  /\b(?:ba|z)?sh\s+(?:-c\s+["']?\$\(|<\()\s*(?:curl|wget)\b/i,
-  // PowerShell の irm | iex と、iex (New-Object Net.WebClient).DownloadString(...)。
-  /\b(?:irm|iwr|invoke-restmethod|invoke-webrequest)\b[^\n]*\|\s*(?:iex|invoke-expression)\b/i,
-  /\b(?:iex|invoke-expression)\b[^\n]*(?:\birm\b|\biwr\b|invoke-restmethod|invoke-webrequest|downloadstring|net\.webclient)/i,
-  // base64 で埋め込んだ文字列を復号して実行する。
-  /\bbase64\s+(?:-d|-D|--decode)\b[^\n]*\|\s*(?:sudo\s+)?(?:(?:ba|z)?sh|osascript)\b/i,
-  /\bpowershell(?:\.exe)?\b[^\n]*\s-(?:e|ec|enc|encodedcommand)\s+[A-Za-z0-9+/=]{16,}/i,
-  /frombase64string[^\n]*(?:iex|invoke-expression)|(?:iex|invoke-expression)[^\n]*frombase64string/i,
-  /\bosascript\b[^\n]*(?:curl|wget|https?:\/\/)/i,
-];
+// リリースノートの根拠に使うファイルの名前。リポジトリのファイルではないため、括弧で区別する。
+export const RELEASE_NOTES = '(release notes)';
 
-// README の行に案内の型を当てる。当たれば重大の not_met とし、当たった行を根拠に返す。
+// README とリリースノートの行に案内の型を当てる。当たれば重大の not_met とし、当たった行を根拠に返す。
 function readmePattern(
   snapshot: RepositorySnapshot,
-  id: string,
+  id: GuidanceRule,
   matches: (text: string) => boolean,
   found: string,
   none: string,
 ): Finding {
-  const doc = readme(snapshot);
-  if (!doc) {
-    // 読めなかった README を、無い README と同じに扱わない。大きな README で照合を逃れられないようにするため。
-    if (snapshot.readmeUnread) {
-      return {
-        ...finding(
-          id,
-          'not_met',
-          'Checked by rules: the README is larger than 128 KB or could not be read, so the rules could not check it.',
-        ),
-        serious: true,
-      };
-    }
-    return finding(id, 'met', 'Checked by rules: the repository has no README.');
+  // リリースノートは同期の時点で照合し、当たった行だけを渡す (src/domain/release-notes.ts)。確認のモードでは照合しない。
+  const notes = (snapshot.releaseNotesHits ?? [])
+    .filter((hit) => hit.rule === id)
+    .map((hit) => at(RELEASE_NOTES, hit.line));
+  // README 以外の文書の当たり。README と同じファイルの当たりは、README の照合と重なるため捨てる。
+  const docs =
+    snapshot.docScan && snapshot.docScan !== 'missing'
+      ? snapshot.docScan.hits
+          .filter((hit) => hit.rule === id && hit.file !== snapshot.readmePath)
+          .map((hit) => at(hit.file, hit.line))
+      : [];
+  const sources = [
+    'the README',
+    ...(snapshot.releaseNotesHits ? ['the release notes'] : []),
+    ...(snapshot.docScan && snapshot.docScan !== 'missing' ? ['the other documents'] : []),
+  ];
+  // 文書の照合の結果が期限までに届かなかった版を、照合した版と同じに扱わない。
+  // リポジトリを大きくして取得を時間切れにすることで、照合を逃れられないようにするため。
+  if (snapshot.docScan === 'missing') {
+    return {
+      ...finding(
+        id,
+        'not_met',
+        'Checked by rules: the documents other than the README could not be checked because the source could not be fetched and scanned in time.',
+        notes,
+      ),
+      serious: true,
+    };
   }
-  const hits = doc.content
-    .split('\n')
-    .map((text, index) => ({ text, line: index + 1 }))
-    .filter(({ text }) => matches(text))
-    .map(({ line }) => at(doc.path, line));
-  if (hits.length === 0) return finding(id, 'met', `Checked by rules: ${none}`);
-  return { ...finding(id, 'not_met', `Checked by rules: ${found}`, hits), serious: true };
+  const doc = readme(snapshot);
+  // 読めなかった README を、無い README と同じに扱わない。大きな README で照合を逃れられないようにするため。
+  if (!doc && snapshot.readmeUnread) {
+    return {
+      ...finding(
+        id,
+        'not_met',
+        'Checked by rules: the README is larger than 128 KB or could not be read, so the rules could not check it.',
+        notes,
+      ),
+      serious: true,
+    };
+  }
+  const hits = [
+    ...(doc
+      ? doc.content
+          .split('\n')
+          .map((text, index) => ({ text, line: index + 1 }))
+          .filter(({ text }) => matches(text))
+          .map(({ line }) => at(doc.path, line))
+      : []),
+    ...notes,
+    ...docs,
+  ];
+  if (hits.length > 0)
+    return { ...finding(id, 'not_met', `Checked by rules: ${sources.join(' or ')} ${found}`, hits), serious: true };
+  if (!doc && !snapshot.releaseNotesHits && !snapshot.docScan)
+    return finding(id, 'met', 'Checked by rules: the repository has no README.');
+  return finding(id, 'met', `Checked by rules: no ${none} was found in ${sources.join(' and ')}.`);
 }
 
 function noSecurityBypass(snapshot: RepositorySnapshot): Finding {
   return readmePattern(
     snapshot,
     'no-security-bypass',
-    (text) =>
-      SECURITY_BYPASS.some((pattern) => pattern.test(text)) || (WINDOWS_PROTECTION.test(text) && TURN_OFF.test(text)),
-    'the README contains an instruction that removes the quarantine attribute, disables Gatekeeper, uses Open Anyway, or turns off or excludes SmartScreen, Microsoft Defender, or Smart App Control.',
-    'the README contains no instruction that turns off a security feature.',
+    matchesSecurityBypass,
+    'contains an instruction that removes the quarantine attribute, disables Gatekeeper, uses Open Anyway, or turns off or excludes SmartScreen, Microsoft Defender, or Smart App Control.',
+    'instruction that turns off a security feature',
   );
 }
 
@@ -395,9 +419,9 @@ function noTerminalPaste(snapshot: RepositorySnapshot): Finding {
   return readmePattern(
     snapshot,
     'no-terminal-paste',
-    (text) => TERMINAL_PASTE.some((pattern) => pattern.test(text)),
-    'the README contains a command that downloads content and runs it at once.',
-    'the README contains no command that downloads content and runs it at once.',
+    matchesTerminalPaste,
+    'contains a command that downloads content and runs it at once.',
+    'command that downloads content and runs it at once',
   );
 }
 
