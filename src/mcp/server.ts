@@ -134,7 +134,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
     {
       name: 'plugin-soko-kun',
       title: 'Plugin Soko-kun',
-      version: '0.2.10',
+      version: '0.2.11',
       websiteUrl: env.ORIGIN,
       icons: [
         { src: `${env.ORIGIN}/logo.png`, mimeType: 'image/png', sizes: ['256x256'] },
@@ -186,7 +186,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
     {
       title: 'Get an OBS Studio plugin',
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-      description: `Get details of a plugin by its id (owner/repository). Download links are included only for listed plugins. ${UNTRUSTED_NOTE}`,
+      description: `Get details of an OBS Studio plugin by its id (owner/repository). Download links are included only for listed plugins. ${UNTRUSTED_NOTE}`,
       inputSchema: {
         id: z
           .string()
@@ -264,7 +264,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
         // 自前の D1 を読み、GitHub で管理権限を確かめるだけで、書き込まない。
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
         description:
-          'For plugin authors. Returns the plugins you administer on GitHub, each version state (listed, checking, held, rejected, suspended), the blockers that keep a version from being listed with how to fix them, and repository review findings. Call it 15 minutes or more after publishing a release. Requires signing in with GitHub.',
+          'For OBS Studio plugin authors. Returns the plugins you administer on GitHub, each version state (listed, checking, held, rejected, suspended), the blockers that keep a version from being listed with how to fix them, and repository review findings. Call it 15 minutes or more after publishing a release. Requires signing in with GitHub.',
         inputSchema: {
           pluginId: z
             .string()

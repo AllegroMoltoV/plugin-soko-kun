@@ -1,7 +1,7 @@
 // list_my_plugins の危険側の境界: 管理者でない人に、確認待ちの版や理由やレビューの指摘を返さない。
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { listMyPlugins, versionState } from '../../src/domain/author';
+import { listMyPlugins, resumeOf, versionState } from '../../src/domain/author';
 import { submitPlugin } from '../../src/domain/submit';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from '../fixtures/github';
 import { network } from '../setup';
@@ -56,5 +56,35 @@ describe('versionState', () => {
     expect(versionState(false, false, ['diff_held', 'not_immutable'])).toBe('rejected');
     expect(versionState(false, false, ['diff_held', 'scan_pending'])).toBe('held');
     expect(versionState(false, true, [])).toBe('suspended');
+  });
+});
+
+// 呼ぶたびに時刻が後ろへ動くと、作者のエージェントが「検査が延びた」と誤って説明する。
+describe('resumeOf', () => {
+  const published = '2026-11-15T00:00:00.000Z';
+  const at = (iso: string) => Date.parse(iso);
+
+  it('上限の前は、呼ぶ時刻によらず版の公開から決まる同じ時刻を返す', () => {
+    const first = resumeOf('scan_pending', null, published, at('2026-11-15T00:05:00Z'));
+    const second = resumeOf('scan_pending', null, published, at('2026-11-15T00:20:00Z'));
+    expect(first).toBe('2026-11-15T00:30:00.000Z');
+    expect(second).toBe(first);
+  });
+
+  it('通信の検出を待つレビューは、公開から 6 時間の待ちを含む上限を返す', () => {
+    expect(resumeOf('review_pending', null, published, at('2026-11-15T01:00:00Z'))).toBe('2026-11-15T06:30:00.000Z');
+  });
+
+  it('上限を過ぎて終わらないときだけ、次の定期処理の区切りの 15 分後を返し、同じ区切りの間は同じ時刻にする', () => {
+    const a = resumeOf('scan_pending', null, published, at('2026-11-15T01:02:00Z'));
+    const b = resumeOf('scan_pending', null, published, at('2026-11-15T01:14:00Z'));
+    expect(a).toBe('2026-11-15T01:30:00.000Z');
+    expect(b).toBe(a);
+  });
+
+  it('支出の上限などで待つときは、その時刻を返す', () => {
+    expect(resumeOf('review_pending', '2026-11-15T03:00:00.000Z', published, at('2026-11-15T02:00:00Z'))).toBe(
+      '2026-11-15T03:00:00.000Z',
+    );
   });
 });

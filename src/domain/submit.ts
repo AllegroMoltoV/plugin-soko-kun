@@ -12,10 +12,13 @@ import {
   hasNativeSource,
   inferCategory,
   inferOs,
+  OS_VALUES,
   summarizeReadme,
 } from './metadata';
 import {
   collectReviewFiles,
+  MAX_CONFIG_BYTES,
+  parseConfig,
   quotaRetryAt,
   REVIEW_FILES_COST,
   type ReviewOutcome,
@@ -186,6 +189,35 @@ function condition(code: ConditionCode, passed: boolean): Condition {
   return passed ? { code, result: 'passed' } : { code, result: 'failed', ...MESSAGES[code] };
 }
 
+// リリースが無いと判定できない条件。確認のモードで、リリースの前に直し方を示す。
+const RELEASE_CONDITIONS: ConditionCode[] = [
+  'not_immutable',
+  'no_verifiable_asset',
+  'unsupported_tag',
+  'installer_not_allowed',
+  'no_attestation',
+];
+
+// リリースの前の確認で、未判定の条件に付ける説明。不変のリリースは公開の後に直せないため、公開の前の確かめ方を書く。
+// リポジトリの設定を読む API は管理者の読み取りの権限を求め、本サービスのサインインはスコープを求めないため使わない。
+function beforeRelease(code: ConditionCode): Condition {
+  if (code === 'not_immutable') {
+    return {
+      code,
+      result: 'unchecked',
+      message:
+        'There is no release yet. The first release must be an immutable release, which cannot be changed after it is published.',
+      fix: 'Before you publish, turn on immutable releases in the repository settings. You can confirm it with: gh api repos/<owner>/<repository>/immutable-releases (it should show "enabled": true). Attach all files to a draft release first, then publish it, because files cannot be added after publishing.',
+    };
+  }
+  return {
+    code,
+    result: 'unchecked',
+    message: 'There is no release yet, so this condition was not checked.',
+    fix: MESSAGES[code].fix,
+  };
+}
+
 // 掲載の条件を順に判定する。リポジトリを取得できない、または管理者でないときは、そこで止める。
 // stopOnFailure のときは、最初に満たさなかった条件で止める (登録)。そうでなければ、判定できる条件をすべて判定する (確認のモード)。
 async function evaluateConditions(
@@ -222,7 +254,12 @@ async function evaluateConditions(
   const release = latest?.release ?? null;
   const published = release !== null && !release.draft && Boolean(release.published_at);
   conditions.push(condition('no_release', published));
-  if (!published || !release) return evaluated;
+  if (!published || !release) {
+    // 確認のモードでは、リリースを要る残りの条件を未判定として直し方とともに返す。
+    // 不変のリリースは公開の後に直せないため、作者が公開の前に条件を知れるようにする。
+    if (!stopOnFailure) conditions.push(...RELEASE_CONDITIONS.map(beforeRelease));
+    return evaluated;
+  }
   evaluated.release = release;
   evaluated.etag = latest?.etag ?? null;
   const assets = release.assets.filter((asset) => asset.digest?.startsWith('sha256:'));
@@ -392,12 +429,59 @@ async function validateAndStore(
 
 export const CHECKS_PER_DAY = 5;
 
+// 確認のモードで返す .soko-kun/config.json の判定。宣言は任意のため、無いこと (missing) は誤りではない。
+export interface ConfigCheck {
+  result: 'ok' | 'missing' | 'invalid' | 'no_declared_assets' | 'unchecked';
+  message?: string;
+  fix?: string;
+}
+
+const CONFIG_FIX =
+  'Write {"name": "<display name, 1-60 characters>", "os": ["windows" | "macos" | "linux"]}. Both fields are optional. Commit it before you tag the release, because the catalog reads the file at the release tag.';
+
+// 既定のブランチの宣言ファイルの形を確かめる。宣言した OS の配布物の有無は、最新のリリースがあるときだけ確かめる。
+async function checkConfig(
+  github: GitHubClient,
+  owner: string,
+  repo: string,
+  ref: string,
+  assets: GitHubAsset[],
+): Promise<ConfigCheck> {
+  let text: string | 'too_large' | null;
+  try {
+    text = await github.getTextFile(owner, repo, '.soko-kun', 'config.json', ref, MAX_CONFIG_BYTES);
+  } catch (error) {
+    if (error instanceof GitHubError && error.kind !== 'rate_limited' && error.kind !== 'unavailable') {
+      return { result: 'unchecked' };
+    }
+    throw error;
+  }
+  const assetOs = assets.length > 0 ? assets.map((asset) => inferOs(asset.name)) : [...OS_VALUES];
+  const parsed = parseConfig(text, assetOs);
+  if (parsed.state === 'ok') return { result: 'ok' };
+  if (parsed.state === 'missing') {
+    return {
+      result: 'missing',
+      message: 'The default branch has no .soko-kun/config.json. The catalog guesses the OS from the file names.',
+    };
+  }
+  if (parsed.state === 'no_declared_assets') {
+    return {
+      result: 'no_declared_assets',
+      message: 'The latest release has no files for the OS declared in .soko-kun/config.json.',
+      fix: 'Attach files for the declared OS, or change "os" in .soko-kun/config.json before the next release.',
+    };
+  }
+  return { result: 'invalid', message: '.soko-kun/config.json on the default branch is not valid.', fix: CONFIG_FIX };
+}
+
 export type CheckResult =
   | SubmitResult
   | {
       ok: boolean;
       mode: 'check';
       conditions: Condition[];
+      config: ConfigCheck;
       review: { status: 'done' | 'failed' | 'unavailable'; message?: string; resumesAt?: string } & ReviewSummary;
     };
 
@@ -426,6 +510,11 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
     const evaluated = await evaluateConditions(asUser, asApp, parsed, false);
     const { repo } = evaluated;
     const admin = evaluated.conditions.find((item) => item.code === 'not_admin')?.result === 'passed';
+    // 宣言ファイルは版の検査でだけ読んでいたため、誤りが不変のリリースの公開の後に分かった。公開の前に形を確かめる。
+    let config: ConfigCheck = { result: 'unchecked' };
+    if (admin && budget.canFetch(1 + REVIEW_FILES_COST + 1)) {
+      config = await checkConfig(asApp, repo.owner.login, repo.name, repo.default_branch, evaluated.assets);
+    }
     let review: { findings: Finding[]; unreadFiles: string[] } | null = null;
     let unavailable: ReviewOutcome['kind'] | null = null;
     if (admin && budget.canFetch(REVIEW_FILES_COST + 1)) {
@@ -445,6 +534,7 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
       ok: evaluated.conditions.every((item) => item.result === 'passed'),
       mode: 'check',
       conditions: evaluated.conditions,
+      config,
       review: {
         status: review ? 'done' : unavailable === 'quota' || unavailable === 'busy' ? 'unavailable' : 'failed',
         ...(unavailable === 'quota'

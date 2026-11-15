@@ -205,7 +205,7 @@ export const CRITERIA: Criterion[] = [
     kind: 'recommendation',
     judgedBy: 'rule',
     title: 'The default branch and release tags are protected by rulesets',
-    fix: 'Add a branch ruleset for the default branch that blocks deletion and force pushes and requires a pull request with at least one approval, and a tag ruleset that restricts creating, updating, and deleting release tags to repository admins.',
+    fix: 'Add a branch ruleset for the default branch that blocks deletion and force pushes and requires a pull request with at least one approval, and a tag ruleset that restricts creating, updating, and deleting release tags to repository admins. If you develop alone, add the Repository admin role to the bypass list of the branch ruleset with "For pull requests only" (bypass_mode: pull_request), so that you can merge your own pull request without an approval while force pushes and deletion stay blocked. Do not use the default "Always allow", which also allows force pushes and deletion. The catalog cannot read bypass lists and does not check them.',
   },
   {
     id: 'contribution-compliance',
