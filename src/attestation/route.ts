@@ -1,12 +1,17 @@
 // 証明の検証の受け口 (docs/design/scanning.md の「証明の検証の受け口」)。
 // GitHub Actions の verify.yaml に検証待ちの配布物と通信の検出を待つ版を渡し、結果を受け取る。どちらも OIDC のトークンを求める。
+import { MAX_ATTESTATION_ATTEMPTS } from '../domain/status';
 import type { Env } from '../env';
 import { NETWORK_PENDING, NETWORK_PENDING_LIMIT, parseNetworkScans } from '../review/network';
 import { verifyActionsToken } from './oidc';
 
 const MAX_PENDING = 50;
 const MAX_RESULTS = 100;
-export const MAX_ATTESTATION_ATTEMPTS = 5;
+// 検証待ちの配布物の条件。受け口の pending と、定期処理のワークフローの起動 (src/domain/cron.ts) で同じものを使う。
+// プレースホルダーは使わず、試行の上限を式に埋め込む。
+export const PENDING_ATTESTATIONS_FROM = `FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
+       JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id
+       WHERE p.removed = 0 AND (t.result = 'pending' OR (t.result = 'error' AND t.attempts < ${MAX_ATTESTATION_ATTEMPTS}))`;
 const WORKFLOW_PATH = /^\.github\/workflows\/[A-Za-z0-9._-]{1,100}\.ya?ml$/;
 const REASON = /^[a-z_]{1,40}$/;
 
@@ -34,9 +39,13 @@ function parseResults(body: unknown): ResultInput[] | null {
   const raw = (body as { results?: unknown })?.results;
   if (!Array.isArray(raw) || raw.length > MAX_RESULTS) return null;
   const results: ResultInput[] = [];
+  const seen = new Set<number>();
   for (const item of raw) {
     const entry = item as Record<string, unknown>;
     if (typeof entry?.assetId !== 'number' || !Number.isSafeInteger(entry.assetId)) return null;
+    // 同じ配布物の結果が 2 つあると、どちらを記録するかが順番で決まってしまうため、要求全体を拒否する。
+    if (seen.has(entry.assetId)) return null;
+    seen.add(entry.assetId);
     if (entry.result !== 'passed' && entry.result !== 'failed' && entry.result !== 'error') return null;
     const reason = typeof entry.reason === 'string' && REASON.test(entry.reason) ? entry.reason : null;
     const signerWorkflow =
@@ -59,12 +68,10 @@ export async function handleAttestations(request: Request, env: Env): Promise<Re
          p.github_repo_id,
          (SELECT group_concat(name, ' ') FROM (SELECT name FROM plugin_aliases
             WHERE plugin_id = p.id AND name IS NOT NULL ORDER BY created_at DESC)) AS previous_names
-       FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
-       JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id
-       WHERE p.removed = 0 AND (t.result = 'pending' OR (t.result = 'error' AND t.attempts < ?))
+       ${PENDING_ATTESTATIONS_FROM}
        ORDER BY t.checked_at IS NOT NULL, t.checked_at LIMIT ?`,
     )
-      .bind(MAX_ATTESTATION_ATTEMPTS, MAX_PENDING)
+      .bind(MAX_PENDING)
       .all<PendingAsset>();
     // 通信の API の検出を待つ版。版ごとに、そのコミットのソースを 1 回だけ調べる。
     const { results: releases } = await env.DB.prepare(

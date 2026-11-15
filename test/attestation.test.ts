@@ -4,6 +4,7 @@ import { env, SELF } from 'cloudflare:test';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ACTIONS_JWKS_URL, clearJwksCache, EXPECTED_REPOSITORY, EXPECTED_WORKFLOW_REF } from '../src/attestation/oidc';
+import { authorReport } from '../src/domain/author';
 import { submitPlugin } from '../src/domain/submit';
 import { githubHandlers, OWNER, REPO, REPO_ID, USER_TOKEN } from './fixtures/github';
 import { network } from './setup';
@@ -162,6 +163,37 @@ describe('証明の検証の結果', () => {
     expect(await env.DB.prepare('SELECT release_workflow FROM plugins').first('release_workflow')).toBe(
       '.github/workflows/push.yaml',
     );
+  });
+
+  // 同じ配布物の結果が 2 つあると、記録される結果が送った順番で決まってしまう。
+  it('同じ配布物の結果を 2 つ含む要求は、全体を 400 で拒否し、何も書き換えない', async () => {
+    const [first = 0] = await register();
+    const response = await SELF.fetch(RESULTS, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${await sign(valid())}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        results: [
+          { assetId: first, result: 'failed', reason: 'no_attestation' },
+          { assetId: first, result: 'passed', signerWorkflow: '.github/workflows/push.yaml' },
+        ],
+      }),
+    });
+    expect(response.status).toBe(400);
+    expect(await resultOf(first)).toMatchObject({ result: 'pending' });
+  });
+
+  // 試行を使い切った配布物は検証待ちから外れる。作者に「対応不要」と返し続けず、管理者の待ちとして返す。
+  it('error で試行を使い切った証明は、検証待ちから外れ、作者には管理者の待ちとして返す', async () => {
+    const [first = 0] = await register();
+    for (let i = 0; i < 5; i += 1) await post([{ assetId: first, result: 'error', reason: 'download_failed' }]);
+    const pending = await SELF.fetch(PENDING, { headers: { Authorization: `Bearer ${await sign(valid())}` } });
+    const body = (await pending.json()) as { assets: Array<{ assetId: number }> };
+    expect(body.assets.map((asset) => asset.assetId)).not.toContain(first);
+    const pluginId = await env.DB.prepare('SELECT id FROM plugins').first<string>('id');
+    const report = await authorReport(env, pluginId ?? '', true);
+    const codes = report?.versions[0]?.blockers.map((blocker) => blocker.code);
+    expect(codes).toContain('attestation_retries_exhausted');
+    expect(codes).not.toContain('attestation_pending');
   });
 
   it('一度失敗した証明は、あとから成功を送っても書き換えない', async () => {

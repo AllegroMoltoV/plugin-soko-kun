@@ -120,7 +120,7 @@ EOF
 gh api -X POST repos/<owner>/<repo>/rulesets --input tag-ruleset.json
 ```
 
-The GitHub REST reference does not list the numeric IDs of repository roles; `actor_id` 5 for the admin role comes from community examples. After creating the ruleset, open `https://github.com/<owner>/<repo>/rules` with the author and confirm that the bypass list shows the Repository admin role. Creating the same ruleset on that page is an alternative to the API. These settings do not protect against a takeover of the owner's account, because the owner can change them. Plugin Soko-kun relies on immutable releases, attestations, and the takeover signals for that case.
+The GitHub REST reference does not list the numeric IDs of repository roles. A ruleset created with `actor_id` 5 showed Repository admin in its bypass list on the repository's rules page (checked on Plugin Soko-kun's own repository). After creating the ruleset, open `https://github.com/<owner>/<repo>/settings/rules` with the author and confirm that the bypass list shows Repository admin. Creating the same ruleset on that page is an alternative to the API. These settings do not protect against a takeover of the owner's account, because the owner can change them. Plugin Soko-kun relies on immutable releases, attestations, and the takeover signals for that case.
 
 ## When `main` is protected by a ruleset
 

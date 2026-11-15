@@ -233,7 +233,7 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 | 経路 | 内容 |
 | --- | --- |
 | `GET /internal/attestations/pending` | `attestation_checks` の結果が `pending` か、`error` で試行が 5 回未満の配布物を、最大 50 件返す。各件に、配布物の ID・ダウンロード URL・`digest`・リポジトリ・リポジトリ ID・旧い名前の一覧・タグ・タグのコミット・記録したリリースのワークフローを含める。あわせて、通信の検出を待つ版 (`release_checks` の `network_state` が `pending` か、`error` で試行が 3 回未満) を、版の ID・現在のリポジトリ・タグのコミットとともに最大 5 件返す |
-| `POST /internal/attestations/results` | 配布物ごとの結果 (`passed`・`failed`・`error`、理由のコード、署名したワークフロー) を受け取り、`attestation_checks` に書く。`plugins` の `release_workflow` が NULL で、結果が `passed` なら、署名したワークフローを記録する。通信の検出の結果 (`networkScans`) を受け取り、`release_checks` の `network_state` と `network_hits` に書く。当たりは 50 件までとし、ファイルは 200 文字、行の文字列は 160 文字に切る。決まった API の名前でない当たりと、形の合わない当たりは捨てる |
+| `POST /internal/attestations/results` | 配布物ごとの結果 (`passed`・`failed`・`error`、理由のコード、署名したワークフロー) を受け取り、`attestation_checks` に書く。同じ配布物の結果を 2 つ含む要求は、全体を 400 で拒否する。`error` のまま試行を 5 回使い切った配布物は検証待ちから外れ、算出規則では管理者の確認待ち (`attestation_retries_exhausted`) として扱う。管理者は `retry-attestations` で検証待ちに戻せる ([掲載停止と再開](../operations/suspend.md))。`plugins` の `release_workflow` が NULL で、結果が `passed` なら、署名したワークフローを記録する。通信の検出の結果 (`networkScans`) を受け取り、`release_checks` の `network_state` と `network_hits` に書く。当たりは 50 件までとし、ファイルは 200 文字、行の文字列は 160 文字に切る。決まった API の名前でない当たりと、形の合わない当たりは捨てる |
 
 どちらの経路も、`Authorization: Bearer` の GitHub Actions の OIDC のトークンを求めます。Worker は、`https://token.actions.githubusercontent.com/.well-known/jwks` の鍵で RS256 の署名を確かめ、次をすべて満たすときだけ処理します。満たさなければ 401 を返します。
 

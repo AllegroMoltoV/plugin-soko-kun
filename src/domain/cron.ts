@@ -1,6 +1,6 @@
 // 15 分ごとの定期処理。無料プランの 1 回の上限に収めるため、予算を使い切ったら次回へ持ち越す。
 
-import { MAX_ATTESTATION_ATTEMPTS } from '../attestation/route';
+import { PENDING_ATTESTATIONS_FROM } from '../attestation/route';
 import { Budget, BudgetExceededError, budgetedFetch } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
@@ -521,16 +521,12 @@ async function dispatchVerify(env: Env, budget: Budget): Promise<VerifyDispatch>
   if (!token) return 'skipped_no_token';
   budget.takeD1Query();
   const pending = await env.DB.prepare(
-    `SELECT 1 FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
-     JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id
-     WHERE p.removed = 0 AND (t.result = 'pending' OR (t.result = 'error' AND t.attempts < ?))
+    `SELECT 1 ${PENDING_ATTESTATIONS_FROM}
      UNION ALL
      SELECT 1 FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id
      JOIN plugins p ON p.id = r.plugin_id WHERE ${NETWORK_PENDING} AND r.commit_sha IS NOT NULL
      LIMIT 1`,
-  )
-    .bind(MAX_ATTESTATION_ATTEMPTS)
-    .first();
+  ).first();
   if (!pending) return 'skipped_no_pending';
   try {
     const response = await budgetedFetch(budget, VERIFY_DISPATCH_URL, {

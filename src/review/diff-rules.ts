@@ -49,18 +49,25 @@ export function checkDiff(diff: string, truncated: boolean, owner: string, repo:
     hits.push(hit);
   };
   let file: string | undefined;
+  // バイナリは追加と変更だけを数え、削除 (b の側が /dev/null) は数えない (審査の基準の「追加または変更」)。
+  let deleted = false;
   for (const line of diff.split('\n')) {
     const header = FILE_HEADER.exec(line);
     if (header) {
       const [, before = '', after = ''] = header;
       file = after;
+      deleted = false;
       if (WORKFLOW_PATHS.some((prefix) => after.startsWith(prefix) || before.startsWith(prefix))) {
         add({ rule: 'diff-workflow-changed', file });
       }
       continue;
     }
+    if (line.startsWith('deleted file mode')) {
+      deleted = true;
+      continue;
+    }
     if (line.startsWith('Binary files ') || line === 'GIT binary patch') {
-      add({ rule: 'diff-binary-added', file });
+      if (!deleted && !/ and \/dev\/null differ$/.test(line)) add({ rule: 'diff-binary-added', file });
       continue;
     }
     if (line.startsWith('+') && !line.startsWith('+++')) {

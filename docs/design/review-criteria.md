@@ -43,7 +43,7 @@
 | ID | 内容 |
 | --- | --- |
 | `diff-workflow-changed` | `.github/workflows/`・`.github/actions/`・`.github/scripts/` 配下のファイルが変わった。ワークフローと、ワークフローが呼ぶ処理の置き場所 |
-| `diff-binary-added` | バイナリのファイルが追加または変更された |
+| `diff-binary-added` | バイナリのファイルが追加または変更された。削除だけのときは当てない |
 | `diff-external-link` | このリポジトリ・`obsproject.com`・倉庫くん以外のホストへのリンクやダウンロードが追加された |
 | `diff-too-large` | 差分が 24,000 文字を超えた |
 | `tag-not-on-default-branch` | 新しい版のタグのコミットが、既定のブランチの履歴に無い。差分ではなく、記録した版のコミットと既定のブランチを GitHub の compare で比べて判定する。書き込みの権限を持つ人や漏れたトークンが、既定のブランチを通さないコードから版を作る経路を管理者の確認に回すため |

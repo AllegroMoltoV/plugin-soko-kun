@@ -33,6 +33,21 @@ describe('checkDiff', () => {
     expect(hits).toEqual([{ rule: 'diff-binary-added', file: 'data/model.onnx' }]);
   });
 
+  // 削除だけの版を管理者の確認待ちにしない。姉妹版の test/review/diff-rules.test.ts と同じ形。
+  it('バイナリのファイルの削除は数えない', () => {
+    const hits = checkDiff(
+      diff(
+        'diff --git a/data/old.onnx b/data/old.onnx',
+        'deleted file mode 100644',
+        'Binary files a/data/old.onnx and /dev/null differ',
+      ),
+      false,
+      'owner',
+      'plugin',
+    );
+    expect(hits).toEqual([]);
+  });
+
   it('別のホストと、同じ名前の別のリポジトリへのリンクの追加に当たる', () => {
     const hits = checkDiff(
       diff(

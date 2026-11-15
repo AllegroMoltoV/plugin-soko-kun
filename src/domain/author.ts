@@ -9,6 +9,7 @@ import type { Finding } from '../review/llm';
 import { getPluginViewByInternalId } from './catalog';
 import {
   type AttestationResult,
+  attestationResultSql,
   BLOCKER_WAITS_FOR,
   type BlockerCode,
   type ConfigState,
@@ -101,6 +102,11 @@ const BLOCKER_TEXT: Record<BlockerCode, { message: string; fix: string; criterio
     message: 'A release file has no valid build provenance attestation for this tag, commit, and release workflow.',
     fix: '',
     criterion: 'attestation',
+  },
+  attestation_retries_exhausted: {
+    message:
+      'The build provenance attestations could not be verified after several attempts, for example because a file could not be downloaded. An administrator checks them and retries. The review has no fixed schedule.',
+    fix: 'No action is needed. If the release files were removed or replaced, publish a new release.',
   },
   config_pending: { message: 'The .soko-kun/config.json check has not run yet.', fix: 'No action is needed.' },
   config_invalid: {
@@ -195,7 +201,7 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
       'SELECT c.* FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id WHERE r.plugin_id = ?',
     ).bind(internalId),
     env.DB.prepare(
-      `SELECT a.release_id, a.github_asset_id, a.name, a.digest, a.os, t.result AS attestation, s.result AS scan
+      `SELECT a.release_id, a.github_asset_id, a.name, a.digest, a.os, ${attestationResultSql} AS attestation, s.result AS scan
        FROM assets a JOIN releases r ON r.github_release_id = a.release_id
        LEFT JOIN attestation_checks t ON t.github_asset_id = a.github_asset_id
        LEFT JOIN scans s ON s.digest = a.digest AND s.scanner = 'malwarebazaar'
@@ -298,6 +304,7 @@ function toChecks(row: CheckRow): ReleaseChecks {
 
 function attestationSummary(results: Array<AttestationResult | null>): string {
   if (results.some((result) => result === 'failed')) return 'failed';
+  if (results.some((result) => result === 'exhausted')) return 'retries_exhausted';
   if (results.length > 0 && results.every((result) => result === 'passed')) return 'passed';
   return 'pending';
 }

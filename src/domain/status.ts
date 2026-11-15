@@ -4,7 +4,14 @@ export type Scanner = 'malwarebazaar';
 export type ScanResult = 'pending' | 'malicious' | 'not_found' | 'error';
 export type PluginStatus = 'listed' | 'pending' | 'suspended' | 'removed';
 
-export type AttestationResult = 'pending' | 'passed' | 'failed' | 'error';
+// exhausted は保存する値ではなく、error のまま試行を使い切った配布物を読み出すときの値 (attestationResultSql)。
+export type AttestationResult = 'pending' | 'passed' | 'failed' | 'error' | 'exhausted';
+
+// 証明の検証は error のとき MAX_ATTESTATION_ATTEMPTS 回まで試み、使い切った配布物は検証待ちから外れて管理者を待つ。
+export const MAX_ATTESTATION_ATTEMPTS = 5;
+
+// attestation_checks を別名 t で読むときの、作者と算出規則に渡す結果の式。
+export const attestationResultSql = `CASE WHEN t.result = 'error' AND t.attempts >= ${MAX_ATTESTATION_ATTEMPTS} THEN 'exhausted' ELSE t.result END`;
 export type DiffState = 'pending' | 'passed' | 'held' | 'skipped' | 'error';
 export type ConfigState = 'pending' | 'ok' | 'missing' | 'invalid' | 'no_declared_assets';
 export type ReviewState = 'pending' | 'done' | 'failed';
@@ -58,6 +65,7 @@ export type BlockerCode =
   | 'installer_not_allowed'
   | 'attestation_pending'
   | 'attestation_failed'
+  | 'attestation_retries_exhausted'
   | 'config_pending'
   | 'config_invalid'
   | 'config_no_declared_assets'
@@ -80,6 +88,7 @@ export const BLOCKER_WAITS_FOR: Record<BlockerCode, WaitsFor> = {
   installer_not_allowed: 'author',
   attestation_pending: 'system',
   attestation_failed: 'author',
+  attestation_retries_exhausted: 'admin',
   config_pending: 'system',
   config_invalid: 'author',
   config_no_declared_assets: 'author',
@@ -126,7 +135,9 @@ export function releaseBlockers(release: ReleaseForStatus, lookup: ScanLookup): 
   if (!checks.immutable) blockers.push('not_immutable');
   if (hasInstaller(release.assets)) blockers.push('installer_not_allowed');
   const attestations = release.assets.map((asset) => asset.attestation ?? 'pending');
+  // 試行を使い切った配布物は誰も検証し直さないため、本サービスの処理待ちではなく管理者の待ちとして返す。
   if (attestations.some((result) => result === 'failed')) blockers.push('attestation_failed');
+  else if (attestations.some((result) => result === 'exhausted')) blockers.push('attestation_retries_exhausted');
   else if (attestations.some((result) => result !== 'passed')) blockers.push('attestation_pending');
 
   if (checks.configState === 'pending') blockers.push('config_pending');
