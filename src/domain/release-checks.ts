@@ -44,7 +44,7 @@ const MAX_TOTAL_CHARS = 60_000;
 const MAX_WORKFLOWS = 6;
 const MAX_COMPILER_FILES = 2;
 const MAX_ISSUE_TEMPLATES = 2;
-const MAX_CONFIG_BYTES = 16 * 1024;
+export const MAX_CONFIG_BYTES = 16 * 1024;
 
 interface PendingRow {
   github_release_id: number;

@@ -124,7 +124,11 @@ The GitHub REST reference does not list the numeric IDs of repository roles. A r
 
 ## When `main` is protected by a ruleset
 
-If `main` is protected by a ruleset that requires one approving review, the author cannot approve their own pull request and cannot merge it. Some authors temporarily disable the ruleset to merge:
+If `main` is protected by a ruleset that requires one approving review, the author cannot approve their own pull request and cannot merge it.
+
+For an author who develops alone, the recommended setting is to add the Repository admin role (`"actor_type": "RepositoryRole"`, `"actor_id": 5`) to the bypass list of the branch ruleset with `"bypass_mode": "pull_request"` ("For pull requests only" on the rules page). The author can then merge their own pull request without an approval, and force pushes and deletion stay blocked. Do not use `"bypass_mode": "always"` ("Always allow"), which also allows force pushes and deletion. Plugin Soko-kun cannot read bypass lists, so this setting still meets `repository-protection`.
+
+Some authors instead temporarily disable the ruleset to merge:
 
 1. Get the author's approval for this specific merge.
 2. Read the ruleset with `gh api repos/<owner>/<repo>/rulesets/<id>` and keep the output.

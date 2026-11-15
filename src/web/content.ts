@@ -131,7 +131,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Checks run every 15 minutes and usually finish within a few hours.',
             'This platform lists only releases that pass the checks. When you publish a new release on GitHub, this platform picks it up and checks it automatically. You do not need to submit it again.',
             'To see the results, ask your AI agent to check your plugin with list_my_plugins, for example: "Check whether my plugin\'s new release is listed". The agent shows the state of each release, the reasons a release is not listed, the review findings, and how to fix them.',
-            'Before you publish a release, ask the agent to run submit_plugin in check mode. It checks the listing conditions on the latest release and reviews the latest commit of the default branch. It does not register the plugin. You can use check mode up to 5 times in 24 hours.',
+            'Before you publish a release, ask the agent to run submit_plugin in check mode. It checks the listing conditions on the latest release and reviews the latest commit of the default branch. It does not register the plugin. You can use check mode up to 5 times in 24 hours. Check mode also requires signing in with GitHub. A listed release must be an immutable release, and files cannot be added to it after it is published: attach all files to a draft release first, then publish it. The rules that look for instructions to turn off a security feature or to run a downloaded command also match sentences that tell users not to do it.',
             'Some releases wait for an administrator to confirm them. To explain the changes in such a release, open an issue in the repository of this platform: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
@@ -204,7 +204,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Protecting your releases',
           paragraphs: [
             'Tag each release on a commit of the default branch. A release whose tag points to a commit that is not on the default branch waits for an administrator to confirm it.',
-            'Anyone with write access to the repository can create a release. This platform recommends protecting the default branch with a ruleset that blocks deletion and force pushes and requires a pull request with at least one approval, and protecting release tags with a tag ruleset that lets only repository admins create, update, or delete them. These settings are not listing conditions.',
+            'Anyone with write access to the repository can create a release. This platform recommends protecting the default branch with a ruleset that blocks deletion and force pushes and requires a pull request with at least one approval, and protecting release tags with a tag ruleset that lets only repository admins create, update, or delete them. These settings are not listing conditions. If you develop alone, add the Repository admin role to the bypass list of the branch ruleset with "For pull requests only", so that you can merge your own pull request while force pushes and deletion stay blocked. Do not use "Always allow", which also allows force pushes and deletion.',
           ],
         },
         {
@@ -492,7 +492,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '検査は 15 分ごとに進み、ふつう数時間以内に終わります。',
             'このプラットフォームは、検査を通った版だけを掲載します。GitHub で新しいリリースを公開すると、このプラットフォームは自動で取り込んで検査します。登録し直す必要はありません。',
             '検査の結果は、AI エージェントに list_my_plugins で確かめさせてください。話しかけ方の例は「自分のプラグインの新しいリリースの掲載の状態を確かめて」です。AI エージェントは、版ごとの状態・掲載していない理由・レビューの指摘・直し方を示します。',
-            'リリースを公開する前に、AI エージェントに submit_plugin の確認のモードを使わせてください。確認のモードは、最新のリリースで掲載の条件を判定し、既定のブランチの最新のコミットをレビューします。このモードでは登録しません。確認のモードは 24 時間に 5 回まで使えます。',
+            'リリースを公開する前に、AI エージェントに submit_plugin の確認のモードを使わせてください。確認のモードは、最新のリリースで掲載の条件を判定し、既定のブランチの最新のコミットをレビューします。このモードでは登録しません。確認のモードは 24 時間に 5 回まで使えます。確認のモードにも GitHub でのサインインが要ります。掲載するリリースは不変のリリースで、公開の後は配布物を足せません。下書きのリリースにすべての配布物を添付してから公開してください。セキュリティの機能を切らせる案内と、取得したものを実行させるコマンドを探すルールは、「〜しないでください」のように禁じる文にも当たります。',
             '管理者の確認待ちになる版もあります。その版の変更の意図を説明するときは、このプラットフォームのリポジトリの Issue に書いてください: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
@@ -565,7 +565,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'リリースを守る設定',
           paragraphs: [
             'リリースのタグは、既定のブランチのコミットに付けてください。既定のブランチに無いコミットにタグを付けたリリースは、管理者の確認を待ちます。',
-            'リリースは、リポジトリへの書き込みの権限を持つ人なら誰でも作れます。本サービスは、既定のブランチを ruleset で守り、削除と強制 push を禁じて承認 1 名以上の PR を必須にすること、リリースのタグをタグの ruleset で守り、作成・更新・削除をリポジトリの管理者だけに許すことを勧めます。これらの設定は掲載の条件ではありません。',
+            'リリースは、リポジトリへの書き込みの権限を持つ人なら誰でも作れます。本サービスは、既定のブランチを ruleset で守り、削除と強制 push を禁じて承認 1 名以上の PR を必須にすること、リリースのタグをタグの ruleset で守り、作成・更新・削除をリポジトリの管理者だけに許すことを勧めます。これらの設定は掲載の条件ではありません。1 人で開発する作者は、ブランチの ruleset の bypass の一覧に、リポジトリの管理者 (Repository admin) を「For pull requests only」で足してください。自分の PR を承認なしでマージでき、強制 push と削除の禁止は残ります。「Always allow」は強制 push と削除も通すため使わないでください。',
           ],
         },
         {
@@ -857,7 +857,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '检查每 15 分钟进行一次，通常在几小时内完成。',
             '本平台只收录通过检查的发布。您在 GitHub 上发布新版本后，本平台会自动获取并检查它。无需重新提交。',
             '要查看检查结果，请让 AI 代理用 list_my_plugins 确认您的插件，例如：“确认我的插件的新版本是否已收录”。代理会显示每个发布的状态、未收录的原因、审查意见以及修改方法。',
-            '发布之前，请让代理以检查模式运行 submit_plugin。检查模式会用最新发布判断收录条件，并审查默认分支的最新提交。检查模式不会登记插件。24 小时内最多可使用 5 次检查模式。',
+            '发布之前，请让代理以检查模式运行 submit_plugin。检查模式会用最新发布判断收录条件，并审查默认分支的最新提交。检查模式不会登记插件。24 小时内最多可使用 5 次检查模式。检查模式也需要用 GitHub 登录。上架的发布必须是不可变发布，发布后不能再添加文件：请先把所有文件附加到草稿发布，再公开发布。查找关闭安全功能的说明和运行下载内容的命令的规则，也会匹配告诉用户不要这样做的句子。',
             '有些发布需要等待管理员确认。如需说明此类发布中的变更，请在本平台的仓库中提交 Issue：https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
@@ -930,7 +930,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '保护你的发布',
           paragraphs: [
             '请把发布的标签打在默认分支的提交上。标签指向不在默认分支上的提交的发布，会等待管理员确认。',
-            '对仓库有写入权限的人都可以创建发布。本平台建议用规则集保护默认分支，禁止删除和强制推送，并要求至少一人批准的拉取请求；同时用标签规则集保护发布标签，只允许仓库管理员创建、更新或删除标签。这些设置不是上架条件。',
+            '对仓库有写入权限的人都可以创建发布。本平台建议用规则集保护默认分支，禁止删除和强制推送，并要求至少一人批准的拉取请求；同时用标签规则集保护发布标签，只允许仓库管理员创建、更新或删除标签。这些设置不是上架条件。如果你独自开发，请在分支规则集的绕过列表中，以 "For pull requests only" 添加仓库管理员（Repository admin）。这样可以合并自己的拉取请求，同时仍禁止强制推送和删除。请不要使用 "Always allow"，它也会允许强制推送和删除。',
           ],
         },
         {
@@ -1198,7 +1198,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '檢查每 15 分鐘進行一次，通常在幾小時內完成。',
             '本平台只收錄通過檢查的發行。您在 GitHub 上發布新版本後，本平台會自動取得並檢查它。無需重新提交。',
             '要查看檢查結果，請讓 AI 代理以 list_my_plugins 確認您的外掛，例如：「確認我的外掛的新版本是否已收錄」。代理會顯示每個發行的狀態、未收錄的原因、審查意見以及修改方法。',
-            '發布之前，請讓代理以檢查模式執行 submit_plugin。檢查模式會以最新發行判斷收錄條件，並審查預設分支的最新提交。檢查模式不會登記外掛。24 小時內最多可使用 5 次檢查模式。',
+            '發布之前，請讓代理以檢查模式執行 submit_plugin。檢查模式會以最新發行判斷收錄條件，並審查預設分支的最新提交。檢查模式不會登記外掛。24 小時內最多可使用 5 次檢查模式。檢查模式也需要以 GitHub 登入。上架的發行必須是不可變發行，發布後不能再新增檔案：請先把所有檔案附加到草稿發行，再公開發行。尋找關閉安全功能的說明和執行下載內容的指令的規則，也會比對告訴使用者不要這樣做的句子。',
             '有些發行需要等待管理員確認。如需說明此類發行中的變更，請在本平台的儲存庫中提出 Issue：https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
@@ -1271,7 +1271,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '保護你的發行版本',
           paragraphs: [
             '請把發行版本的標籤打在預設分支的提交上。標籤指向不在預設分支上的提交的發行版本，會等待管理員確認。',
-            '對儲存庫有寫入權限的人都可以建立發行版本。本平台建議以規則集保護預設分支，禁止刪除與強制推送，並要求至少一人核准的拉取要求；同時以標籤規則集保護發行標籤，只允許儲存庫管理員建立、更新或刪除標籤。這些設定不是上架條件。',
+            '對儲存庫有寫入權限的人都可以建立發行版本。本平台建議以規則集保護預設分支，禁止刪除與強制推送，並要求至少一人核准的拉取要求；同時以標籤規則集保護發行標籤，只允許儲存庫管理員建立、更新或刪除標籤。這些設定不是上架條件。如果你獨自開發，請在分支規則集的略過清單中，以 "For pull requests only" 新增儲存庫管理員（Repository admin）。這樣可以合併自己的拉取要求，同時仍禁止強制推送與刪除。請不要使用 "Always allow"，它也會允許強制推送與刪除。',
           ],
         },
         {
@@ -1539,7 +1539,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '검사는 15분마다 진행되며, 보통 몇 시간 안에 끝납니다.',
             '이 플랫폼은 검사를 통과한 릴리스만 게재합니다. GitHub에서 새 릴리스를 공개하면 이 플랫폼이 자동으로 가져와 검사합니다. 다시 등록할 필요는 없습니다.',
             '검사 결과는 AI 에이전트에게 list_my_plugins로 확인하게 해 주세요. 예: "내 플러그인의 새 릴리스가 게재되었는지 확인해 줘". 에이전트는 릴리스마다의 상태, 게재되지 않은 이유, 리뷰 지적 사항, 고치는 방법을 보여 줍니다.',
-            '릴리스를 공개하기 전에 에이전트에게 submit_plugin의 확인 모드를 실행하게 해 주세요. 확인 모드는 최신 릴리스로 게재 조건을 판정하고, 기본 브랜치의 최신 커밋을 리뷰합니다. 확인 모드에서는 등록하지 않습니다. 확인 모드는 24시간에 5번까지 사용할 수 있습니다.',
+            '릴리스를 공개하기 전에 에이전트에게 submit_plugin의 확인 모드를 실행하게 해 주세요. 확인 모드는 최신 릴리스로 게재 조건을 판정하고, 기본 브랜치의 최신 커밋을 리뷰합니다. 확인 모드에서는 등록하지 않습니다. 확인 모드는 24시간에 5번까지 사용할 수 있습니다. 확인 모드도 GitHub 로그인이 필요합니다. 게재하는 릴리스는 불변 릴리스여야 하며, 공개한 뒤에는 파일을 추가할 수 없습니다. 초안 릴리스에 모든 파일을 첨부한 뒤 공개해 주세요. 보안 기능을 끄게 하는 안내와 내려받은 것을 실행하게 하는 명령을 찾는 규칙은 그렇게 하지 말라고 안내하는 문장에도 해당합니다.',
             '관리자의 확인을 기다리는 릴리스도 있습니다. 그런 릴리스의 변경 의도를 설명하려면 이 플랫폼 저장소의 Issue에 적어 주세요: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
@@ -1612,7 +1612,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '릴리스 보호하기',
           paragraphs: [
             '릴리스 태그는 기본 브랜치의 커밋에 붙여 주세요. 기본 브랜치에 없는 커밋을 가리키는 태그의 릴리스는 관리자의 확인을 기다립니다.',
-            '저장소에 쓰기 권한이 있는 사람은 누구나 릴리스를 만들 수 있습니다. 이 플랫폼은 기본 브랜치를 룰셋으로 보호해 삭제와 강제 푸시를 막고 1명 이상의 승인이 있는 풀 리퀘스트를 필수로 할 것, 그리고 태그 룰셋으로 릴리스 태그를 보호해 저장소 관리자만 태그를 만들고 바꾸고 지울 수 있게 할 것을 권합니다. 이 설정들은 게재 조건이 아닙니다.',
+            '저장소에 쓰기 권한이 있는 사람은 누구나 릴리스를 만들 수 있습니다. 이 플랫폼은 기본 브랜치를 룰셋으로 보호해 삭제와 강제 푸시를 막고 1명 이상의 승인이 있는 풀 리퀘스트를 필수로 할 것, 그리고 태그 룰셋으로 릴리스 태그를 보호해 저장소 관리자만 태그를 만들고 바꾸고 지울 수 있게 할 것을 권합니다. 이 설정들은 게재 조건이 아닙니다. 혼자 개발한다면 브랜치 룰셋의 우회 목록에 저장소 관리자(Repository admin)를 "For pull requests only"로 추가해 주세요. 자신의 풀 리퀘스트를 승인 없이 병합할 수 있고, 강제 푸시와 삭제는 계속 막힙니다. "Always allow"는 강제 푸시와 삭제도 허용하므로 사용하지 마세요.',
           ],
         },
         {
@@ -1895,7 +1895,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'As verificações rodam a cada 15 minutos e costumam terminar em algumas horas.',
             'Esta plataforma lista apenas versões que passam nas verificações. Quando você publica uma nova versão no GitHub, esta plataforma a obtém e a verifica automaticamente. Não é preciso enviá-la de novo.',
             'Para ver os resultados, peça ao agente de IA para verificar seu plugin com list_my_plugins, por exemplo: "Verifique se a nova versão do meu plugin está listada". O agente mostra o estado de cada versão, os motivos de uma versão não estar listada, os apontamentos da revisão e como corrigi-los.',
-            'Antes de publicar uma versão, peça ao agente para executar submit_plugin no modo de verificação. Ele avalia as condições de listagem na versão mais recente e revisa o commit mais recente do branch padrão. Ele não registra o plugin. Você pode usar o modo de verificação até 5 vezes em 24 horas.',
+            'Antes de publicar uma versão, peça ao agente para executar submit_plugin no modo de verificação. Ele avalia as condições de listagem na versão mais recente e revisa o commit mais recente do branch padrão. Ele não registra o plugin. Você pode usar o modo de verificação até 5 vezes em 24 horas. O modo de verificação também exige login com o GitHub. Uma versão listada precisa ser uma versão imutável, e não é possível adicionar arquivos depois de publicá-la: anexe todos os arquivos a um rascunho de versão e só então publique. As regras que procuram instruções para desativar um recurso de segurança ou executar um comando baixado também detectam frases que pedem para não fazer isso.',
             'Algumas versões aguardam a confirmação de um administrador. Para explicar as mudanças de uma versão assim, abra uma issue no repositório desta plataforma: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
@@ -1968,7 +1968,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Proteger suas versões',
           paragraphs: [
             'Crie a tag de cada versão em um commit do branch padrão. Uma versão cuja tag aponta para um commit fora do branch padrão aguarda a confirmação de um administrador.',
-            'Qualquer pessoa com permissão de escrita no repositório pode criar uma versão. Esta plataforma recomenda proteger o branch padrão com um ruleset que bloqueie a exclusão e o push forçado e exija um pull request com pelo menos uma aprovação, e proteger as tags de versão com um ruleset de tags que permita apenas aos administradores do repositório criar, atualizar ou excluir tags. Essas configurações não são condições de listagem.',
+            'Qualquer pessoa com permissão de escrita no repositório pode criar uma versão. Esta plataforma recomenda proteger o branch padrão com um ruleset que bloqueie a exclusão e o push forçado e exija um pull request com pelo menos uma aprovação, e proteger as tags de versão com um ruleset de tags que permita apenas aos administradores do repositório criar, atualizar ou excluir tags. Essas configurações não são condições de listagem. Se você desenvolve sozinho, adicione o papel Repository admin à lista de bypass do ruleset do branch com "For pull requests only", para mesclar seu próprio pull request enquanto o push forçado e a exclusão continuam bloqueados. Não use "Always allow", que também permite push forçado e exclusão.',
           ],
         },
         {
@@ -2262,7 +2262,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Las revisiones se ejecutan cada 15 minutos y suelen terminar en unas horas.',
             'Esta plataforma incluye solo versiones que pasan las revisiones. Cuando publicas una nueva versión en GitHub, esta plataforma la obtiene y la revisa automáticamente. No necesitas enviarla de nuevo.',
             'Para ver los resultados, pide al agente de IA que revise tu plugin con list_my_plugins, por ejemplo: "Revisa si la nueva versión de mi plugin está en la lista". El agente muestra el estado de cada versión, los motivos por los que una versión no está en la lista, las observaciones de la revisión y cómo corregirlas.',
-            'Antes de publicar una versión, pide al agente que ejecute submit_plugin en modo de comprobación. Este modo evalúa las condiciones de la lista en la versión más reciente y revisa el commit más reciente de la rama predeterminada. No registra el plugin. Puedes usar el modo de comprobación hasta 5 veces en 24 horas.',
+            'Antes de publicar una versión, pide al agente que ejecute submit_plugin en modo de comprobación. Este modo evalúa las condiciones de la lista en la versión más reciente y revisa el commit más reciente de la rama predeterminada. No registra el plugin. Puedes usar el modo de comprobación hasta 5 veces en 24 horas. El modo de comprobación también requiere iniciar sesión con GitHub. Una versión publicada debe ser una versión inmutable y no se pueden añadir archivos después de publicarla: adjunta todos los archivos a un borrador de versión y luego publícala. Las reglas que buscan instrucciones para desactivar una función de seguridad o ejecutar un comando descargado también detectan frases que piden no hacerlo.',
             'Algunas versiones esperan la confirmación de un administrador. Para explicar los cambios de una versión así, abre un issue en el repositorio de esta plataforma: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
           ],
         },
@@ -2335,7 +2335,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Proteger tus versiones',
           paragraphs: [
             'Crea la etiqueta de cada versión en un commit de la rama predeterminada. Una versión cuya etiqueta apunta a un commit fuera de la rama predeterminada espera la confirmación de un administrador.',
-            'Cualquier persona con permiso de escritura en el repositorio puede crear una versión. Esta plataforma recomienda proteger la rama predeterminada con un ruleset que bloquee la eliminación y el push forzado y exija un pull request con al menos una aprobación, y proteger las etiquetas de versión con un ruleset de etiquetas que solo permita a los administradores del repositorio crear, actualizar o eliminar etiquetas. Estos ajustes no son condiciones de publicación.',
+            'Cualquier persona con permiso de escritura en el repositorio puede crear una versión. Esta plataforma recomienda proteger la rama predeterminada con un ruleset que bloquee la eliminación y el push forzado y exija un pull request con al menos una aprobación, y proteger las etiquetas de versión con un ruleset de etiquetas que solo permita a los administradores del repositorio crear, actualizar o eliminar etiquetas. Estos ajustes no son condiciones de publicación. Si desarrollas solo, añade el rol Repository admin a la lista de bypass del ruleset de la rama con "For pull requests only", para poder fusionar tu propio pull request mientras el push forzado y la eliminación siguen bloqueados. No uses "Always allow", que también permite el push forzado y la eliminación.',
           ],
         },
         {

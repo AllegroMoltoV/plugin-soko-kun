@@ -94,7 +94,7 @@ LLM には、各項目の観点がリポジトリに当てはまれば満たす�
 | `user-verification-guide` | 利用者に、ダウンロードしたファイルを検証する手順を示す。README に `gh attestation verify`・SHA-256・checksum・`Get-FileHash`・ハッシュのいずれかがあれば満たす | ルール | live-backgroundremoval-lite の開発者ノート |
 | `install-location` | Windows では `C:\ProgramData\obs-studio\plugins` に置かせる。README にこのパスがあれば満たす | ルール | obs-backgroundremoval Issue 832 |
 | `hermetic-build` | ビルドのランナーの版を固定する。読んだワークフローに `-latest` のランナーが無ければ満たす。PATH の絞り込みは判定しない | ルール | obs-backgroundremoval PR 846 |
-| `repository-protection` | 既定のブランチとリリースのタグを ruleset で守る。有効な ruleset のうち、既定のブランチ (`~DEFAULT_BRANCH` か `~ALL`) を対象にして削除と強制 push を禁じ、承認 1 名以上の PR を必須にするブランチの ruleset と、タグの作成・更新・削除を制限するタグの ruleset の両方があれば満たす。ruleset の例外を許す相手は API で読めないため判定しない。既定のブランチを名前で指定した ruleset は数えない | ルール | 2026-11-15 の調査 (書き込みの権限を持つ人が既定のブランチ以外のコミットからリリースを作れる) |
+| `repository-protection` | 既定のブランチとリリースのタグを ruleset で守る。有効な ruleset のうち、既定のブランチ (`~DEFAULT_BRANCH` か `~ALL`) を対象にして削除と強制 push を禁じ、承認 1 名以上の PR を必須にするブランチの ruleset と、タグの作成・更新・削除を制限するタグの ruleset の両方があれば満たす。ruleset の例外を許す相手は API で読めないため判定しない。1 人で開発する作者には、ブランチの ruleset の例外にリポジトリの管理者を「For pull requests only」で足す設定を案内する (強制 push と削除の禁止は残る)。既定のブランチを名前で指定した ruleset は数えない | ルール | 2026-11-15 の調査 (書き込みの権限を持つ人が既定のブランチ以外のコミットからリリースを作れる) |
 | `contribution-compliance` | コントリビューターに、ライセンスの同意・DCO・署名付きコミットを求める。`CONTRIBUTING.md` か PR のテンプレートに DCO・Signed-off-by・sign-off のいずれかがあれば満たす | ルール | live-backgroundremoval-lite の CONTRIBUTING.md |
 | `reuse-compliance` | REUSE に準拠する | ルール (将来) | live-backgroundremoval-lite の CONTRIBUTING.md |
 | `license-notices` | 同梱する依存とモデルのライセンスを列挙する | 判定しない | live-backgroundremoval-lite の README |
