@@ -1,5 +1,7 @@
 // 審査の基準と推奨のうち、ファイルを見れば機械的に決まる項目の判定 (docs/design/review-criteria.md)。
 // 同じ入力には同じ結果を返す純粋な関数にする。LLM には、ここで計算した事実を渡し、文章の意図を読む項目だけを判定させる。
+
+import type { RulesetSnapshot } from '../github';
 import { LLM_CRITERIA } from './criteria';
 import type { Finding, FindingResult } from './llm';
 import type { NetworkScan } from './network';
@@ -14,6 +16,8 @@ export interface RepositorySnapshot {
   unreadFiles: string[];
   // 通信の API の検出の結果。null か未設定なら、検出していない (確認のモード、期限切れ、検出の失敗)。
   network?: NetworkScan | null;
+  // 有効な ruleset。未設定か readable が false なら、読めなかった。
+  rulesets?: ({ readable: true } & RulesetSnapshot) | { readable: false };
 }
 
 type Evidence = Finding['evidence'][number];
@@ -268,6 +272,43 @@ function hermeticBuild(snapshot: RepositorySnapshot): Finding {
   return finding(id, 'met', 'Checked by rules: every workflow uses runner images with fixed versions.');
 }
 
+const RULE_TYPES = (rules: RulesetSnapshot['items'][number]['rules']) => new Set(rules.map((rule) => rule.type));
+
+function repositoryProtection(snapshot: RepositorySnapshot): Finding {
+  const id = 'repository-protection';
+  const rulesets = snapshot.rulesets;
+  if (!rulesets?.readable) return finding(id, 'unclear', 'The repository rulesets could not be read.');
+  // 既定のブランチの名前は入力に無いため、名前を直接指定した ruleset は数えない。
+  const branch = rulesets.items.some((item) => {
+    if (item.target !== 'branch') return false;
+    if (!item.include.some((name) => name === '~DEFAULT_BRANCH' || name === '~ALL')) return false;
+    const types = RULE_TYPES(item.rules);
+    const review = item.rules.find((rule) => rule.type === 'pull_request')?.parameters.required_approving_review_count;
+    return types.has('deletion') && types.has('non_fast_forward') && typeof review === 'number' && review >= 1;
+  });
+  const tag = rulesets.items.some((item) => {
+    if (item.target !== 'tag' || item.include.length === 0) return false;
+    const types = RULE_TYPES(item.rules);
+    return types.has('creation') && types.has('update') && types.has('deletion');
+  });
+  const note = 'Bypass lists are not visible to the catalog and are not checked.';
+  if (branch && tag)
+    return finding(
+      id,
+      'met',
+      `Checked by rules: a branch ruleset protects the default branch and requires a reviewed pull request, and a tag ruleset restricts creating, updating, and deleting tags. ${note}`,
+    );
+  if (rulesets.truncated)
+    return finding(id, 'unclear', 'The repository has more active rulesets than the catalog reads.');
+  const missing = [
+    branch
+      ? ''
+      : 'a branch ruleset for the default branch that blocks deletion and force pushes and requires a pull request with at least one approval',
+    tag ? '' : 'a tag ruleset that restricts creating, updating, and deleting tags',
+  ].filter(Boolean);
+  return finding(id, 'not_met', `Checked by rules: the repository does not have ${missing.join(' or ')}. ${note}`);
+}
+
 function crashReportPrivacy(snapshot: RepositorySnapshot): Finding | null {
   // テンプレートがあれば、中身を LLM が判定する。
   if (issueTemplates(snapshot).length > 0 || snapshot.truncated) return null;
@@ -284,6 +325,7 @@ export function judgeByRules(snapshot: RepositorySnapshot): Finding[] {
     installLocation(snapshot),
     contributionCompliance(snapshot),
     hermeticBuild(snapshot),
+    repositoryProtection(snapshot),
     crashReportPrivacy(snapshot),
   ];
   return findings.filter((entry): entry is Finding => entry !== null);

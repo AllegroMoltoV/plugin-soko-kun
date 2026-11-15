@@ -474,6 +474,51 @@ describe('新しい版の検査の通信の検出の待ち', () => {
   });
 });
 
+describe('新しい版の検査のタグのコミットの位置', () => {
+  const check = () =>
+    env.DB.prepare('SELECT diff_state, diff_hits FROM release_checks').first<{
+      diff_state: string;
+      diff_hits: string | null;
+    }>();
+  const compare = (respond: () => Response, urls: string[]) =>
+    http.get('https://api.github.com/repos/:owner/:repo/compare/:range', ({ request }) => {
+      urls.push(request.url);
+      return respond();
+    });
+
+  async function runFirstVersionCheck(handler: ReturnType<typeof http.get>): Promise<void> {
+    await registerFixture();
+    await env.DB.prepare("UPDATE release_checks SET config_state = 'missing'").run();
+    await env.DB.prepare(`UPDATE releases SET published_at = '${new Date().toISOString()}'`).run();
+    network.use(handler, ...releaseCheckHandlers());
+    await runReleaseChecks(env, new Budget());
+  }
+
+  // 書き込みの権限で既定のブランチ以外のコミットに付けたタグは、掲載中の版が無くても管理者の確認に回す。
+  it('タグのコミットが既定のブランチに無ければ、掲載中の版が無くても held にし、タグの名前ではなくコミットで比べる', async () => {
+    const urls: string[] = [];
+    await runFirstVersionCheck(compare(() => HttpResponse.json({ status: 'ahead', commits: [], files: [] }), urls));
+    const row = await check();
+    expect(row?.diff_state).toBe('held');
+    expect(JSON.parse(row?.diff_hits ?? '[]')).toEqual([{ rule: 'tag-not-on-default-branch' }]);
+    const sha = await env.DB.prepare('SELECT commit_sha FROM releases').first<string>('commit_sha');
+    expect(urls).toEqual([expect.stringContaining(`/compare/HEAD...${sha}`)]);
+  });
+
+  it('比較の応答が上限を超えたら、既定のブランチに無いものとして held にする', async () => {
+    const large = JSON.stringify({ status: 'behind', files: [{ patch: 'x'.repeat(70 * 1024) }] });
+    await runFirstVersionCheck(
+      compare(() => new HttpResponse(large, { headers: { 'Content-Type': 'application/json' } }), []),
+    );
+    expect((await check())?.diff_state).toBe('held');
+  });
+
+  it('タグのコミットが既定のブランチにあれば、掲載中の版が無い版は skipped にする', async () => {
+    await runFirstVersionCheck(compare(() => HttpResponse.json({ status: 'behind', commits: [], files: [] }), []));
+    expect(await check()).toEqual({ diff_state: 'skipped', diff_hits: '[]' });
+  });
+});
+
 describe('証明の検証のワークフローの起動', () => {
   const DISPATCH_URL =
     'https://api.github.com/repos/AllegroMoltoV/plugin-soko-kun/actions/workflows/verify.yaml/dispatches';

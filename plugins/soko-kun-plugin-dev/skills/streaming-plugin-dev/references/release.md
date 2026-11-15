@@ -98,6 +98,30 @@ Never move or reuse a published tag. To fix a release, publish a new version. Wi
 
 Users can verify downloads with `gh attestation verify` too. Showing them how is a recommendation (`user-verification-guide`).
 
+## Protect the default branch and release tags
+
+Anyone with write access to the repository can push a tag and create a release, and the release workflow from obs-plugintemplate runs for a tag on any commit (`on.push.tags: ['*']`). A ruleset on `main` alone does not stop a release built from a commit on another branch. Plugin Soko-kun holds a new version for an administrator when its tag points to a commit that is not on the default branch (`tag-not-on-default-branch`), and recommends protecting the default branch and release tags (`repository-protection`).
+
+- Tag every release on a commit of the default branch.
+- Protect the default branch with a ruleset that blocks deletion and force pushes and requires a pull request with at least one approval.
+- With the author's approval, add a tag ruleset that lets only repository admins create, update, or delete tags. This stops tags pushed with git by other people or by a leaked token without admin rights. Whether it also stops a tag created from the release page or the Releases API has not been confirmed.
+
+```sh
+cat > tag-ruleset.json <<'EOF'
+{
+  "name": "release-tags",
+  "target": "tag",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["~ALL"], "exclude": [] } },
+  "rules": [{ "type": "creation" }, { "type": "update" }, { "type": "deletion" }],
+  "bypass_actors": [{ "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }]
+}
+EOF
+gh api -X POST repos/<owner>/<repo>/rulesets --input tag-ruleset.json
+```
+
+The GitHub REST reference does not list the numeric IDs of repository roles; `actor_id` 5 for the admin role comes from community examples. After creating the ruleset, open `https://github.com/<owner>/<repo>/rules` with the author and confirm that the bypass list shows the Repository admin role. Creating the same ruleset on that page is an alternative to the API. These settings do not protect against a takeover of the owner's account, because the owner can change them. Plugin Soko-kun relies on immutable releases, attestations, and the takeover signals for that case.
+
 ## When `main` is protected by a ruleset
 
 If `main` is protected by a ruleset that requires one approving review, the author cannot approve their own pull request and cannot merge it. Some authors temporarily disable the ruleset to merge:

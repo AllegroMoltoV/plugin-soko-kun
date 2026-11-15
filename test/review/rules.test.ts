@@ -209,3 +209,37 @@ describe('reviewFilePlan', () => {
     expect(plan.skipped).toEqual(['.github/workflows/w6.yaml', 'cmake/macos/compilerconfig.cmake']);
   });
 });
+
+describe('repository-protection', () => {
+  const branch = (review: number) => ({
+    target: 'branch' as const,
+    include: ['~DEFAULT_BRANCH'],
+    rules: [
+      { type: 'deletion', parameters: {} },
+      { type: 'non_fast_forward', parameters: {} },
+      { type: 'pull_request', parameters: { required_approving_review_count: review } },
+    ],
+  });
+  const tag = {
+    target: 'tag' as const,
+    include: ['~ALL'],
+    rules: ['creation', 'update', 'deletion'].map((type) => ({ type, parameters: {} })),
+  };
+  const judge = (rulesets: RepositorySnapshot['rulesets']) =>
+    result(judgeByRules({ ...snapshot({}), rulesets }), 'repository-protection');
+
+  it('既定のブランチとタグの両方を守っていれば met', () => {
+    expect(judge({ readable: true, truncated: false, items: [branch(1), tag] })).toBe('met');
+  });
+
+  // PR を必須にしないと、既定のブランチへ直接 push したコミットのタグが乗っ取りの兆候を通るため、満たしたとしない。
+  it('PR の承認を求めないブランチの ruleset では not_met', () => {
+    expect(judge({ readable: true, truncated: false, items: [branch(0), tag] })).toBe('not_met');
+  });
+
+  it('タグの ruleset が無ければ not_met、読めなければ unclear', () => {
+    expect(judge({ readable: true, truncated: false, items: [branch(1)] })).toBe('not_met');
+    expect(judge({ readable: false })).toBe('unclear');
+    expect(judge({ readable: true, truncated: true, items: [branch(1)] })).toBe('unclear');
+  });
+});
