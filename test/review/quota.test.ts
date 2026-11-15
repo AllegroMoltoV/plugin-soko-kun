@@ -28,6 +28,14 @@ describe('Workers AI の例外の分類', () => {
     expect(classifyAiError(new Error('AiError: 3036: You have used up your daily free allocation'))).toEqual({
       kind: 'quota',
     });
+    // 2026-11-15 に AI Gateway の支出の上限で実際に受けた例外のメッセージ。上限の期間が過ぎるまで待つ。
+    expect(
+      classifyAiError(
+        new Error(
+          "AiGatewayError: 2045: Spend limit exceeded: rule 'f020c660' (cost limit 0.01 per 86400s, sliding) for internal-workers-ai @cf/openai/gpt-oss-120b",
+        ),
+      ),
+    ).toEqual({ kind: 'quota' });
     expect(classifyAiError(new Error('AiError: 3040: Capacity temporarily exceeded'))).toEqual({ kind: 'busy' });
     expect(classifyAiError(new Error('AiError: 3046: Request timeout'))).toEqual({ kind: 'failed' });
     // 形の分からない例外は、今までどおり失敗として数える。
@@ -43,6 +51,24 @@ describe('Workers AI の例外の分類', () => {
       null,
     );
     expect(outcome).toEqual({ kind: 'quota' });
+  });
+
+  // 本番の費用はゲートウェイの支出の上限で止めるため、ゲートウェイの指定が落ちると費用が止まらなくなる。
+  it('AI_GATEWAY_ID がある環境では、レビューの呼び出しをそのゲートウェイに通す', async () => {
+    const options: unknown[] = [];
+    const env = (gatewayId?: string) =>
+      ({
+        AI_GATEWAY_ID: gatewayId,
+        AI: {
+          run: async (_model: string, _input: unknown, option?: unknown) => {
+            options.push(option);
+            throw new Error('AiError: 4006: you have used up your daily free allocation');
+          },
+        },
+      }) as unknown as Env;
+    await reviewRepository(env('soko-kun-ai'), new Budget(), 'a/b', collected, null);
+    await reviewRepository(env(), new Budget(), 'a/b', collected, null);
+    expect(options).toEqual([{ gateway: { id: 'soko-kun-ai' } }, undefined]);
   });
 
   it('無料枠の不足のあとは、時刻によらず 1 時間後にやり直す', () => {
