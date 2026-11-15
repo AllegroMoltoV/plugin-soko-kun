@@ -514,7 +514,9 @@ export async function searchPlugins(env: Env, query: SearchQuery): Promise<{ tot
       if (tokens.length === 0) return true;
       // 概要は原文に加えて機械翻訳も照合し、どの言語のキーワードでも見つかるようにする。
       const translated = Object.values(view.translations).join(' ');
-      const haystack = normalize(`${view.owner} ${view.repo} ${view.summary ?? ''} ${translated} ${view.category}`);
+      const haystack = normalize(
+        `${view.owner} ${view.repo} ${view.name} ${view.summary ?? ''} ${translated} ${view.category}`,
+      );
       return tokens.every((token) => haystack.includes(token));
     })
     // 掲載対象バージョンの公開日の新しい順。updated_at は同期のたびに進むため使わない。
