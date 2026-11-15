@@ -251,6 +251,7 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 - `config_state` が `ok` か `missing` である。
 - `diff_state` が `passed` か `skipped` である。または `admin_approved_at` がある。
 - `review_state` が `done` で `review_serious` が 0 である。または `admin_approved_at` がある。
+- `plugins` の `owner_changed_at` が NULL である。または `admin_approved_at` がある。
 
 ### 掲載対象バージョン
 

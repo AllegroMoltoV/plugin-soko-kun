@@ -64,14 +64,14 @@ LLM には、README・ワークフロー・Issue のテンプレート・乗っ�
 * 新しい版のソースのコードから検出した通信の API の使用 (ファイル・行・API の名前・行の文字列)。検出は GitHub Actions で行い、ソースは実行しない。確認のモードと、検出の結果が届かないまま期限を過ぎた版では、検出していないことを伝える
 * ルールで判定した項目の結果
 
-LLM には、各項目の観点がリポジトリに当てはまれば満たす、当てはまらなければ満たさない、ファイルから決められなければ判定不能と答えさせます。指摘の根拠は、LLM に渡したファイルと差分に現れるファイルだけを残します。根拠の残らない指摘は重大にしません。同じ項目をルールと LLM の両方が判定したときは、ルールの結果を使います。
+LLM には、各項目の観点がリポジトリに当てはまれば満たす、当てはまらなければ満たさない、ファイルから決められなければ判定不能と答えさせます。指摘の根拠は、LLM に渡したファイル、差分に現れるファイル、通信の API の検出で当たったソースのファイルだけを残します。根拠の残らない指摘は重大にしません。同じ項目をルールと LLM の両方が判定したときは、ルールの結果を使います。
 
 ## 審査の基準
 
 | ID | 内容 | 判定 | 判定の観点 | 重大とする場合 | 出典 |
 | --- | --- | --- | --- | --- | --- |
 | `ci-source-build` | リリースの配布物を、CI でソースからビルドしている | 判定しない | 掲載の条件の `attestation` で、配布物がこのリポジトリのワークフローでビルドされたことを確かめるため、レビューでは判定しない | なし | スライド 16〜17 枚目 |
-| `ci-scenario-tests` | テストが、実際の使い方のシナリオを試している | ルール | 読んだワークフローに、テストを実行する行がある。実行の行は、`ctest`・`pytest`・`npm test`・`cargo test`・`make test` のコマンドか、integration・scenario・e2e の語を含む行とする。かつ、読んだテストのソースに libobs の初期化と読み込みの関数 (`obs_startup`・`obs_load_module`・`obs_init_module`・`obs_reset_video`) があるか、ワークフローが OBS Studio の実行ファイルを起動している。`xvfb-run` は画面の無い実行を示すだけで、OBS Studio の起動に数えない。テストが機能の結果を確かめているかは判定しない | なし | obs-backgroundremoval Issue 971 |
+| `ci-scenario-tests` | テストが、実際の使い方のシナリオを試している | ルール | 読んだワークフローが OBS Studio を起動している。起動に数えるのは、`obs64.exe` の実行、`OBS.app/Contents/MacOS/OBS`、`flatpak run com.obsproject.Studio`、`obs` をオプション付きで起動する行で、同じ行にファイルの操作、署名の確認、`--version`、`--help` があるものは数えない。または、読んだワークフローにテストを実行する行があり、かつ読んだテストのソースに libobs の初期化と読み込みの関数 (`obs_startup`・`obs_load_module`・`obs_init_module`・`obs_reset_video`) がある。実行の行は、`ctest`・`pytest`・`npm test`・`cargo test`・`make test` のコマンドか、integration・scenario・e2e の語を含む行とする。`xvfb-run` は画面の無い実行を示すだけで、OBS Studio の起動に数えない。ワークフローから呼ぶスクリプトの中の起動は読まない。テストが機能の結果を確かめているかは判定しない | なし | obs-backgroundremoval Issue 971 |
 | `no-security-bypass` | 利用者にセキュリティの機能を切らせない | ルール | README の行に、次の案内の型が無い。macOS の `xattr` の `-d`・`-c` による隔離属性の除去 (`xattr -rd com.apple.quarantine`・`xattr -cr` など)、`spctl --master-disable`・`spctl --global-disable` による Gatekeeper の無効化、「このまま開く」と「Open Anyway」の誘導、`Add-MpPreference`・`Set-MpPreference` の除外と無効化の設定、SmartScreen・Defender・Smart App Control の語と無効化や除外の語を同じ行に含む案内 | 案内がある | obs-backgroundremoval Issue 832、obs-spout2-plugin Issue 105 |
 | `no-terminal-paste` | 導入のために、端末へ取得したものを実行するコマンドを貼り付けさせない | ルール | README の行に、ネットワークから取得した内容をその場で実行させるコマンドの型が無い。型は、`curl` や `wget` の出力をシェル・`osascript`・スクリプトの処理系へパイプで渡すもの、`bash -c "$(curl ...)"` と `bash <(curl ...)`、PowerShell の `irm ... \| iex` と `iex` で取得した文字列を実行するもの、base64 で埋め込んだ文字列を復号して実行するもの、`powershell -EncodedCommand`、`osascript` で取得したスクリプトを実行するものである。ソースからビルドする手順の `cmake` のコマンドは当たらない | 案内がある | 姉妹版の音のプラグイン倉庫くんの審査の基準 (プラグインを装うマルウェアの手口) |
 | `dependency-pinning` | 依存をパッケージマネージャーで、版を固定して入れている | ルール | ファイルの一覧に拡張子が `.dll`・`.lib`・`.so`・`.dylib`・`.a`・`.exe` のファイルが無い。読んだ CMake のファイルで、`FetchContent_Declare` の `GIT_TAG` が 40 桁のコミットか `URL_HASH` があり、`file(DOWNLOAD` に `EXPECTED_HASH` がある。`vcpkg.json` があれば `builtin-baseline` か `vcpkg-configuration.json` がある | なし | スライド 17 枚目、obs-backgroundremoval Issue 644 |
@@ -83,7 +83,7 @@ LLM には、各項目の観点がリポジトリに当てはまれば満たす�
 
 `no-security-bypass` と `no-terminal-paste` は、案内の書き方の型がはっきりしているため、ルールで判定します (0.2.7 で `no-security-bypass` を LLM からルールに移し、`no-terminal-paste` を足した)。判定が揺れず、Workers AI も使いません。型は姉妹版の音のプラグイン倉庫くんと同じものを使います。型に当たる行は、「〜しないでください」のような否定の文脈でも当たります。重大の指摘は管理者の確認待ちになり、管理者が根拠の行を見て判断します。`no-terminal-paste` は、プラグインを装う配布で、README から端末へのコマンドの貼り付けに誘導する手口に備える項目です。
 
-`ci-scenario-tests` は、ルールで判定します。0.2.6 までは LLM が判定しており、同じリポジトリの同じ版でも、回によって満たす・満たさないが分かれました。ねらいは、ビルドが通るだけで動作しないプラグインを見分けることです。そのため、CI でテストを実行していることと、そのテストが libobs か OBS Studio でプラグインを読み込むことの 2 点を、ファイルから機械的に確かめます。libobs の初期化は補助のヘッダーに置かれることが多いため、テストの本体の `#include` をたどって読みます。include されずにリンクだけされるソースの初期化は、読まないため見つけられません。
+`ci-scenario-tests` は、ルールで判定します。0.2.6 までは LLM が判定しており、同じリポジトリの同じ版でも、回によって満たす・満たさないが分かれました。ねらいは、ビルドが通るだけで動作しないプラグインを見分けることです。そのため、CI で OBS Studio を起動していること、または CI でテストを実行し、そのテストが libobs でプラグインを読み込むことを、ファイルから機械的に確かめます。OBS Studio を起動するワークフローは、それ自体がプラグインを OBS に読み込ませる実行なので、テストを実行する行を別に求めません。そのかわり、OBS の導入や版の表示のように起動ではない行は数えません。ワークフローから呼ぶ `.github/scripts` などのスクリプトの中の起動は読みません。1 件の検査の外部呼び出しの上限に余裕が無いためです。OBS を起動する行は、ワークフローに直接書いてください。libobs の初期化は補助のヘッダーに置かれることが多いため、テストの本体の `#include` をたどって読みます。include されずにリンクだけされるソースの初期化は、読まないため見つけられません。
 
 ## 推奨
 

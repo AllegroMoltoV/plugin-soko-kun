@@ -72,7 +72,8 @@ export function issueTemplates(snapshot: RepositorySnapshot): string[] {
 function ciHardening(snapshot: RepositorySnapshot): Finding {
   const id = 'ci-hardening';
   const flows = workflows(snapshot);
-  if (snapshot.truncated) return finding(id, 'unclear', 'The repository file list was too large to read in full.');
+  if (snapshot.truncated)
+    return finding(id, 'unclear', 'Checked by rules: the repository file list was too large to read in full.');
   if (flows.length === 0 && !unreadWorkflows(snapshot))
     return finding(id, 'not_applicable', 'The repository has no GitHub Actions workflows.');
   const problems: Evidence[] = [];
@@ -105,7 +106,11 @@ function ciHardening(snapshot: RepositorySnapshot): Finding {
     reasons.add('Dependabot is not configured');
   if (reasons.size > 0) return finding(id, 'not_met', `Checked by rules: ${[...reasons].join('; ')}.`, problems);
   if (unreadWorkflows(snapshot))
-    return finding(id, 'unclear', 'The workflows that were read meet the rules, but some workflows were not read.');
+    return finding(
+      id,
+      'unclear',
+      'Checked by rules: the workflows that were read meet the rules, but some workflows were not read.',
+    );
   return finding(
     id,
     'met',
@@ -147,14 +152,15 @@ function dependencyPinning(snapshot: RepositorySnapshot): Finding {
     reasons.add('vcpkg.json has no builtin-baseline');
   }
   if (reasons.size > 0) return finding(id, 'not_met', `Checked by rules: ${[...reasons].join('; ')}.`, problems);
-  if (snapshot.truncated) return finding(id, 'unclear', 'The repository file list was too large to read in full.');
+  if (snapshot.truncated)
+    return finding(id, 'unclear', 'Checked by rules: the repository file list was too large to read in full.');
   return finding(id, 'met', 'Checked by rules: no committed binaries and no unpinned downloads were found.');
 }
 
 function buildHardening(snapshot: RepositorySnapshot): Finding {
   const id = 'build-hardening';
   const builds = buildFiles(snapshot);
-  if (builds.length === 0) return finding(id, 'unclear', 'No CMake build files were read.');
+  if (builds.length === 0) return finding(id, 'unclear', 'Checked by rules: no CMake build files were read.');
   const sanitizer = builds.flatMap((build) =>
     matchingLines(build.content, /[-/]fsanitize/i).map(({ line }) => at(build.path, line)),
   );
@@ -183,7 +189,7 @@ function buildHardening(snapshot: RepositorySnapshot): Finding {
 function cpuCompatibility(snapshot: RepositorySnapshot): Finding {
   const id = 'cpu-compatibility';
   const builds = buildFiles(snapshot);
-  if (builds.length === 0) return finding(id, 'unclear', 'No CMake build files were read.');
+  if (builds.length === 0) return finding(id, 'unclear', 'Checked by rules: no CMake build files were read.');
   const forced = builds.flatMap((build) =>
     matchingLines(build.content, /\/arch:AVX(2|512)|-mavx(2|512)|-march=native/i).map(({ line }) =>
       at(build.path, line),
@@ -236,7 +242,7 @@ function contributionCompliance(snapshot: RepositorySnapshot): Finding {
   );
   if (hits.length > 0) return finding(id, 'met', 'Checked by rules: contributors are asked for a DCO sign-off.', hits);
   if (docs.length === 0 && snapshot.truncated)
-    return finding(id, 'unclear', 'The repository file list was too large to read in full.');
+    return finding(id, 'unclear', 'Checked by rules: the repository file list was too large to read in full.');
   return finding(
     id,
     'not_met',
@@ -250,7 +256,8 @@ function contributionCompliance(snapshot: RepositorySnapshot): Finding {
 function hermeticBuild(snapshot: RepositorySnapshot): Finding {
   const id = 'hermetic-build';
   const flows = workflows(snapshot);
-  if (snapshot.truncated) return finding(id, 'unclear', 'The repository file list was too large to read in full.');
+  if (snapshot.truncated)
+    return finding(id, 'unclear', 'Checked by rules: the repository file list was too large to read in full.');
   if (flows.length === 0 && !unreadWorkflows(snapshot))
     return finding(id, 'not_applicable', 'The repository has no GitHub Actions workflows.');
   const latest = flows.flatMap((flow) =>
@@ -267,7 +274,7 @@ function hermeticBuild(snapshot: RepositorySnapshot): Finding {
     return finding(
       id,
       'unclear',
-      'The workflows that were read fix runner versions, but some workflows were not read.',
+      'Checked by rules: the workflows that were read fix runner versions, but some workflows were not read.',
     );
   return finding(id, 'met', 'Checked by rules: every workflow uses runner images with fixed versions.');
 }
@@ -277,7 +284,8 @@ const RULE_TYPES = (rules: RulesetSnapshot['items'][number]['rules']) => new Set
 function repositoryProtection(snapshot: RepositorySnapshot): Finding {
   const id = 'repository-protection';
   const rulesets = snapshot.rulesets;
-  if (!rulesets?.readable) return finding(id, 'unclear', 'The repository rulesets could not be read.');
+  if (!rulesets?.readable)
+    return finding(id, 'unclear', 'Checked by rules: the repository rulesets could not be read.');
   // 既定のブランチの名前は入力に無いため、名前を直接指定した ruleset は数えない。
   const branch = rulesets.items.some((item) => {
     if (item.target !== 'branch') return false;
@@ -299,7 +307,7 @@ function repositoryProtection(snapshot: RepositorySnapshot): Finding {
       `Checked by rules: a branch ruleset protects the default branch and requires a reviewed pull request, and a tag ruleset restricts creating, updating, and deleting tags. ${note}`,
     );
   if (rulesets.truncated)
-    return finding(id, 'unclear', 'The repository has more active rulesets than the catalog reads.');
+    return finding(id, 'unclear', 'Checked by rules: the repository has more active rulesets than the catalog reads.');
   const missing = [
     branch
       ? ''
@@ -357,7 +365,8 @@ function readmePattern(
         serious: true,
       };
     }
-    if (snapshot.truncated) return finding(id, 'unclear', 'The repository file list was too large to read in full.');
+    if (snapshot.truncated)
+      return finding(id, 'unclear', 'Checked by rules: the repository file list was too large to read in full.');
     return finding(id, 'met', 'Checked by rules: the repository has no README.md.');
   }
   const hits = doc.content
@@ -486,16 +495,29 @@ export function computeFacts(snapshot: RepositorySnapshot, ruled: Finding[]): st
   return lines.join('\n');
 }
 
-// ci-scenario-tests の判定。ビルドが通るだけで動作しないプラグインを見分けるため、CI のワークフローがテストを実行し、
-// かつテストのソースが libobs を初期化してモジュールを読み込むか、ワークフローが OBS Studio の実行ファイルを起動することを求める。
+// ci-scenario-tests の判定。ビルドが通るだけで動作しないプラグインを見分けるため、CI のワークフローが OBS Studio を
+// 起動するか、ワークフローがテストを実行し、かつテストのソースが libobs を初期化してモジュールを読み込むことを求める。
 // xvfb-run は画面の無い実行を示すだけで、OBS Studio の起動を示さない。テストが機能の結果を確かめているかは見ない。
+// ワークフローから呼ぶスクリプト (.github/scripts など) の中の起動は読まない (2026-11-15 依頼者の判断。外部呼び出しの予算のため)。
 const TEST_SOURCE = /\.(c|cc|cpp|cxx|h|hpp|py)$/i;
 const TEST_DIR = /(^|\/)[^/]*(test|integration|scenario|e2e)[^/]*(\/|$)/i;
 const THIRD_PARTY = /(^|\/)(\.deps|build[^/]*|vendor|third[_-]?party|external|deps)\//i;
 const LIBOBS_INIT = /\b(obs_startup|obs_load_module|obs_init_module|obs_reset_video)\s*\(/;
 // テストの実行ファイルは変数で起動されることが多い (例: "${integration}")。そのため、テストに関わる語を含む行も実行の行に数える。
 const TEST_RUN = /\b(ctest|pytest|npm (run )?test|cargo test|make test)\b|integration|scenario|e2e/i;
-const OBS_EXECUTABLE = /\bobs(64)?\.exe\b|\/usr\/bin\/obs\b|\bOBS\.app\b/i;
+// OBS Studio を起動する形だけに当てる。OBS を起動すれば、それ自体がプラグインを読み込む実行になるため、
+// テストを実行する行を別に求めない。そのかわり、OBS.app のコピーや署名の確認、obs --version、
+// flatpak install、apt-get install obs-studio のような起動ではない言及は当てない。
+const OBS_LAUNCH: RegExp[] = [
+  /\bobs64\.exe\b/i,
+  /\bOBS\.app\/Contents\/MacOS\/OBS\b/,
+  /\bflatpak\s+run\s+(?:\S+\s+)*com\.obsproject\.Studio\b/i,
+  // Linux の obs をオプション付きで起動する行。
+  /(?:^|[\s;&|("'/])obs\s+--[a-z]/i,
+];
+// 同じ行にあれば起動とみなさない語。ファイルの操作、署名や情報の確認、版と使い方の表示。
+const OBS_NOT_LAUNCH =
+  /\b(?:copy|cp|mv|move|xcopy|robocopy|copy-item|move-item|remove-item|rm|test-path|get-item|ls|dir|codesign|spctl|plutil|defaults|ditto)\b|--version\b|--help\b/i;
 const LOCAL_INCLUDE = /^\s*#\s*include\s*"([^"]+)"/gm;
 
 // テストのソースの候補。パスに integration か e2e を含むものを先にする。
@@ -530,22 +552,33 @@ function ciScenarioTests(snapshot: RepositorySnapshot): Finding {
   const candidates = new Set(testSources(snapshot.paths));
   const sources = snapshot.files.filter((entry) => candidates.has(entry.path));
   const runs = flowHits(TEST_RUN);
-  const obs = flowHits(OBS_EXECUTABLE);
+  const obs = workflows(snapshot).flatMap((flow) =>
+    flow.content
+      .split('\n')
+      .map((text, index) => ({ text, line: index + 1 }))
+      .filter(({ text }) => OBS_LAUNCH.some((pattern) => pattern.test(text)) && !OBS_NOT_LAUNCH.test(text))
+      .map(({ line }) => at(flow.path, line)),
+  );
   const init = sources.flatMap((entry) =>
     matchingLines(entry.content, LIBOBS_INIT).map(({ line }) => at(entry.path, line)),
   );
-  if (runs.length > 0 && (init.length > 0 || obs.length > 0)) {
+  if (obs.length > 0) {
+    return finding(id, 'met', 'Checked by rules: a workflow starts the OBS Studio executable.', obs.slice(0, 2));
+  }
+  if (runs.length > 0 && init.length > 0) {
     return finding(
       id,
       'met',
-      init.length > 0
-        ? 'Checked by rules: a workflow runs tests, and a test source starts libobs or loads a module.'
-        : 'Checked by rules: a workflow runs tests and starts the OBS Studio executable.',
-      [runs[0] as Evidence, ...(init.length > 0 ? init : obs).slice(0, 2)],
+      'Checked by rules: a workflow runs tests, and a test source starts libobs or loads a module.',
+      [runs[0] as Evidence, ...init.slice(0, 2)],
     );
   }
   if (snapshot.truncated || unreadWorkflows(snapshot)) {
-    return finding(id, 'unclear', 'The repository file list or some workflows could not be read in full.');
+    return finding(
+      id,
+      'unclear',
+      'Checked by rules: the repository file list or some workflows could not be read in full.',
+    );
   }
   const read = sources.map((entry) => entry.path).join(', ') || 'none';
   return finding(

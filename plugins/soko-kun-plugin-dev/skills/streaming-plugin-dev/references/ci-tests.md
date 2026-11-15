@@ -53,6 +53,8 @@ Some plugins also run a CI job that tests the packaged plugin in the official OB
 
 This is the way to test docks and audio plugins in CI, which the render test does not cover. The plugins this skill is based on did not test dock UI in CI.
 
+Plugin Soko-kun's criterion `ci-scenario-tests` counts this job only when the workflow file itself starts OBS, for example `Start-Process` with `obs64.exe`, `OBS.app/Contents/MacOS/OBS`, or `obs --portable` on Linux. The catalog reads `.github/workflows/` but not the scripts they call, so a start inside `.github/scripts/` is not seen. Write the line that starts OBS in the workflow step, even if a script prepares the files.
+
 ## Waiting for CI
 
 - Pass the full commit SHA to `gh run list --commit`. A short SHA matches nothing, and a wait loop with it can spin for 30 minutes.
