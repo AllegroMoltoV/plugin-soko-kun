@@ -63,7 +63,7 @@ npx wrangler dev --test-scheduled
 curl "http://localhost:8787/__scheduled?cron=*/15+*+*+*+*"
 ```
 
-`wrangler dev` の端末には、`{"event":"cron",...}` の形の行が出力されます。この行は、照会した件数・同期した件数・同期に失敗した件数・翻訳した件数・ダウンロード数を記録した件数・使った外部呼び出しと D1 のクエリの件数・停止の理由を含みます。
+`wrangler dev` の端末には、`{"event":"cron",...}` の形の行が出力されます。この行は、照会した件数 (`scanned`)・同期した件数 (`synced`)・同期に失敗した件数 (`failed`)・翻訳した件数 (`translated`)・画像を取得した件数 (`previews`)・ダウンロード数を記録した件数 (`downloadsRecorded`)・新しい版を検査した件数 (`releasesChecked`)・使った外部呼び出しと D1 のクエリの件数 (`subrequests`、`d1Queries`)・停止の理由 (`stoppedBy`)・証明の検証のワークフローの起動の結果 (`verifyDispatch`) を含みます。
 
 ## テストと静的検査
 
@@ -79,7 +79,7 @@ npm run lint
 
 ## MCP クライアントからの接続
 
-ローカルの Worker に MCP クライアントを接続すると、`search_plugins`・`get_plugin`・`submit_plugin` を会話から呼び出せます。`search_plugins` と `get_plugin` はサインインなしで使えます。`submit_plugin` には、GitHub でのサインインが必要です。
+ローカルの Worker に MCP クライアントを接続すると、`search_plugins`・`get_plugin`・`submit_plugin`・`list_my_plugins` を会話から呼び出せます。`search_plugins` と `get_plugin` はサインインなしで使えます。`submit_plugin` と `list_my_plugins` には、GitHub でのサインインが必要です。
 
 ### Claude Code
 

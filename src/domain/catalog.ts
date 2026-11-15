@@ -4,6 +4,7 @@ import { detectLang, type TranslationLang } from '../translate';
 import type { Category, Os } from './metadata';
 import {
   type AttestationResult,
+  attestationResultSql,
   type ConfigState,
   computeStatus,
   type DiffState,
@@ -219,7 +220,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
     ),
     bind(
       env.DB.prepare(
-        `SELECT t.github_asset_id, t.result FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
+        `SELECT t.github_asset_id, ${attestationResultSql} AS result FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
          JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id ${where}`,
       ),
     ),

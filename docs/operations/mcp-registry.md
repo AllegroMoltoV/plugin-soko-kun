@@ -10,7 +10,7 @@ MCP クライアントの利用者が本サービスを見つけられるよう�
 | --- | --- |
 | `name` | `io.github.AllegroMoltoV/plugin-soko-kun`。`io.github.<アカウント名>/` で始まる名前は、GitHub のアカウントでの認証で所有を示せる |
 | `description` | Registry の上限の 100 文字以内。宣伝の語を並べない |
-| `version` | 本サービスの版。README の更新履歴と `package.json` の `version` にそろえる |
+| `version` | 本サービスの版。README の更新履歴、`package.json` と `package-lock.json` の `version`、`src/mcp/server.ts` の MCP の `serverInfo` の `version` にそろえる |
 | `remotes` | `streamable-http` と `https://soko-kun.allegromoltov.jp/mcp` |
 | `icons` | `/logo.png` (256 x 256 px) と `/logo.svg`。MCP の `serverInfo` のアイコンと同じもの |
 

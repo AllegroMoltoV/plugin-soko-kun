@@ -120,6 +120,7 @@ const instructions = (origin: string) =>
     'For plugin authors: before publishing a release, call submit_plugin with mode "check" to see the listing conditions and a review of the repository.',
     'After the author publishes a release, wait 15 minutes or more, then call list_my_plugins to see whether the new version is listed.',
     'If list_my_plugins returns blockers that wait for the author, or review findings, tell the author and suggest the fixes.',
+    'The listing conditions and review criteria are published at https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md.',
     'Authors who build plugins with Claude Code can install the skill streaming-plugin-dev: claude plugin marketplace add AllegroMoltoV/plugin-soko-kun, then claude plugin install soko-kun-plugin-dev@plugin-soko-kun. It follows the listing conditions and review criteria of this platform.',
     // 名前の変更と移管の案内は本文を書かず、サイトの節を示す。説明は接続のたびに読まれるため (ADR 0015)。
     `If an author plans to rename the repository or transfer it to another owner, point them to ${origin}/submit?lang=en#rename.`,
@@ -133,7 +134,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
     {
       name: 'plugin-soko-kun',
       title: 'Plugin Soko-kun',
-      version: '0.2.5',
+      version: '0.2.6',
       websiteUrl: env.ORIGIN,
       icons: [
         { src: `${env.ORIGIN}/logo.png`, mimeType: 'image/png', sizes: ['256x256'] },

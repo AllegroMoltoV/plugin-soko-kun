@@ -1,6 +1,6 @@
 // 15 分ごとの定期処理。無料プランの 1 回の上限に収めるため、予算を使い切ったら次回へ持ち越す。
 
-import { MAX_ATTESTATION_ATTEMPTS } from '../attestation/route';
+import { PENDING_ATTESTATIONS_FROM } from '../attestation/route';
 import { Budget, BudgetExceededError, budgetedFetch } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
@@ -29,6 +29,8 @@ export interface CronReport {
   subrequests: number;
   d1Queries: number;
   releasesChecked?: number;
+  // 新しい版の検査を打ち切った理由 (budget、github_rate_limited など)。後段は止めない。
+  releaseChecksSkipped?: string;
   stoppedBy?: string;
   verifyDispatch?: VerifyDispatch;
 }
@@ -99,6 +101,10 @@ interface SyncRow {
 
 // プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決、画像の一覧とダウンロード 2 件、buildspec.json。
 const SYNC_COST = 7;
+// 同期 1 件の D1 のクエリの上限。
+const SYNC_QUERIES = 3;
+// 証明の検証のワークフローの起動 (dispatchVerify) に取り分ける外部呼び出しと D1 のクエリ。
+const DISPATCH_RESERVE = 1;
 
 async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: SyncRow): Promise<void> {
   const timestamp = now();
@@ -394,7 +400,7 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
      FROM plugins p ORDER BY p.last_synced_at LIMIT 20`,
   ).all<SyncRow>();
   for (const row of results) {
-    if (!budget.canFetch(SYNC_COST) || !budget.canQuery(3)) break;
+    if (!budget.canFetch(SYNC_COST) || !budget.canQuery(SYNC_QUERIES)) break;
     try {
       await syncOne(env, budget, github, row);
       report.synced += 1;
@@ -521,16 +527,12 @@ async function dispatchVerify(env: Env, budget: Budget): Promise<VerifyDispatch>
   if (!token) return 'skipped_no_token';
   budget.takeD1Query();
   const pending = await env.DB.prepare(
-    `SELECT 1 FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
-     JOIN releases r ON r.github_release_id = a.release_id JOIN plugins p ON p.id = r.plugin_id
-     WHERE p.removed = 0 AND (t.result = 'pending' OR (t.result = 'error' AND t.attempts < ?))
+    `SELECT 1 ${PENDING_ATTESTATIONS_FROM}
      UNION ALL
      SELECT 1 FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id
      JOIN plugins p ON p.id = r.plugin_id WHERE ${NETWORK_PENDING} AND r.commit_sha IS NOT NULL
      LIMIT 1`,
-  )
-    .bind(MAX_ATTESTATION_ATTEMPTS)
-    .first();
+  ).first();
   if (!pending) return 'skipped_no_pending';
   try {
     const response = await budgetedFetch(budget, VERIFY_DISPATCH_URL, {
@@ -566,18 +568,22 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
     d1Queries: 0,
   };
   // 後段のループが予算を使い切っても、最後に証明の検証のワークフローを起動できるよう取り分けておく。
-  budget.reserve(1, 1);
+  budget.reserve(DISPATCH_RESERVE, DISPATCH_RESERVE);
   try {
     await runScans(env, budget, report);
-    await runSync(env, budget, report);
-    if (!report.stoppedBy) {
-      try {
-        report.releasesChecked = await runReleaseChecks(env, budget);
-      } catch (error) {
-        if (!(error instanceof GitHubError)) throw error;
-        report.stoppedBy = `github_${error.kind}`;
-      }
+    // 新しい版の検査は掲載に直接つながるため、量がプラグインの数に比例する同期より先に行う (ADR 0007)。
+    // 検査の間は同期 1 件の分を後段に残し、検査が予算を使い切っても同期が進むようにする。検査で失敗しても後段は止めない。
+    // 本当のレート制限や障害なら、同期が自分の最初の呼び出しで検知して止まる。
+    budget.reserve(DISPATCH_RESERVE + SYNC_COST, DISPATCH_RESERVE + SYNC_QUERIES);
+    try {
+      report.releasesChecked = await runReleaseChecks(env, budget);
+    } catch (error) {
+      if (error instanceof BudgetExceededError) report.releaseChecksSkipped = 'budget';
+      else if (error instanceof GitHubError) report.releaseChecksSkipped = `github_${error.kind}`;
+      else throw error;
     }
+    budget.reserve(DISPATCH_RESERVE, DISPATCH_RESERVE);
+    await runSync(env, budget, report);
     await recordListings(env, budget);
     if (!report.stoppedBy) await runDownloads(env, budget, report);
     report.translated = await runTranslations(env, budget);

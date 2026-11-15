@@ -9,6 +9,7 @@ GitHub Actions のワークフローの目的と権限、依存の更新、本�
 | `ci.yml` | 静的検査とテスト、ワークフローの検査、依存の脆弱性の検査 | PR、`main` への push | `contents: read` |
 | `codeql.yml` | CodeQL によるコードの脆弱性の検査 | PR、`main` への push、毎週月曜 04:23 UTC | ワークフローは `contents: read`。ジョブに `security-events: write` と `actions: read` を加える |
 | `deploy.yml` | 本番への D1 のマイグレーションの適用と Worker の配備 | 手動実行 `workflow_dispatch` だけ | `contents: read`。environment `production` の秘密情報を使う |
+| `verify.yaml` | 配布物の証明の署名の検証と、新しい版のソースからの通信の API の検出。結果を Worker の受け口へ送る ([検査と同期](../design/scanning.md)) | 15 分ごとの `schedule` と、Worker の定期処理からの `workflow_dispatch` | `contents: read` と `id-token: write` (受け口へ送る OIDC のトークン) |
 
 ### ci.yml
 
@@ -64,7 +65,7 @@ Dependabot の PR も CI を通してからマージします。
 
 ## Worker の設定
 
-`deploy.yml` と管理用スクリプトの `--remote` は、`wrangler.jsonc` の `production` 環境を使います。`production` 環境には、本番の `ORIGIN`・D1 の `database_id`・KV の `id`・Workers AI の binding (`ai`)・独自ドメインの `routes` を設定します。環境ごとの設定には既定の環境の binding が引き継がれないため、`ai` も `production` 環境に書く必要があります。Cron の `triggers` と `observability` は、既定の環境から引き継がれます。
+`deploy.yml` と管理用スクリプトの `--remote` は、`wrangler.jsonc` の `production` 環境を使います。`production` 環境には、本番の `ORIGIN`・Workers AI の呼び出しを通す AI Gateway の `AI_GATEWAY_ID`・D1 の `database_id`・KV の `id`・Workers AI の binding (`ai`)・独自ドメインの `routes` を設定します。環境ごとの設定には既定の環境の binding が引き継がれないため、`ai` も `production` 環境に書く必要があります。Cron の `triggers` と `observability` は、既定の環境から引き継がれます。
 
 Worker の秘密情報は、`wrangler secret put` で本番の Worker に設定します。名前と用途は [認証と認可](../design/auth.md) に記載しています。
 
@@ -94,6 +95,15 @@ npx wrangler secret put GITHUB_DISPATCH_TOKEN --env production
 ## 初回の配備
 
 GitHub の個人アカウントの private リポジトリでは、environment の承認のルールと environment の secret を使えません。そのため、リポジトリを public にする前の初回の配備は、依頼者の承認を得て、ローカルの `wrangler` で行います。`wrangler` は、`wrangler login` で得た OAuth トークンで認証します。
+
+本番の D1 と KV が無いときは、先に作り、出力された ID を `wrangler.jsonc` の `env.production` の `d1_databases` の `database_id` と `kv_namespaces` の `id` に書きます。どちらも Cloudflare のアカウントに資源を作る操作のため、依頼者の承認を得てから行います。
+
+```sh
+npx wrangler d1 create plugin-soko-kun
+npx wrangler kv namespace create OAUTH_KV
+```
+
+Worker の秘密情報は、[Worker の設定](#worker-の設定) のコマンドで設定します。値の入力は依頼者が行います。
 
 ```sh
 npx wrangler d1 migrations apply DB --remote --env production

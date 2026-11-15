@@ -1,6 +1,7 @@
 // 掲載状態の境界。危険側 (検査前の配布物を掲載する、停止を解除してしまう、条件を満たさない新しい版を掲載する) に倒れる経路だけを確かめる。
 import { describe, expect, it } from 'vitest';
 import {
+  BLOCKER_WAITS_FOR,
   computeStatus,
   type ReleaseChecks,
   type ReleaseForStatus,
@@ -131,6 +132,17 @@ describe('releaseBlockers (新しい版の条件)', () => {
     expect(releaseBlockers(failed, clean)).toContain('attestation_failed');
     const unknown = { ...newer, assets: [{ name: 'a.zip', digest: 'sha256:new', os: 'windows' }] };
     expect(releaseBlockers(unknown, clean)).toContain('attestation_pending');
+  });
+
+  // 試行を使い切った証明は誰も検証し直さないため、本サービスの処理待ち (対応不要) と返し続けない。
+  it('試行を使い切った証明は、管理者の待ちとして返す', () => {
+    const exhausted = {
+      ...newer,
+      assets: [{ name: 'a.zip', digest: 'sha256:new', os: 'windows', attestation: 'exhausted' as const }],
+    };
+    expect(releaseBlockers(exhausted, clean)).toContain('attestation_retries_exhausted');
+    expect(releaseBlockers(exhausted, clean)).not.toContain('attestation_pending');
+    expect(BLOCKER_WAITS_FOR.attestation_retries_exhausted).toBe('admin');
   });
 
   it('乗っ取りの兆候とレビューの重大な指摘は、管理者の承認があるまで掲載しない', () => {
