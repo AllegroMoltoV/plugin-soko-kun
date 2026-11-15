@@ -149,6 +149,8 @@ export interface Dict {
   translationNoteJa: string;
   japaneseVersion: string;
   contactLabel: string;
+  // フッターの姉妹サービス (音のプラグイン倉庫くん) への 1 行。サービス名だけをリンクにする。
+  sister: { before: string; name: string; after: string };
   cautionLabel: string;
   showContact: string;
   contactHint: string;
@@ -285,6 +287,7 @@ const en: Dict = {
   translationNoteJa: 'This translation is for reference, so check the exact content in the Japanese version.',
   japaneseVersion: 'Japanese version',
   contactLabel: 'Developer contact',
+  sister: { before: 'Sister service: ', name: 'Audio Plugin Soko-kun', after: ' (audio plugins for DAWs)' },
   cautionLabel: 'Caution',
   showContact: 'Show contact',
   contactHint: 'Replace [at] with @ when you send email.',
@@ -421,6 +424,7 @@ const ja: Dict = {
   translationNoteJa: 'この翻訳は参考訳なので、正確な内容は日本語版で確認してください。',
   japaneseVersion: '日本語版',
   contactLabel: '開発者の連絡先',
+  sister: { before: '姉妹サービス: ', name: '音のプラグイン倉庫くん', after: ' (DAW 用のオーディオプラグイン)' },
   cautionLabel: '注意',
   showContact: '連絡先を表示',
   contactHint: 'メールを送るときは、[at] を @ に置き換えてください。',
@@ -555,6 +559,7 @@ const zhHans: Dict = {
   translationNoteJa: '本翻译仅供参考，准确内容请以日文版为准。',
   japaneseVersion: '日文版',
   contactLabel: '开发者联系方式',
+  sister: { before: '姊妹服务：', name: '音のプラグイン倉庫くん', after: '（DAW 音频插件）' },
   cautionLabel: '注意',
   showContact: '显示联系方式',
   contactHint: '发送邮件时，请将 [at] 替换为 @。',
@@ -684,6 +689,7 @@ const zhHant: Dict = {
   translationNoteJa: '本翻譯僅供參考，正確內容請以日文版為準。',
   japaneseVersion: '日文版',
   contactLabel: '開發者聯絡方式',
+  sister: { before: '姊妹服務：', name: '音のプラグイン倉庫くん', after: '（DAW 音訊外掛程式）' },
   cautionLabel: '注意',
   showContact: '顯示聯絡方式',
   contactHint: '寄送郵件時，請將 [at] 替換為 @。',
@@ -819,6 +825,7 @@ const ko: Dict = {
   translationNoteJa: '이 번역은 참고용이므로, 정확한 내용은 일본어판에서 확인해 주세요.',
   japaneseVersion: '일본어판',
   contactLabel: '개발자 연락처',
+  sister: { before: '자매 서비스: ', name: '音のプラグイン倉庫くん', after: ' (DAW용 오디오 플러그인)' },
   cautionLabel: '주의',
   showContact: '연락처 표시',
   contactHint: '메일을 보낼 때는 [at]을 @로 바꿔 주세요.',
@@ -953,6 +960,7 @@ const ptBR: Dict = {
   translationNoteJa: 'Esta tradução é apenas uma referência; por isso, confira o conteúdo exato na versão em japonês.',
   japaneseVersion: 'Versão em japonês',
   contactLabel: 'Contato do desenvolvedor',
+  sister: { before: 'Serviço irmão: ', name: 'Audio Plugin Soko-kun', after: ' (plugins de áudio para DAWs)' },
   cautionLabel: 'Atenção',
   showContact: 'Mostrar contato',
   contactHint: 'Ao enviar o e-mail, substitua [at] por @.',
@@ -1090,6 +1098,7 @@ const es419: Dict = {
     'Esta traducción es solo de referencia; por eso, consulta el contenido exacto en la versión en japonés.',
   japaneseVersion: 'Versión en japonés',
   contactLabel: 'Contacto del desarrollador',
+  sister: { before: 'Servicio hermano: ', name: 'Audio Plugin Soko-kun', after: ' (plugins de audio para DAW)' },
   cautionLabel: 'Atención',
   showContact: 'Mostrar contacto',
   contactHint: 'Al enviar el correo, reemplaza [at] por @.',
