@@ -53,7 +53,7 @@ export type SubmitErrorCode = (typeof SUBMIT_ERROR_CODES)[number];
 
 export type SubmitResult =
   | { ok: true; pluginId: string; status: 'pending'; detailUrl: string; assetsToScan: number; note: string }
-  | { ok: false; code: SubmitErrorCode; message: string; fix: string };
+  | { ok: false; code: SubmitErrorCode; message: string; fix: string; resumesAt?: string };
 
 export interface Submitter {
   githubUserId: number;
@@ -492,11 +492,21 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
     .bind(submitter.githubUserId, since)
     .first<{ n: number }>();
   if ((count?.n ?? 0) >= CHECKS_PER_DAY) {
-    return fail(
-      'rate_limited',
-      `You can use the check mode up to ${CHECKS_PER_DAY} times per 24 hours.`,
-      'Wait and try again later.',
-    );
+    // 次に使える時刻は、枠の中の利用を新しい順に並べた CHECKS_PER_DAY 番目の 24 時間後。
+    // 同時の要求で枠に上限を超える件数が入っても、その時刻には件数が上限を下回る。
+    const nth = await env.DB.prepare(
+      'SELECT created_at FROM check_log WHERE github_user_id = ? AND created_at > ? ORDER BY created_at DESC LIMIT 1 OFFSET ?',
+    )
+      .bind(submitter.githubUserId, since, CHECKS_PER_DAY - 1)
+      .first<{ created_at: string }>();
+    const resumesAt = nth ? new Date(Date.parse(nth.created_at) + 24 * 60 * 60 * 1000).toISOString() : undefined;
+    return {
+      ok: false,
+      code: 'rate_limited',
+      message: `You can use the check mode up to ${CHECKS_PER_DAY} times per 24 hours for each GitHub account.`,
+      fix: 'Try again after resumesAt.',
+      ...(resumesAt ? { resumesAt } : {}),
+    };
   }
   const loggedAt = now();
   await env.DB.prepare('INSERT INTO check_log (github_user_id, created_at) VALUES (?, ?)')

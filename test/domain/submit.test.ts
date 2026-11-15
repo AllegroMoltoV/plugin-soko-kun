@@ -132,7 +132,15 @@ describe('checkPlugin (確認のモード)', () => {
     );
     expect(await env.DB.prepare('SELECT count(*) AS n FROM plugins').first('n')).toBe(0);
     for (let i = 0; i < 4; i += 1) await checkPlugin(env, submitter, url);
-    expect(await checkPlugin(env, submitter, url)).toMatchObject({ ok: false, code: 'rate_limited' });
+    const limited = (await checkPlugin(env, submitter, url)) as { ok: boolean; code: string; resumesAt?: string };
+    expect(limited).toMatchObject({ ok: false, code: 'rate_limited' });
+    // 作者の AI が次に使える時刻を読めるよう、枠の中で新しい順に 5 番目の利用の 24 時間後を返す。
+    const fifth = await env.DB.prepare(
+      'SELECT created_at FROM check_log WHERE github_user_id = ? ORDER BY created_at DESC LIMIT 1 OFFSET 4',
+    )
+      .bind(submitter.githubUserId)
+      .first<string>('created_at');
+    expect(limited.resumesAt).toBe(new Date(Date.parse(fifth as string) + 24 * 60 * 60 * 1000).toISOString());
   });
 
   // 不変のリリースは公開の後に直せないため、リリースの前の確認で、残りの条件と直し方が分からないと作者が困る。
