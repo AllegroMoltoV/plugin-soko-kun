@@ -325,15 +325,19 @@ export async function reviewRepository(
   const ruled = judgeByRules(collected);
   budget.takeSubrequest();
   try {
-    const review = await runReview(env.AI, {
-      repository,
-      files: llmFiles(collected.files),
-      unreadFiles: collected.unreadFiles,
-      facts: computeFacts(collected, ruled),
-      criteria: llmCriteriaFor(collected),
-      sourceFiles: networkFiles(collected),
-      diff,
-    });
+    const review = await runReview(
+      env.AI,
+      {
+        repository,
+        files: llmFiles(collected.files),
+        unreadFiles: collected.unreadFiles,
+        facts: computeFacts(collected, ruled),
+        criteria: llmCriteriaFor(collected),
+        sourceFiles: networkFiles(collected),
+        diff,
+      },
+      env.AI_GATEWAY_ID,
+    );
     return review ? { kind: 'done', findings: mergeFindings(ruled, review.findings) } : { kind: 'failed' };
   } catch (error) {
     const outcome = classifyAiError(error);
@@ -353,8 +357,10 @@ export type ReviewOutcome =
 
 // Workers AI の例外のメッセージ (AiError: <コード>: <説明>) からコードを取り出して分ける。
 // 無料枠の不足は、2026-11-13 に binding で実際に受けた例外が 4006 だった。公式の文書の表は 3036 と書くため、両方を見る。
+// 2045 は AI Gateway の支出の上限で断られたときのコード (2026-11-15 の実例: AiGatewayError: 2045: Spend limit exceeded ...)。
+// 上限の期間が過ぎれば通るため、無料枠の不足と同じく待つ。
 // コードを取り出せない例外は、今までどおり失敗として数える。外れても前の版の掲載が続き、管理者の確認に回るだけで済むため。
-const QUOTA_CODES = new Set(['4006', '3036']);
+const QUOTA_CODES = new Set(['4006', '3036', '2045']);
 
 export function classifyAiError(error: unknown): ReviewOutcome {
   const code = /\b(\d{4}):/.exec(String(error))?.[1];

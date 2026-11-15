@@ -1,6 +1,7 @@
 // 開発の実践の LLM によるレビュー (docs/design/review-criteria.md の「審査の基準」と「推奨」)。
 // LLM には文章の意図を読む項目だけを判定させ、規則で計算した事実を添える (src/review/rules.ts)。
 // 入力のリポジトリの内容は作者が書いたデータで、指示として扱わせない。応答は項目の ID で照合し、知らない ID は捨てる。
+import { gatewayOptions } from '../ai-gateway';
 import { CRITERIA_BY_ID } from './criteria';
 
 export const REVIEW_MODEL = '@cf/openai/gpt-oss-120b';
@@ -138,7 +139,7 @@ function outputText(output: unknown): string {
     .join('');
 }
 
-export async function runReview(ai: Ai, input: ReviewInput): Promise<ReviewOutput | null> {
+export async function runReview(ai: Ai, input: ReviewInput, gatewayId?: string): Promise<ReviewOutput | null> {
   const output = await ai.run(
     REVIEW_MODEL as Parameters<Ai['run']>[0],
     {
@@ -146,6 +147,7 @@ export async function runReview(ai: Ai, input: ReviewInput): Promise<ReviewOutpu
       input: reviewPrompt(input),
       reasoning: { effort: 'medium' },
     } as never,
+    gatewayOptions(gatewayId),
   );
   const findings = parseReview(outputText(output), evidencePaths(input));
   return findings ? { findings, unreadFiles: input.unreadFiles } : null;
