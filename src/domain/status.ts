@@ -28,6 +28,8 @@ export interface ReleaseChecks {
   reviewAttempts: number;
   reviewSerious: number;
   adminApproved: boolean;
+  // 照合の後に本文が編集され、新しい本文が案内の型に当たった (release_checks.notes_held)。
+  notesHeld?: boolean;
 }
 
 export interface AssetForStatus {
@@ -75,7 +77,8 @@ export type BlockerCode =
   | 'diff_error'
   | 'review_pending'
   | 'review_failed'
-  | 'review_serious';
+  | 'review_serious'
+  | 'notes_held';
 
 export type WaitsFor = 'author' | 'admin' | 'system';
 
@@ -99,6 +102,7 @@ export const BLOCKER_WAITS_FOR: Record<BlockerCode, WaitsFor> = {
   review_pending: 'system',
   review_failed: 'admin',
   review_serious: 'admin',
+  notes_held: 'admin',
 };
 
 export interface StatusResult {
@@ -154,6 +158,7 @@ export function releaseBlockers(release: ReleaseForStatus, lookup: ScanLookup): 
       blockers.push(checks.reviewAttempts >= MAX_REVIEW_ATTEMPTS ? 'review_failed' : 'review_pending');
     }
     if (checks.reviewState === 'done' && checks.reviewSerious > 0) blockers.push('review_serious');
+    if (checks.notesHeld) blockers.push('notes_held');
   }
   return blockers;
 }

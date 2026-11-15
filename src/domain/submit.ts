@@ -21,6 +21,7 @@ import {
   type ReviewOutcome,
   reviewRepository,
 } from './release-checks';
+import { releaseNotesStatement } from './release-notes';
 
 export const SUBMITS_PER_DAY = 10;
 
@@ -353,6 +354,8 @@ async function validateAndStore(
         release.id,
         release.immutable === true ? 1 : 0,
       ),
+      // 登録の時点の版のリリースノートも照合する。結果は新しい版の検査のレビューで使う。
+      await releaseNotesStatement(env.DB, release.id, release.body),
     ];
     for (const asset of assets) {
       statements.push(

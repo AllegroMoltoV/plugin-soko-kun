@@ -159,6 +159,10 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `network_hits` | TEXT | | 検出で当たった箇所の JSON (`{hits: [{file, line, api, text}], truncated}`) |
 | `network_attempts` | INTEGER | NOT NULL、既定値 0 | 検出の結果を受け取った回数。`error` が 3 回になったら、検出の結果なしでレビューする |
 | `network_checked_at` | TEXT | | 最後に検出の結果を受け取った日時 |
+| `doc_hits` | TEXT | | README 以外の文書の照合で当たった箇所の JSON (`{hits: [{file, line, rule, text}], truncated}`)。通信の検出と同じ結果で受け取る。`network_state` が `done` で NULL なら、文書は照合していない |
+| `notes_hash` | TEXT | | リリースノートの本文の SHA-256 (16 進)。NULL は未照合。本文は保存しない |
+| `notes_hits` | TEXT | | リリースノートで案内の型に当たった行の JSON (`[{line, rule}]`) |
+| `notes_held` | INTEGER | NOT NULL、既定値 0 | 照合の後に本文が編集され、新しい本文が型に当たった。1 の間は、管理者の承認まで掲載しない |
 
 ## attestation_checks
 
@@ -252,6 +256,7 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 - `diff_state` が `passed` か `skipped` である。または `admin_approved_at` がある。
 - `review_state` が `done` で `review_serious` が 0 である。または `admin_approved_at` がある。
 - `plugins` の `owner_changed_at` が NULL である。または `admin_approved_at` がある。
+- `notes_held` が 0 である。または `admin_approved_at` がある。
 
 ### 掲載対象バージョン
 

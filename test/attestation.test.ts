@@ -241,15 +241,23 @@ describe('通信の API の検出の結果', () => {
               { file: 'src/evil.cpp', line: 1, api: 'made-up', text: 'x' },
               { file: 'src/bad.cpp', line: 'one', api: 'libcurl', text: 'x' },
             ],
+            docHits: [{ file: 'docs/INSTALL.md', line: 3, rule: 'no-terminal-paste', text: 'curl x | sh' }],
+            docTruncated: false,
           },
         ],
       }),
     });
     expect(response.status).toBe(200);
-    const row = await env.DB.prepare('SELECT network_state, network_hits FROM release_checks').first<{
+    const row = await env.DB.prepare('SELECT network_state, network_hits, doc_hits FROM release_checks').first<{
       network_state: string;
       network_hits: string;
+      doc_hits: string;
     }>();
+    // 同じ取り出しで照合した文書の当たりも、同じ結果で保存する。
+    expect(JSON.parse(row?.doc_hits ?? '{}')).toEqual({
+      hits: [{ file: 'docs/INSTALL.md', line: 3, rule: 'no-terminal-paste', text: 'curl x | sh' }],
+      truncated: false,
+    });
     expect(row?.network_state).toBe('done');
     expect(JSON.parse(row?.network_hits ?? '{}')).toEqual({
       hits: [{ file: 'src/client.cpp', line: 37, api: 'libcurl', text: 'curl_easy_init();' }],
