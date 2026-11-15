@@ -151,6 +151,11 @@ const BLOCKER_TEXT: Record<BlockerCode, { message: string; fix: string; criterio
       'The release notes were edited after they were checked, and the new text tells users to turn off a security feature or to run a downloaded command. An administrator reviews it before listing. The review has no fixed schedule.',
     fix: 'Remove the instruction from the release notes, or explain the change through an issue.',
   },
+  readme_held: {
+    message:
+      'The README on the default branch gained a line that tells users to turn off a security feature or to run a downloaded command, or the README could not be checked. No version of the plugin is listed until an administrator reviews it. The review has no fixed schedule.',
+    fix: 'Remove the instruction from the README on the default branch, or explain the change through an issue.',
+  },
 };
 
 export type VersionState = 'listed' | 'checking' | 'held' | 'rejected' | 'suspended' | 'superseded';
@@ -251,6 +256,7 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
         checks: check ? toChecks(check) : undefined,
         suspended: suspendedIds.has(row.github_release_id),
         ownerChanged: view.ownerChanged,
+        readmeHeld: view.readmeHeld,
       };
       const blockers = releaseBlockers(forStatus, (digest) => scanOf.get(digest) as ScanResult | undefined);
       const state = versionState(row.github_release_id === listedId, suspendedIds.has(row.github_release_id), blockers);

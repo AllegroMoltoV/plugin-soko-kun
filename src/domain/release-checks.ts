@@ -38,7 +38,7 @@ const MAX_DIFF_CHARS = 24_000;
 const MAX_FILE_BYTES = 32 * 1024;
 // README は no-security-bypass と no-terminal-paste が全文を照合するため、大きな上限で読む。LLM には先頭だけを渡す
 // (MAX_LLM_README_CHARS)。この上限を超える README は読めなかったものとし、規則が重大の指摘にする。
-const MAX_README_BYTES = 128 * 1024;
+export const MAX_README_BYTES = 128 * 1024;
 // LLM に渡すファイルの合計の上限。README は LLM に渡す分だけを数え、規則だけが読むテストのソースは数えない。
 const MAX_TOTAL_CHARS = 60_000;
 const MAX_WORKFLOWS = 6;

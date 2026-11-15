@@ -48,6 +48,8 @@ export interface ReleaseForStatus {
   suspended?: boolean;
   // プラグインの所有者が変わり、管理者がまだ版を承認していない (ADR 0015)。
   ownerChanged?: boolean;
+  // 掲載の後に既定のブランチの README へ新しい案内が足された (plugins.readme_held)。プラグインのどの版にも付く。
+  readmeHeld?: boolean;
 }
 
 export interface PluginForStatus {
@@ -78,7 +80,8 @@ export type BlockerCode =
   | 'review_pending'
   | 'review_failed'
   | 'review_serious'
-  | 'notes_held';
+  | 'notes_held'
+  | 'readme_held';
 
 export type WaitsFor = 'author' | 'admin' | 'system';
 
@@ -103,6 +106,7 @@ export const BLOCKER_WAITS_FOR: Record<BlockerCode, WaitsFor> = {
   review_failed: 'admin',
   review_serious: 'admin',
   notes_held: 'admin',
+  readme_held: 'admin',
 };
 
 export interface StatusResult {
@@ -129,6 +133,9 @@ export function releaseBlockers(release: ReleaseForStatus, lookup: ScanLookup): 
     blockers.push('scan_pending');
   }
   if (release.suspended) blockers.push('release_suspended');
+  // 版の承認では解かず、検査の前提を持たない旧い版 (legacy) にも付ける。旧い版や、案内を README に残したまま出した
+  // 新しい版に掲載が移らないようにするため。
+  if (release.readmeHeld) blockers.push('readme_held');
   const checks = release.checks;
   if (!checks) {
     blockers.push('checks_missing');
