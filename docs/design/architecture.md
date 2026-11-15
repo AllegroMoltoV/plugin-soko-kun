@@ -6,9 +6,9 @@
 
 本サービスは、Cloudflare Workers 上の 1 つの Worker で動きます。Worker は、MCP エンドポイント・OAuth の認可サーバー・Web カタログ・定期処理・証明の検証の受け口を兼ねます。永続データは D1 に置き、OAuth の状態は KV に置きます。Workers AI は、プラグインの概要の機械翻訳と、新しい版の開発の実践のレビューのうち、文章の意図を読む項目の判定に使います。
 
-本番の Workers AI の呼び出しは、AI Gateway `soko-kun-ai` を通します。ゲートウェイの支出の上限 (2026-11-15 の時点で 1 日 0.2 米ドル) で、同じ Cloudflare のアカウントを使う姉妹版の音のプラグイン倉庫くんと合わせた費用を止めます。上限に達したときの扱いは [検査と同期](scanning.md) に記載します。Cloudflare のアカウントは、2026-11-15 から 1 か月だけ Workers Paid にしています。Workers AI の 1 日の無料枠を超えて使うためです。コードは無料プランの上限 (外部呼び出し、D1 のクエリ、CPU 時間) の内で動作するよう作り、Paid の上限に合わせて広げません。無料プランに戻しても動作が変わらないようにするためです。
+本番の Workers AI の呼び出しは、AI Gateway `soko-kun-ai` を通します。ゲートウェイの支出の上限 (2026-11-15 の時点で 1 日 0.2 米ドル) で、同じ Cloudflare のアカウントを使う姉妹版の音のプラグイン倉庫くんと合わせた費用を止めます。上限に達したときの扱いは [検査と同期](scanning.md) に記載します。Cloudflare のアカウントは Workers Paid を続けます。本番の CPU 時間が無料プランの上限を一貫して超えるためです ([ADR 0017](../decisions/0017-continue-workers-paid.md))。コードは、本サービスが 1 回の起動に設ける予算 (外部呼び出しと D1 のクエリ) と読み込みの上限の内で動作するよう作り、Paid の上限に合わせて広げません。予算は GitHub のレート制限と費用を抑える役目も持つためです。
 
-配布物の証明の署名の検証だけは、Worker の外で行います。検証の CPU 時間が Worker の無料プランの上限に収まらないため、本サービスのリポジトリの GitHub Actions のワークフロー `verify.yaml` が検証し、結果を Worker へ送ります。この判断は [ADR 0014](../decisions/0014-attestation-verification-in-actions.md) に記載しています。
+配布物の証明の署名の検証だけは、Worker の外で行います。検証の CPU 時間が 1 件あたり 24〜45 ms で、配布物の数だけ Worker の 1 回の起動に積み重なるため、本サービスのリポジトリの GitHub Actions のワークフロー `verify.yaml` が検証し、結果を Worker へ送ります。この判断は [ADR 0014](../decisions/0014-attestation-verification-in-actions.md) に記載しています。
 
 単一の Worker にまとめるのは、構成要素と運用の手間を最小にするためです。MCP と Web は共通のドメインロジックを使います。そのため、検索の条件や掲載状態の算出が経路によって食い違うことはありません。ホスティング基盤の判断は [ADR 0001](../decisions/0001-hosting-cloudflare-workers-free.md) に記載しています。
 

@@ -3,7 +3,7 @@
 import { type Budget, budgetedFetch } from './budget';
 
 const API = 'https://api.github.com';
-// ファイルの一覧の応答の上限。無料プランの CPU 時間の内で JSON を解析できる大きさに抑える。
+// ファイルの一覧の応答の上限。大きな応答を読まずに打ち切る (読み込みの上限)。
 const MAX_TREE_BYTES = 1024 * 1024;
 
 export type GitHubAuth = { kind: 'user'; token: string } | { kind: 'app'; clientId: string; clientSecret: string };
@@ -319,7 +319,7 @@ export class GitHubClient {
   }
 
   // 2 つのタグの間の差分を diff の形式で受け、先頭の maxChars 文字だけを読んで接続を切る。
-  // JSON の compare は大きな差分で解析の CPU 時間が 10 ms を超えるため使わない (2026-11-13 の測定)。
+  // JSON の compare は使わない。無料プランの CPU 時間の上限で決めた扱いで、Workers Paid での扱いは差分の上限を超えたときの扱いと合わせて見直す (Beads の p3q の C3)。
   async getCompareDiff(
     owner: string,
     repo: string,
@@ -350,7 +350,7 @@ export class GitHubClient {
 
   // コミットが既定のブランチ (HEAD) の履歴にあれば 'inside'、無ければ 'outside' を返す。
   // 既定のブランチにあるコミットの応答は commits と files が空で小さい (約 13 KB)。上限を超える応答は、
-  // そのコミットにだけあるコミットを含むため、解析せずに 'outside' とする。大きな JSON の解析は CPU 時間の上限を超えるため。
+  // そのコミットにだけあるコミットを含むため、解析せずに 'outside' とする。大きな応答を読まずに打ち切るため (読み込みの上限)。
   async getTagAncestry(owner: string, repo: string, commitSha: string): Promise<'inside' | 'outside'> {
     if (!/^[0-9a-f]{40}$/.test(commitSha)) throw new Error('invalid commit sha');
     const response = await this.request(`${API}/repos/${path(owner, repo)}/compare/HEAD...${commitSha}?per_page=1`);

@@ -14,7 +14,7 @@ export default {
     const path = url.pathname;
 
     if (OAUTH_PATHS.includes(path)) {
-      // OAuth の経路は KV へ書き込むため、無料プランの 1 日 1,000 件の書き込みを使い切られないよう厳しく制限する。
+      // OAuth の経路は KV へ書き込むため、書き込みの費用と乱用を抑えるよう厳しく制限する。
       if (await isRateLimited(env, request, 'oauth')) return tooManyRequests();
       if (path === '/authorize') return handleAuthorize(request, env);
       if (path === '/callback') return handleCallback(request, env);

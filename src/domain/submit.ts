@@ -431,7 +431,7 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
       if (outcome.kind === 'done') review = { findings: outcome.findings, unreadFiles: collected.unreadFiles };
       else unavailable = outcome.kind;
     }
-    // 本サービスの側の都合 (無料枠の不足と混雑) でレビューできなかった回は、回数に数えない。
+    // 本サービスの側の都合 (AI Gateway の支出の上限、無料枠の不足、混雑) でレビューできなかった回は、回数に数えない。
     if (unavailable === 'quota' || unavailable === 'busy') {
       await env.DB.prepare('DELETE FROM check_log WHERE github_user_id = ? AND created_at = ?')
         .bind(submitter.githubUserId, loggedAt)
