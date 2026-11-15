@@ -75,7 +75,10 @@ npx wrangler secret put GITHUB_CLIENT_SECRET --env production
 npx wrangler secret put MALWAREBAZAAR_AUTH_KEY --env production
 npx wrangler secret put CONTACT_EMAIL --env production
 npx wrangler secret put GITHUB_DISPATCH_TOKEN --env production
+npx wrangler secret put DISCORD_WEBHOOK_URL --env production
 ```
+
+`DISCORD_WEBHOOK_URL` は、依頼者が Discord で管理者だけが見られるチャンネルを作り、そのチャンネルの連携サービスの設定で作った webhook の URL です。URL はチャットやファイルに残さず、依頼者が直接設定します。
 
 本番用の GitHub OAuth App の Authorization callback URL には、`<ORIGIN>/callback` を指定します。
 

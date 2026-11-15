@@ -12,6 +12,8 @@ export default defineConfig({
           GITHUB_CLIENT_SECRET: 'test-client-secret',
           MALWAREBAZAAR_AUTH_KEY: 'test-malwarebazaar-key',
           CONTACT_EMAIL: 'allegromoltov@soko-kun.example',
+          // .dev.vars の本物の URL がテストに入らないよう、空にしておく。通知のテストは env を上書きする。
+          DISCORD_WEBHOOK_URL: '',
         },
       },
     })),

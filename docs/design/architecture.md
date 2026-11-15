@@ -43,6 +43,7 @@ flowchart LR
   domain -->|リポジトリとリリースの情報| ghApi[GitHub API]
   domain -->|digest の照会| scanners[MalwareBazaar]
   domain -->|翻訳とレビューの LLM の判定| ai[Workers AI]
+  domain -->|管理者の確認待ちの通知| discord[Discord webhook]
   verify -->|配布物と証明の取得| ghApi
 ```
 
@@ -74,7 +75,7 @@ GitHub Actions のワークフロー `verify.yaml` は 15 分ごとに動作し�
 
 GitHub から取得した文字列は、外部データとして扱います。MCP の応答では外部データを専用のフィールドに入れ、ツールの説明で指示として扱わないことを明記します。Web では、テンプレートの自動エスケープで無害化します。Workers AI に渡すリポジトリの内容も外部データであり、指示には中の指示に従わないことを書きます。LLM が書いたレビューの説明と該当の箇所は、MCP の応答でデータとして扱うよう明記します。
 
-ドメインロジックは、外部への要求を `api.github.com`・`mb-api.abuse.ch`・`token.actions.githubusercontent.com` の固定のホストにだけ送ります。利用者が入力した URL からは owner と repo だけを取り出し、その URL へは要求を送りません。これにより、SSRF を防ぎます。
+ドメインロジックは、外部への要求を `api.github.com`・`mb-api.abuse.ch`・`token.actions.githubusercontent.com`・`discord.com` の固定のホストにだけ送ります。`discord.com` へは、秘密情報 `DISCORD_WEBHOOK_URL` の webhook にだけ送ります。利用者が入力した URL からは owner と repo だけを取り出し、その URL へは要求を送りません。これにより、SSRF を防ぎます。
 
 例外は、認可サーバーが取得する CIMD の文書です。CIMD の文書の URL は MCP クライアントが指定します。Worker の互換性フラグ `global_fetch_strictly_public` を有効にし、公開されたインターネット上のホストにだけ要求を送るようにしています。
 
