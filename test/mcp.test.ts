@@ -110,6 +110,15 @@ describe('アクセス権限', () => {
     expect(payload.total).toBe(1);
   });
 
+  // 表示名 (.soko-kun/config.json の name) にだけある語でも見つかること。リポジトリ名や概要と同じ語では確かめられない。
+  it('表示名にだけある語でも検索できる', async () => {
+    await registerPendingFixture();
+    await markListable(env.DB);
+    await env.DB.prepare("UPDATE plugins SET display_name = 'ふしぎな声変わり / Fushigi Voice'").run();
+    const { payload } = await toolResult(await SELF.fetch(toolCall('search_plugins', { keyword: 'ふしぎな声変わり' })));
+    expect(payload.total).toBe(1);
+  });
+
   it('管理者が停止したプラグインは検索結果から消える', async () => {
     await registerPendingFixture();
     await markListable(env.DB);
