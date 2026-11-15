@@ -9,6 +9,7 @@ import { runPreviews } from '../previews';
 import { NETWORK_PENDING } from '../review/network';
 import { ScannerRateLimitedError, scanWithMalwareBazaar } from '../scanners';
 import { runTranslations } from '../translate';
+import { type AdminNotify, NOTIFY_QUERIES, NOTIFY_RESERVE, notifyAdmin } from './admin-notify';
 import { loadAllViews } from './catalog';
 import { inferOs } from './metadata';
 import { type ReadmeFetch, readmeWatchStatement } from './readme-watch';
@@ -35,6 +36,7 @@ export interface CronReport {
   releaseChecksSkipped?: string;
   stoppedBy?: string;
   verifyDispatch?: VerifyDispatch;
+  adminNotify?: AdminNotify;
 }
 
 function now(): string {
@@ -107,6 +109,9 @@ export const SYNC_COST = 7;
 const SYNC_QUERIES = 3;
 // 証明の検証のワークフローの起動 (dispatchVerify) に取り分ける外部呼び出しと D1 のクエリ。
 export const DISPATCH_RESERVE = 1;
+// 定期処理の最後の 2 つ (証明の検証のワークフローの起動と、管理者の確認待ちの通知) に取り分ける外部呼び出しと D1 のクエリ。
+export const FINAL_RESERVE = DISPATCH_RESERVE + NOTIFY_RESERVE;
+const FINAL_QUERIES = DISPATCH_RESERVE + NOTIFY_QUERIES;
 
 async function syncOne(env: Env, budget: Budget, github: GitHubClient, row: SyncRow): Promise<void> {
   const timestamp = now();
@@ -454,6 +459,7 @@ export async function runDownloads(env: Env, budget: Budget, report: CronReport,
     .bind(day, DOWNLOADS_PER_RUN)
     .all<{ id: string; owner: string; repo: string; readme_state: string | null; watch: number }>();
   const statements: D1PreparedStatement[] = [];
+  let recorded = 0;
   for (const row of results) {
     // README を照合するプラグインは、記録と照合の 2 件がそろって残るときだけ処理する。照合しないまま記録だけが進むと、
     // その日のうちに処理し直されず、照合が抜けるため。
@@ -480,6 +486,7 @@ export async function runDownloads(env: Env, budget: Budget, report: CronReport,
         if (statement) pluginStatements.push(statement);
       }
       statements.push(...pluginStatements);
+      recorded += 1;
     } catch (error) {
       if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) {
         report.stoppedBy = `github_${error.kind}`;
@@ -495,7 +502,8 @@ export async function runDownloads(env: Env, budget: Budget, report: CronReport,
   statements.push(env.DB.prepare('DELETE FROM download_snapshots WHERE day < ?').bind(cutoff));
   budget.takeD1Query();
   await env.DB.batch(statements);
-  report.downloadsRecorded = statements.length - 1;
+  // 記録したプラグインの件数。リリースノートと README の照合の文は数えない。
+  report.downloadsRecorded = recorded;
 }
 
 // 既定のブランチの README を取得する。GitHub の一時的な障害は呼び出し元へ投げ、記録ごと次の起動へ回す。
@@ -602,14 +610,14 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
     subrequests: 0,
     d1Queries: 0,
   };
-  // 後段のループが予算を使い切っても、最後に証明の検証のワークフローを起動できるよう取り分けておく。
-  budget.reserve(DISPATCH_RESERVE, DISPATCH_RESERVE);
+  // 後段のループが予算を使い切っても、最後に証明の検証のワークフローの起動と管理者への通知ができるよう取り分けておく。
+  budget.reserve(FINAL_RESERVE, FINAL_QUERIES);
   try {
     await runScans(env, budget, report);
     // 新しい版の検査は掲載に直接つながるため、量がプラグインの数に比例する同期より先に行う (ADR 0007)。
     // 検査の間は同期 1 件の分を後段に残し、検査が予算を使い切っても同期が進むようにする。検査で失敗しても後段は止めない。
     // 本当のレート制限や障害なら、同期が自分の最初の呼び出しで検知して止まる。
-    budget.reserve(DISPATCH_RESERVE + SYNC_COST, DISPATCH_RESERVE + SYNC_QUERIES);
+    budget.reserve(FINAL_RESERVE + SYNC_COST, FINAL_QUERIES + SYNC_QUERIES);
     try {
       report.releasesChecked = await runReleaseChecks(env, budget);
     } catch (error) {
@@ -617,7 +625,7 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
       else if (error instanceof GitHubError) report.releaseChecksSkipped = `github_${error.kind}`;
       else throw error;
     }
-    budget.reserve(DISPATCH_RESERVE, DISPATCH_RESERVE);
+    budget.reserve(FINAL_RESERVE, FINAL_QUERIES);
     await runSync(env, budget, report);
     await recordListings(env, budget);
     if (!report.stoppedBy) await runDownloads(env, budget, report);
@@ -629,6 +637,8 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
   }
   budget.release();
   report.verifyDispatch = await dispatchVerify(env, budget);
+  // 通知は起動の後に置き、通知の失敗で起動が止まらないようにする。notifyAdmin は例外を投げない。
+  report.adminNotify = await notifyAdmin(env, budget);
   report.subrequests = budget.subrequests;
   report.d1Queries = budget.d1Queries;
   return report;

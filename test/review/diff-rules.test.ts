@@ -77,6 +77,84 @@ describe('checkDiff', () => {
     expect(hits).toEqual([]);
   });
 
+  // git と GitHub の compare は、パスに空白を含むと引用符なしで、非 ASCII を含むと引用符と 8 進のエスケープで見出しを出す。
+  it('パスに空白や非 ASCII を含むワークフローの変更と、そうしたパスからの名前の変更に当たる', () => {
+    const hits = checkDiff(
+      diff(
+        'diff --git a/.github/workflows/re lease.yml b/.github/workflows/re lease.yml',
+        'diff --git "a/.github/scripts/\\343\\201\\202.sh" "b/.github/scripts/\\343\\201\\202.sh"',
+        'diff --git a/old name.yml b/.github/actions/new name/action.yml',
+      ),
+      false,
+      'owner',
+      'plugin',
+    );
+    expect(hits.map((hit) => hit.rule)).toEqual([
+      'diff-workflow-changed',
+      'diff-workflow-changed',
+      'diff-workflow-changed',
+    ]);
+  });
+
+  it('入れ子の .github/workflows/ には当たらない', () => {
+    const hits = checkDiff(
+      diff('diff --git a/data/.github/workflows/x.yml b/data/.github/workflows/x.yml'),
+      false,
+      'owner',
+      'plugin',
+    );
+    expect(hits).toEqual([]);
+  });
+
+  it('削除したファイルの直後に、空白を含むパスのバイナリを足すと当たる', () => {
+    const hits = checkDiff(
+      diff(
+        'diff --git a/data/old.bin b/data/old.bin',
+        'deleted file mode 100644',
+        'Binary files a/data/old.bin and /dev/null differ',
+        'diff --git a/data/sp ace.bin b/data/sp ace.bin',
+        'new file mode 100644',
+        'Binary files /dev/null and b/data/sp ace.bin differ',
+      ),
+      false,
+      'owner',
+      'plugin',
+    );
+    expect(hits.map((hit) => hit.rule)).toEqual(['diff-binary-added']);
+  });
+
+  it('名前が " and /dev/null" で終わるバイナリの追加に当たる', () => {
+    const hits = checkDiff(
+      diff(
+        'diff --git a/x and /dev/null b/x and /dev/null',
+        'new file mode 100644',
+        'Binary files /dev/null and b/x and /dev/null differ',
+      ),
+      false,
+      'owner',
+      'plugin',
+    );
+    expect(hits.map((hit) => hit.rule)).toEqual(['diff-binary-added']);
+  });
+
+  // 本文が ++ で始まる行は、差分では +++ で始まる。
+  it('変更の塊の中の +++ で始まる追加の行も照合する', () => {
+    const hits = checkDiff(
+      diff(
+        'diff --git a/README.md b/README.md',
+        '--- a/README.md',
+        '+++ b/README.md',
+        '@@ -1,1 +1,2 @@',
+        ' # Plugin',
+        '+++ https://evil.example/x',
+      ),
+      false,
+      'owner',
+      'plugin',
+    );
+    expect(hits).toEqual([{ rule: 'diff-external-link', file: 'README.md' }]);
+  });
+
   it('切り詰めた差分は大きすぎる差分として当たる', () => {
     expect(checkDiff('', true, 'owner', 'plugin')).toEqual([{ rule: 'diff-too-large' }]);
   });

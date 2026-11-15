@@ -367,9 +367,11 @@ export class GitHubClient {
   // 有効な ruleset の中身を返す。一覧から、target が branch のもの、tag のものの順に最大 maxDetails 件の詳細を読む。
   // 公開リポジトリの ruleset はトークンなしでも読める。bypass_actors は返らない。
   async getRulesets(owner: string, repo: string, maxDetails: number): Promise<RulesetSnapshot> {
-    const list = (await (
+    const body = (await (
       await this.request(`${API}/repos/${path(owner, repo)}/rulesets?per_page=100`)
-    ).json()) as Array<{
+    ).json()) as unknown;
+    // 配列でない応答は ruleset が無いものとして扱う (姉妹版と同じ)。repository-protection は推奨の項目のため、安全側に倒れる。
+    const list = (Array.isArray(body) ? body : []) as Array<{
       id?: unknown;
       target?: unknown;
       enforcement?: unknown;

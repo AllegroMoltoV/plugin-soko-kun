@@ -5,6 +5,8 @@ import type { Category, Os } from './metadata';
 import {
   type AttestationResult,
   attestationResultSql,
+  BLOCKER_WAITS_FOR,
+  type BlockerCode,
   type ConfigState,
   computeStatus,
   type DiffState,
@@ -12,6 +14,7 @@ import {
   type ReleaseChecks,
   type ReleaseForStatus,
   type ReviewState,
+  releaseBlockers,
   type Scanner,
   type ScanResult,
 } from './status';
@@ -166,7 +169,22 @@ function downloadsOf(list: Array<{ day: string; total: number }>): PluginView['d
   return { total: latest.total, day: latest.day, weekly: base ? Math.max(0, latest.total - base.total) : null };
 }
 
-async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
+// 管理者の確認を待っている理由 1 つ。キーは通知の重複を防ぐために使う。
+export interface AdminWait {
+  key: string;
+  plugin: string;
+  code: BlockerCode;
+  // 版の単位の理由ではタグと GitHub のリリースの URL、プラグインの単位の理由ではリポジトリの URL。
+  tag?: string;
+  url: string;
+}
+
+// プラグインの全版に付く理由。版の数だけ通知しないよう、プラグインの単位で 1 件にする。
+const PLUGIN_LEVEL_WAITS: ReadonlySet<BlockerCode> = new Set(['readme_held', 'owner_changed']);
+
+// waits を渡すと、掲載の位置と関係なく全リリースについて、管理者の確認を待つ理由を集める (通知用)。
+// 管理者が自分で止めた版、削除と管理停止のプラグインは集めない。
+async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminWait>): Promise<PluginView[]> {
   const where = pluginId ? 'WHERE p.id = ?' : '';
   const bind = (statement: D1PreparedStatement) => (pluginId ? statement.bind(pluginId) : statement);
   // SELECT を 1 回の batch にまとめ、D1 のクエリ 1 件として扱う。
@@ -379,11 +397,29 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
       ownerChanged: plugin.owner_changed_at !== null,
       readmeHeld: plugin.readme_held === 1,
     }));
+    const lookup = (digest: string, scanner: Scanner) => scanMap.get(`${digest}:${scanner}`)?.result;
     const status = computeStatus(
       { adminSuspended: plugin.admin_suspended === 1, removed: plugin.removed === 1 },
       forStatus,
-      (digest, scanner) => scanMap.get(`${digest}:${scanner}`)?.result,
+      lookup,
     );
+    if (waits && plugin.admin_suspended === 0 && plugin.removed === 0) {
+      const slug = `${plugin.owner}/${plugin.repo}`.toLowerCase();
+      for (const release of forStatus) {
+        if (release.suspended) continue;
+        const row = pluginReleases.find((entry) => entry.github_release_id === release.githubReleaseId);
+        for (const code of releaseBlockers(release, lookup)) {
+          if (BLOCKER_WAITS_FOR[code] !== 'admin') continue;
+          if (PLUGIN_LEVEL_WAITS.has(code)) {
+            const key = `p:${plugin.id}:${code}`;
+            waits.set(key, { key, plugin: slug, code, url: `https://github.com/${plugin.owner}/${plugin.repo}` });
+          } else {
+            const key = `r:${release.githubReleaseId}:${code}`;
+            waits.set(key, { key, plugin: slug, code, tag: row?.tag, url: row?.html_url ?? '' });
+          }
+        }
+      }
+    }
     const listed = pluginReleases.find((release) => release.github_release_id === status.listedReleaseId);
     // 作者が OS を宣言していれば、宣言した OS の配布物だけを載せる。OS を推定できないソースの配布物は残す。
     const declaredOs = parseDeclaredOs(plugin.declared_os);
@@ -569,6 +605,13 @@ export async function getPluginPreview(
 }
 
 // 定期処理が、すべてのプラグインの掲載状態から掲載の期間を記録するために使う。D1 のクエリは 1 件。
+// 管理者の確認を待っている理由の一覧 (定期処理の通知用)。D1 の読み込みは 1 回の batch。
+export async function loadAdminWaits(env: Env): Promise<AdminWait[]> {
+  const waits = new Map<string, AdminWait>();
+  await loadViews(env, undefined, waits);
+  return [...waits.values()];
+}
+
 export function loadAllViews(env: Env): Promise<PluginView[]> {
   return loadViews(env);
 }
