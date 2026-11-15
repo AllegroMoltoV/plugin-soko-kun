@@ -9,7 +9,7 @@
 | 構成要素と要求の流れ | [アーキテクチャ](design/architecture.md) | 解説 |
 | テーブルと掲載状態の算出規則 | [データモデル](design/data-model.md) | リファレンス |
 | 認可の流れとスコープ | [認証と認可](design/auth.md) | リファレンス |
-| 登録・検査・同期の処理と無料プランの予算 | [検査と同期](design/scanning.md) | リファレンス |
+| 登録・検査・同期の処理と 1 回の起動の予算 | [検査と同期](design/scanning.md) | リファレンス |
 | 新しい版を掲載する前に確かめる項目 | [審査の基準](design/review-criteria.md) | リファレンス |
 | 作者の LLM へ検査とレビューの結果を返す MCP のツール | [作者へのレビューの返し方](design/author-feedback.md) | リファレンス |
 | 対応言語と言語の判定 | [多言語対応](design/i18n.md) | リファレンス |
@@ -21,7 +21,7 @@
 
 | 番号 | 判断 | 状態 |
 | --- | --- | --- |
-| 0001 | [ホスティング基盤](decisions/0001-hosting-cloudflare-workers-free.md) | 採用 |
+| 0001 | [ホスティング基盤](decisions/0001-hosting-cloudflare-workers-free.md) | 一部置き換え済み (0017) |
 | 0002 | [認可サーバーと MCP の同居と認証混在](decisions/0002-single-worker-mixed-auth.md) | 採用 |
 | 0003 | [配布物の digest の取得方法](decisions/0003-github-digest-without-download.md) | 採用 |
 | 0004 | [掲載状態の算出](decisions/0004-computed-listing-status.md) | 採用 |
@@ -37,6 +37,7 @@
 | 0014 | [証明の署名の検証を GitHub Actions で行う](decisions/0014-attestation-verification-in-actions.md) | 採用 |
 | 0015 | [リポジトリの名前の変更と移管を ID で追い、所有者の変更は管理者が確かめる](decisions/0015-repository-rename-and-transfer.md) | 採用 |
 | 0016 | [開発の実践のレビューを、項目ごとにルールと LLM に分け、ルールの事実を LLM に渡す](decisions/0016-review-by-rules-and-facts.md) | 採用 |
+| 0017 | [Cloudflare Workers の有料プランを続ける](decisions/0017-continue-workers-paid.md) | 採用 |
 
 ## 運用手順
 

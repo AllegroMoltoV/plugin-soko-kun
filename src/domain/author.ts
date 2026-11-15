@@ -346,7 +346,7 @@ function blockerView(
   const waitsFor: WaitsFor = BLOCKER_WAITS_FOR[code];
   const criterion = text.criterion ? CRITERIA_BY_ID.get(text.criterion) : undefined;
   const fix = criterion ? `${criterion.fix} See ${referenceOf(criterion.id)}` : text.fix;
-  // 無料枠を使い切った日は、枠が戻る時刻まで LLM のレビューを待つ。作者に理由と時刻をそのまま伝える。
+  // AI Gateway の支出の上限か無料枠の不足で断られたときは、再開の時刻まで LLM のレビューを待つ。作者に理由と時刻をそのまま伝える。
   const quotaWait = code === 'review_pending' && reviewWaitUntil !== null && Date.parse(reviewWaitUntil) > Date.now();
   return {
     code,

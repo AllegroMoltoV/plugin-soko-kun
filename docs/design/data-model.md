@@ -149,8 +149,8 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `diff_hits` | TEXT | | 当たった乗っ取りの兆候の ID とファイルの JSON |
 | `config_state` | TEXT | NOT NULL、既定値 `pending` | `.soko-kun/config.json` の判定。`pending`・`ok`・`missing`・`invalid`・`no_declared_assets` のいずれか |
 | `review_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`done`・`failed` のいずれか |
-| `review_attempts` | INTEGER | NOT NULL、既定値 0 | レビューを試みた回数。Workers AI の無料枠の不足と混雑は数えない |
-| `review_wait_until` | TEXT | | Workers AI の無料枠を使い切ったとき、次にレビューを試す日時 (1 時間後)。それまでレビューを行わない |
+| `review_attempts` | INTEGER | NOT NULL、既定値 0 | レビューを試みた回数。AI Gateway の支出の上限、Workers AI の無料枠の不足、混雑は数えない |
+| `review_wait_until` | TEXT | | AI Gateway の支出の上限か Workers AI の無料枠の不足で断られたとき、次にレビューを試す日時 (1 時間後)。それまでレビューを行わない |
 | `review_json` | TEXT | | レビューの指摘の JSON。説明と該当の箇所は外部データ |
 | `review_serious` | INTEGER | NOT NULL、既定値 0 | 重大な指摘の件数 |
 | `reviewed_at` | TEXT | | レビューした日時 |

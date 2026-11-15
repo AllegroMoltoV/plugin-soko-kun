@@ -401,7 +401,8 @@ export async function reviewRepository(
 export type ReviewOutcome =
   | { kind: 'done'; findings: Finding[] }
   | { kind: 'failed' }
-  // 無料枠の不足 (4006 か 3036)。試行に数えず、quotaRetryAt の時刻まで待つ。
+  // AI Gateway の支出の上限 (2045) か無料枠の不足 (4006 か 3036)。試行に数えず、quotaRetryAt の時刻まで待つ。
+  // Workers Paid では主に 2045 で、無料枠の不足は Workers Free で起きる (ADR 0017)。
   | { kind: 'quota' }
   // 一時的な混雑 (3040)。試行に数えず、次の起動でやり直す。
   | { kind: 'busy' };

@@ -1,4 +1,4 @@
-// 無料プランの 1 回の起動あたりの上限 (外部呼び出し 50 件、D1 クエリ 50 件) に余裕を残して収めるための予算。
+// 1 回の起動あたりの外部呼び出しと D1 クエリの予算。GitHub のレート制限と費用を抑えるため、Workers Paid の上限に合わせて広げない (ADR 0017)。
 export class BudgetExceededError extends Error {
   constructor(readonly kind: 'subrequest' | 'd1') {
     super(`${kind} budget exceeded`);

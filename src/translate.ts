@@ -64,7 +64,7 @@ export function acceptTranslation(source: string, text: string): boolean {
   return (text.match(URLS) ?? []).every((url) => allowed.has(url));
 }
 
-// 1 回の起動で行う翻訳の上限。Workers AI の無料枠 (1 日 10,000 Neurons) を少しずつ使う。
+// 1 回の起動で行う翻訳の上限。Workers AI の消費を少しずつにし、AI Gateway の支出の上限をレビューと分け合う。
 export const TRANSLATIONS_PER_RUN = 6;
 
 // 原文の言語を文字の種類で判定する。かながあれば日本語、ハングルがあれば韓国語、漢字だけなら中国語、それ以外は英語。
@@ -130,7 +130,7 @@ export async function runTranslations(env: Env, budget: Budget): Promise<number>
         translated += 1;
       } catch (error) {
         if (error instanceof BudgetExceededError) throw error;
-        // 無料枠を使い切った日などは翻訳を止め、原文の表示のまま次回へ回す。
+        // 呼び出しが失敗したとき (AI Gateway の支出の上限や無料枠の不足を含む) は翻訳を止め、原文の表示のまま次回へ回す。
         console.log(JSON.stringify({ event: 'translation_failed', plugin: row.id, to }));
         break outer;
       }

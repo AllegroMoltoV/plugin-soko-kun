@@ -1,5 +1,5 @@
 // プラグインのロゴと説明の画像の形式と大きさの確認。画像は外部データなので、拡張子を信用せず先頭のバイト列で判定する。
-// 無料プランの CPU 時間に収めるため、画像の全体は解析しない。
+// 画像の全体は解析しない。先頭のバイト列だけを読む (読み込みの上限)。
 
 export type ImageKind = 'logo' | 'image';
 export type ImageType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
