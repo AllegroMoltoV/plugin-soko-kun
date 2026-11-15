@@ -31,7 +31,7 @@
 
 `show` は、`admin_suspended`・`suspended_reason`・`removed`・`images_hidden`・`last_synced_at` と、`listing_periods` の掲載の期間、`release_suspensions` の止めた版を表示します。
 
-`pending` は、掲載の条件を満たしていない新しい版を、理由とともに表示します。管理者の確認を待つ理由は、乗っ取りの兆候に当たったファイル、LLM のレビューの重大な指摘とその該当の箇所、レビューの失敗です。証明の検証を待っている版も、検証のワークフローが止まっていないことを確かめられるよう、待っている時間とともに表示します。`pending` の `attestations_exhausted` は、証明の検証が `error` のまま試行を 5 回使い切った配布物の数です。これらは検証待ちから外れ、作者には管理者の確認待ち (`attestation_retries_exhausted`) と返ります。原因 (配布物の取得の失敗など) を確かめてから `retry-attestations` で検証待ちに戻すと、次の `verify.yaml` の起動で検証し直します。`approve-release` は、乗っ取りの兆候とレビューの指摘による確認待ちを解きます。所有者の変更による確認待ちも解きます ([ADR 0015](../decisions/0015-repository-rename-and-transfer.md))。証明・不変・配布の形の条件は解けません。`suspend-release` は版を止め、告知の文とともに `release_suspensions` に記録します。同じ版にもう一度実行すると、告知の文を書き換えます。告知の文は公開されます。侵害が疑われるときの手順は [侵害の対応](incident-response.md) に記載します。
+`pending` は、掲載の条件を満たしていない新しい版を、理由とともに表示します。管理者の確認を待つ理由は、乗っ取りの兆候に当たったファイル、LLM のレビューの重大な指摘とその該当の箇所、レビューの失敗です。証明の検証を待っている版も、検証のワークフローが止まっていないことを確かめられるよう、待っている時間とともに表示します。`pending` の `waiting_minutes` は、版の公開からの経過時間 (分) です。新しい版の検査は通常 30 分ほどで進むため、大きく延びているときは定期処理のログ (`releasesChecked`、`releaseChecksSkipped`、`stoppedBy`) を確かめます。`attestations_exhausted` は、証明の検証が `error` のまま試行を 5 回使い切った配布物の数です。これらは検証待ちから外れ、作者には管理者の確認待ち (`attestation_retries_exhausted`) と返ります。原因 (配布物の取得の失敗など) を確かめてから `retry-attestations` で検証待ちに戻すと、次の `verify.yaml` の起動で検証し直します。`approve-release` は、乗っ取りの兆候とレビューの指摘による確認待ちを解きます。所有者の変更による確認待ちも解きます ([ADR 0015](../decisions/0015-repository-rename-and-transfer.md))。証明・不変・配布の形の条件は解けません。`suspend-release` は版を止め、告知の文とともに `release_suspensions` に記録します。同じ版にもう一度実行すると、告知の文を書き換えます。告知の文は公開されます。侵害が疑われるときの手順は [侵害の対応](incident-response.md) に記載します。
 
 `hide-images` は、掲載を続けたままロゴと説明の画像だけを止めます。不適切な画像の通報を受けたときに使います。
 

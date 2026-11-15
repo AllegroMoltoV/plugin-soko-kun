@@ -32,4 +32,4 @@
 
 新しいリリースが検査を終えるまでの間、Web と MCP は前の掲載対象バージョンを示します。
 
-照会先は、[ADR 0012](0012-drop-virustotal.md) により MalwareBazaar だけになりました。予算の値は [検査と同期](../design/scanning.md) に記載します。
+照会先は、[ADR 0012](0012-drop-virustotal.md) により MalwareBazaar だけになりました。[ADR 0013](0013-release-provenance-and-review.md) で加えた新しい版の検査も、この決定にしたがって同期より先に処理します (2026-11-15 に、同期の後に置いていたために検査が始まらない不具合を直した)。予算の値は [検査と同期](../design/scanning.md) に記載します。

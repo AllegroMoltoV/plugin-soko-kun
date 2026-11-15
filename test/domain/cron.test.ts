@@ -72,7 +72,8 @@ describe('runCron', () => {
 
   it('GitHub でリポジトリが消えたら掲載終了にする', async () => {
     await registerFixture();
-    network.use(repoById(404), ...scannerHandlers({ mb: 0 }));
+    // 新しい版の検査は同期より先に走る (sd0)。消えたリポジトリでも検査の呼び出しが先に起きる。
+    network.use(repoById(404), ...scannerHandlers({ mb: 0 }), ...releaseCheckHandlers());
     await runCron(env);
     const row = await env.DB.prepare('SELECT removed FROM plugins').first<{ removed: number }>();
     expect(row?.removed).toBe(1);
@@ -81,7 +82,7 @@ describe('runCron', () => {
   it('GitHub の障害では既存の情報を変えない', async () => {
     await registerFixture();
     const before = await env.DB.prepare('SELECT * FROM plugins').first();
-    network.use(repoById(503), ...scannerHandlers({ mb: 0 }));
+    network.use(repoById(503), ...scannerHandlers({ mb: 0 }), ...releaseCheckHandlers());
     const report = await runCron(env);
     expect(report.stoppedBy).toBe('github_unavailable');
     expect(await env.DB.prepare('SELECT * FROM plugins').first()).toEqual(before);
@@ -168,6 +169,141 @@ describe('runCron', () => {
     expect(report.subrequests).toBeLessThanOrEqual(45);
     expect(report.d1Queries).toBeLessThanOrEqual(45);
     expect(counter.mb).toBeLessThanOrEqual(10);
+  });
+});
+
+// 定期処理の生存: 予算を超えないことだけでなく、新しい版の検査と同期が止まらずに進むこと (課題 sd0)。
+describe('runCron の新しい版の検査と同期の優先', () => {
+  const checkState = () =>
+    env.DB.prepare('SELECT config_state, diff_state, review_state, review_attempts FROM release_checks').first<{
+      config_state: string;
+      diff_state: string;
+      review_state: string;
+      review_attempts: number;
+    }>();
+
+  // 登録済みのプラグイン 1 件 (検査を待つ版がある) と、同期を待つほかのプラグイン 20 件。
+  async function seedPlugins(): Promise<void> {
+    await registerFixture();
+    const stamp = '2000-01-01T00:00:00Z';
+    for (let i = 0; i < 20; i += 1) {
+      await env.DB.prepare(
+        `INSERT INTO plugins (id, github_repo_id, owner, repo, license_spdx, submitter_github_id, created_at, updated_at, last_synced_at)
+         VALUES (?, ?, ?, ?, 'MIT', 1, ?, ?, ?)`,
+      )
+        .bind(`allegromoltov/p${i}`, 920000 + i, OWNER, `p${i}`, stamp, stamp, stamp)
+        .run();
+    }
+  }
+
+  const syncHandlers = () => [
+    ...imageHandlers(),
+    ...downloadHandlers(),
+    ...scannerHandlers({ mb: 0 }),
+    http.get('https://api.github.com/repositories/:id', ({ params }) => {
+      const id = Number(params.id);
+      return HttpResponse.json({
+        id,
+        name: id === REPO_ID ? REPO : `p${id - 920000}`,
+        owner: { login: OWNER },
+        private: false,
+        archived: false,
+        license: { spdx_id: id === REPO_ID ? 'GPL-2.0' : 'MIT' },
+      });
+    }),
+    http.get(
+      'https://api.github.com/repos/:owner/:repo/releases/latest',
+      () => new HttpResponse(null, { status: 304 }),
+    ),
+  ];
+
+  // 2026-11-15 の本番: 同期 11 件で外部呼び出しを 23 件使い、新しい版の検査が始まらなかった。
+  it('同期を待つプラグインが多くても、1 回の起動で新しい版の検査が D1 の状態を進める', async () => {
+    await seedPlugins();
+    network.use(...syncHandlers(), ...releaseCheckHandlers());
+    const report = await runCron(env);
+    const state = await checkState();
+    expect(state?.config_state).not.toBe('pending');
+    expect(state?.diff_state).not.toBe('pending');
+    expect(report.subrequests).toBeLessThanOrEqual(45);
+    expect(report.d1Queries).toBeLessThanOrEqual(45);
+  });
+
+  // 名前を変えたリポジトリなどで検査の呼び出しがリダイレクトで膨らんでも、同期が名前を直せるよう後段を走らせる。
+  it('検査の途中で予算を使い切りそうになっても、検査だけを打ち切り、同じ起動で同期を進める', async () => {
+    await seedPlugins();
+    const base = 'https://api.github.com/repos/:owner/:repo';
+    // すべての取得を 2 回リダイレクトさせ、1 回の取得で外部呼び出しを 3 件使わせる。
+    const redirected =
+      (serve: () => Response): Parameters<typeof http.get>[1] =>
+      ({ request }) => {
+        const url = new URL(request.url);
+        const hop = Number(url.searchParams.get('hop') ?? '0');
+        if (hop < 2) {
+          url.searchParams.set('hop', String(hop + 1));
+          return new HttpResponse(null, { status: 302, headers: { Location: url.toString() } });
+        }
+        return serve();
+      };
+    const paths = [
+      ...Array.from({ length: 6 }, (_, i) => `.github/workflows/w${i}.yaml`),
+      'README.md',
+      'CMakeLists.txt',
+      'cmake/windows/compilerconfig.cmake',
+      'cmake/macos/compilerconfig.cmake',
+      'vcpkg.json',
+      'CONTRIBUTING.md',
+      '.github/PULL_REQUEST_TEMPLATE.md',
+      '.github/ISSUE_TEMPLATE/bug.yml',
+      '.github/ISSUE_TEMPLATE/feature.yml',
+    ];
+    network.use(
+      ...syncHandlers(),
+      http.get(
+        `${base}/git/trees/:ref`,
+        redirected(() => HttpResponse.json({ tree: paths.map((path) => ({ path, type: 'blob' })), truncated: false })),
+      ),
+      http.get(
+        `${base}/contents/*`,
+        redirected(() => new HttpResponse(null, { status: 404 })),
+      ),
+      http.get(
+        `${base}/compare/:range`,
+        redirected(() => HttpResponse.json({ status: 'behind', commits: [], files: [] })),
+      ),
+      http.get(
+        `${base}/rulesets`,
+        redirected(() => HttpResponse.json([])),
+      ),
+    );
+    const report = await runCron(env);
+    expect(report.releaseChecksSkipped).toBe('budget');
+    expect(report.synced).toBeGreaterThanOrEqual(1);
+    expect(report.stoppedBy).toBeUndefined();
+    expect(report.subrequests).toBeLessThanOrEqual(45);
+  });
+
+  // そのリポジトリだけの恒常的な失敗で、同じ版が検査の先頭を占め続けないようにする。
+  it('検査で GitHub が 500 を返し続けると試行を数えて上限で止まり、その間も同期を進める', async () => {
+    await seedPlugins();
+    const fail = () => new HttpResponse(null, { status: 500 });
+    const base = 'https://api.github.com/repos/:owner/:repo';
+    // 同期の画像の取得 (.soko-kun の一覧) は失敗させず、検査が読む宣言ファイルと差分とファイルの一覧だけを失敗させる。
+    const failing = [
+      http.get(`${base}/contents/.soko-kun/config.json`, fail),
+      http.get(`${base}/compare/:range`, fail),
+      http.get(`${base}/git/trees/:ref`, fail),
+      http.get(`${base}/rulesets`, fail),
+    ];
+    network.use(...syncHandlers(), ...failing);
+    const first = await runCron(env);
+    await env.DB.prepare("UPDATE plugins SET last_synced_at = '2000-01-01T00:00:00Z'").run();
+    network.resetHandlers();
+    network.use(...syncHandlers(), ...failing);
+    const second = await runCron(env);
+    expect((await checkState())?.review_attempts).toBe(2);
+    expect(first.synced).toBeGreaterThanOrEqual(1);
+    expect(second.synced).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -530,6 +666,7 @@ describe('証明の検証のワークフローの起動', () => {
     network.use(
       repoById(503),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
       http.post(DISPATCH_URL, async ({ request }) => {
         expect(request.headers.get('Authorization')).toBe('Bearer test-dispatch-token');
         bodies.push(await request.json());
@@ -561,7 +698,7 @@ describe('証明の検証のワークフローの起動', () => {
     await registerFixture();
     await env.DB.prepare("UPDATE attestation_checks SET result = 'passed'").run();
     await env.DB.prepare("UPDATE release_checks SET network_state = 'done'").run();
-    network.use(repoById(503), ...scannerHandlers({ mb: 0 }));
+    network.use(repoById(503), ...scannerHandlers({ mb: 0 }), ...releaseCheckHandlers());
     const report = await runCron(withToken);
     expect(report.verifyDispatch).toBe('skipped_no_pending');
   });
@@ -572,6 +709,7 @@ describe('証明の検証のワークフローの起動', () => {
     network.use(
       repoById(503),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
       http.post(DISPATCH_URL, () => HttpResponse.json({ workflow_run_id: 1 })),
     );
     const report = await runCron(withToken);
@@ -583,6 +721,7 @@ describe('証明の検証のワークフローの起動', () => {
     network.use(
       repoById(503),
       ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
       http.post(DISPATCH_URL, () => new HttpResponse(null, { status: 401 })),
     );
     const report = await runCron(withToken);

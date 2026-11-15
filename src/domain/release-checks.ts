@@ -1,6 +1,6 @@
 // 新しい版の検査 (docs/design/scanning.md の「新しい版の検査」)。Cron の定期処理から 1 回の起動で 1 件ずつ行う。
 // 宣言ファイルの判定、乗っ取りの兆候のルールの検査、規則と LLM による開発の実践のレビューを行い、release_checks に書く。
-import type { Budget } from '../budget';
+import { type Budget, BudgetExceededError } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError } from '../github';
 import { checkDiff, type DiffHit } from '../review/diff-rules';
@@ -121,9 +121,11 @@ export async function runReleaseChecks(env: Env, budget: Budget): Promise<number
   try {
     await checkOne(env, budget, github, row);
   } catch (error) {
-    if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
+    // レート制限は試行に数えず、次の起動へ回す。予算の超過も呼び出し元 (runCron) に任せる。
+    if (error instanceof GitHubError && error.kind === 'rate_limited') throw error;
     if (!(error instanceof GitHubError)) throw error;
-    // そのリポジトリに固有の失敗 (403 など) は、試行の回数だけ進める。上限に達した版は選ばれなくなり、管理者の一覧に残る。
+    // それ以外の GitHub の失敗 (403、5xx、422 など) は、試行の回数を進める。unavailable はそのリポジトリだけの恒常的な失敗も含むため、
+    // 数えないと同じ版が検査の先頭を占め続ける。上限に達した版は選ばれなくなり、管理者の一覧に残る。
     budget.takeD1Query();
     await env.DB.prepare(
       "UPDATE release_checks SET review_state = 'failed', review_attempts = review_attempts + 1 WHERE github_release_id = ?",
@@ -193,6 +195,8 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
         update('diff_state = ?, diff_hits = ?', state, JSON.stringify(hits));
       }
     } catch (error) {
+      // 予算の超過を差分の失敗として記録しない。打ち切って次の起動でやり直す。
+      if (error instanceof BudgetExceededError) throw error;
       if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
       if (row.diff_state === 'pending') update('diff_state = ?', 'error');
     }
@@ -256,7 +260,7 @@ export async function collectReviewFiles(
       );
     } catch (error) {
       // 取得の関数が受け付けない文字を含むパスは、読まずに未読として記録する。
-      if (error instanceof GitHubError) throw error;
+      if (error instanceof GitHubError || error instanceof BudgetExceededError) throw error;
       unreadFiles.push(path);
       return;
     }
@@ -275,6 +279,7 @@ export async function collectReviewFiles(
   try {
     rulesets = { readable: true, ...(await github.getRulesets(owner, repo, MAX_RULESET_DETAILS)) };
   } catch (error) {
+    if (error instanceof BudgetExceededError) throw error;
     if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
     rulesets = { readable: false };
   }

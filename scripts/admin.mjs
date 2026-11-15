@@ -68,7 +68,10 @@ if (command === 'suspend') {
          SELECT tag, reason, note, suspended_at FROM release_suspensions WHERE plugin_id = ${PID} ORDER BY suspended_at DESC;`;
 } else if (command === 'pending') {
   // 掲載の条件を満たしていない新しい版。管理者の確認を待つ理由と、証明の検証を待っている時間を示す。
-  sql = `SELECT p.owner || '/' || p.repo AS plugin, r.tag, r.published_at, c.diff_state, c.diff_hits, c.config_state,
+  // waiting_minutes は版の公開からの経過時間。定期処理が止まって検査が進まないことに気づけるよう示す。
+  sql = `SELECT p.owner || '/' || p.repo AS plugin, r.tag, r.published_at,
+           CAST((julianday('now') - julianday(r.published_at)) * 1440 AS INTEGER) AS waiting_minutes,
+           c.diff_state, c.diff_hits, c.config_state,
            c.review_state, c.review_attempts, c.review_serious,
            (SELECT json_group_array(json_object('id', json_extract(f.value, '$.id'),
               'explanation', json_extract(f.value, '$.explanation'), 'evidence', json_extract(f.value, '$.evidence')))
