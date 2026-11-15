@@ -99,7 +99,7 @@ export const CRITERIA: Criterion[] = [
     title: 'Tests exercise the plugin in real use scenarios',
     // 依頼者の決定 (2026-11-15): libobs を画面なしで初期化してプラグインを読み込むテストも満たす。LLM の判定が回によって
     // 分かれたため、同じ日にルールの判定に移した。
-    fix: 'Add a CI job that loads the built plugin, through libobs without a window or by starting OBS Studio, and checks that a plugin feature produces the expected result.',
+    fix: 'Add a CI job that loads the built plugin: either start OBS Studio with the plugin installed, writing the line that starts OBS in the workflow file itself (starts inside scripts the workflow calls are not read), or run a test that starts libobs without a window and loads the plugin module. Checking the result of a plugin feature in that job is recommended.',
   },
   {
     id: 'no-security-bypass',
@@ -163,7 +163,7 @@ export const CRITERIA: Criterion[] = [
     kind: 'criterion',
     judgedBy: 'rule',
     title: 'The build has hardening options',
-    fix: 'Add a build option for sanitizers and enable stack protection flags such as -fstack-protector-strong or /GS.',
+    fix: 'Add a build option for sanitizers and enable stack protection flags such as -fstack-protector-strong or /GS. The catalog reads CMakeLists.txt and up to two files under cmake/ whose path contains "compiler", so put the flags there.',
   },
   {
     id: 'windows-code-signing',

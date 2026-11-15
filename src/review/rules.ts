@@ -14,6 +14,10 @@ export interface RepositorySnapshot {
   files: Array<{ path: string; content: string }>;
   // 上限のため読まなかったファイル。
   unreadFiles: string[];
+  // ref の時点で GitHub がリポジトリの画面に表示する README のパス。中身は files にある。未設定か null なら README は無い。
+  readmePath?: string | null;
+  // README はあるが、上限を超えたか読めなかった。
+  readmeUnread?: boolean;
   // 通信の API の検出の結果。null か未設定なら、検出していない (確認のモード、期限切れ、検出の失敗)。
   network?: NetworkScan | null;
   // 有効な ruleset。未設定か readable が false なら、読めなかった。
@@ -50,7 +54,7 @@ function file(snapshot: RepositorySnapshot, path: string): string | undefined {
 }
 
 function readme(snapshot: RepositorySnapshot): { path: string; content: string } | undefined {
-  return snapshot.files.find((entry) => entry.path === 'README.md');
+  return snapshot.readmePath ? snapshot.files.find((entry) => entry.path === snapshot.readmePath) : undefined;
 }
 
 function buildFiles(snapshot: RepositorySnapshot): Array<{ path: string; content: string }> {
@@ -355,19 +359,17 @@ function readmePattern(
   const doc = readme(snapshot);
   if (!doc) {
     // 読めなかった README を、無い README と同じに扱わない。大きな README で照合を逃れられないようにするため。
-    if (snapshot.unreadFiles.includes('README.md')) {
+    if (snapshot.readmeUnread) {
       return {
         ...finding(
           id,
           'not_met',
-          'Checked by rules: README.md is larger than 128 KB or could not be read, so the rules could not check it.',
+          'Checked by rules: the README is larger than 128 KB or could not be read, so the rules could not check it.',
         ),
         serious: true,
       };
     }
-    if (snapshot.truncated)
-      return finding(id, 'unclear', 'Checked by rules: the repository file list was too large to read in full.');
-    return finding(id, 'met', 'Checked by rules: the repository has no README.md.');
+    return finding(id, 'met', 'Checked by rules: the repository has no README.');
   }
   const hits = doc.content
     .split('\n')
@@ -432,14 +434,15 @@ export function llmCriteriaFor(snapshot: RepositorySnapshot): string[] {
 
 // LLM に渡すファイル。規則だけが読むビルドの設定、vcpkg.json、CONTRIBUTING は渡さない。
 // README は規則が全文を照合するために大きな上限で読むため、LLM には先頭の MAX_LLM_README_CHARS 文字だけを渡す。
-export function llmFiles(files: RepositorySnapshot['files']): RepositorySnapshot['files'] {
-  return files
-    .filter((entry) => entry.path === 'README.md' || WORKFLOW.test(entry.path) || TEMPLATE.test(entry.path))
+export function llmFiles(snapshot: RepositorySnapshot): RepositorySnapshot['files'] {
+  const doc = readme(snapshot);
+  return snapshot.files
+    .filter((entry) => entry === doc || WORKFLOW.test(entry.path) || TEMPLATE.test(entry.path))
     .map((entry) =>
-      entry.path === 'README.md' && entry.content.length > MAX_LLM_README_CHARS
+      entry === doc && entry.content.length > MAX_LLM_README_CHARS
         ? {
             path: entry.path,
-            content: `${entry.content.slice(0, MAX_LLM_README_CHARS)}\n[The rest of README.md is not provided because of the size limits.]`,
+            content: `${entry.content.slice(0, MAX_LLM_README_CHARS)}\n[The rest of the README is not provided because of the size limits.]`,
           }
         : entry,
     );
@@ -512,8 +515,10 @@ const OBS_LAUNCH: RegExp[] = [
   /\bobs64\.exe\b/i,
   /\bOBS\.app\/Contents\/MacOS\/OBS\b/,
   /\bflatpak\s+run\s+(?:\S+\s+)*com\.obsproject\.Studio\b/i,
-  // Linux の obs をオプション付きで起動する行。
+  // Linux の obs をオプション付きで起動する行。短い形式は -m (--multi) と -p (--portable) だけを数える。
+  // OBS Studio の短い形式は -m・-p・-h・-V の 4 つで (frontend/obs-main.cpp)、-h と -V は表示だけのため。
   /(?:^|[\s;&|("'/])obs\s+--[a-z]/i,
+  /(?:^|[\s;&|("'/])obs\s+-[mp]\b/,
 ];
 // 同じ行にあれば起動とみなさない語。ファイルの操作、署名や情報の確認、版と使い方の表示。
 const OBS_NOT_LAUNCH =

@@ -504,6 +504,8 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
     <>
       {head}
       <Summary view={view} t={t} lang={lang} showOriginal={showOriginal} path={`/plugins/${view.id}`} />
+      {/* 止めた版の警告は、利用者がダウンロードボタンを押す前に読めるよう、ボタンより上に置く (docs/design/ui.md)。 */}
+      <SuspendedReleases releases={view.suspendedReleases} t={t} lang={lang} />
       {view.images.image ? <Shot view={view} image={view.images.image} t={t} /> : null}
       {primary ? (
         <div class="download">
@@ -597,7 +599,6 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
         ))}
       </ul>
       <p>{t.noDetectionNotSafe}</p>
-      <SuspendedReleases releases={view.suspendedReleases} t={t} lang={lang} />
 
       <h2 class="bar">{t.cautions}</h2>
       <ul>

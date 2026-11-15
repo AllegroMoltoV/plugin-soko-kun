@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import {
   catalogStats,
@@ -13,7 +13,7 @@ import { CATEGORIES, type Category, OS_VALUES, type Os } from '../domain/metadat
 import type { Env } from '../env';
 import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
 import { DICTS, LANGS, type Lang, negotiate } from './i18n';
-import { Layout, type PageMeta, toJsonLd, websiteJsonLd, withLang } from './layout';
+import { ContactButton, Layout, type PageMeta, toJsonLd, websiteJsonLd, withLang } from './layout';
 import { LOGO_SVG } from './logo';
 import {
   NoticesPage,
@@ -399,8 +399,12 @@ for (const key of PAGE_KEYS) {
   });
 }
 
-// 収集を防ぐため、アドレスはフォームの送信を受けたときだけ、@ を [at] に置き換えて返す。
-app.post('/contact', async (c) => {
+// 収集を防ぐため、アドレスはフォームの送信 (POST) を受けたときだけ、@ を [at] に置き換えて返す。
+// GET は、アドレスを表示したページで言語を切り替えたときに来る。アドレスは返さず、選んだ言語のボタンを返す。
+app.post('/contact', (c) => contactPage(c, true));
+app.get('/contact', (c) => contactPage(c, false));
+
+async function contactPage(c: Context<AppEnv>, reveal: boolean) {
   const lang = c.get('lang');
   const t = DICTS[lang];
   const stats = await catalogStats(c.env);
@@ -434,17 +438,19 @@ app.post('/contact', async (c) => {
       }
     >
       <h1>{t.contactLabel}</h1>
-      {address ? (
+      {!address ? (
+        <p>{t.contactUnavailable}</p>
+      ) : reveal ? (
         <>
           <p class="contact-address">{address}</p>
           <p>{t.contactHint}</p>
         </>
       ) : (
-        <p>{t.contactUnavailable}</p>
+        <ContactButton t={t} lang={lang} />
       )}
     </Layout>,
   );
-});
+}
 
 app.notFound((c) => {
   const lang = (c.get('lang') as Lang | undefined) ?? 'ja';

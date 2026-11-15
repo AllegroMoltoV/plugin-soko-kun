@@ -1,6 +1,6 @@
 // プラグインの概要の機械翻訳。翻訳は同期のときに行って D1 に保存し、画面の表示のときには翻訳しない。
 // 文章生成モデルは概要の文を指示として解釈するおそれがあるため、指示で本文をデータとして扱わせ、出力も確かめる。
-import { gatewayOptions } from './ai-gateway';
+import { GATEWAY_SERVICE, gatewayOptions } from './ai-gateway';
 import { type Budget, BudgetExceededError } from './budget';
 import type { Env } from './env';
 
@@ -115,7 +115,7 @@ export async function runTranslations(env: Env, budget: Budget): Promise<number>
             input: row.summary,
             reasoning: { effort: 'low' },
           } as never,
-          gatewayOptions(env.AI_GATEWAY_ID),
+          gatewayOptions(env.AI_GATEWAY_ID, GATEWAY_SERVICE),
         );
         // 不採用の訳は空の訳として記録する。画面は原文を表示し、同じ原文では訳し直さない。
         const generated = unwrapEmphasis(row.summary, outputText(output));

@@ -27,12 +27,14 @@ const goodWorkflow = [
   '          persist-credentials: false',
 ].join('\n');
 
+// README は、本番では GitHub の README の API が返したパスを readmePath に入れる。テストでは README.md を置いたときに入れる。
 function snapshot(files: Record<string, string>, extraPaths: string[] = [], truncated = false): RepositorySnapshot {
   return {
     paths: [...Object.keys(files), ...extraPaths],
     truncated,
     files: Object.entries(files).map(([path, content]) => ({ path, content })),
     unreadFiles: [],
+    readmePath: 'README.md' in files ? 'README.md' : null,
   };
 }
 
@@ -193,7 +195,7 @@ describe('no-security-bypass と no-terminal-paste', () => {
 describe('README を読めなかったとき', () => {
   // 危険側: 大きな README が未読になり、無い README と同じに met を返すと、照合を逃れられる。
   it('未読の README は、no-security-bypass と no-terminal-paste を重大の not_met にする', () => {
-    const findings = judgeByRules({ ...snapshot({}, ['README.md']), unreadFiles: ['README.md'] });
+    const findings = judgeByRules({ ...snapshot({}), unreadFiles: ['README'], readmeUnread: true });
     for (const id of ['no-security-bypass', 'no-terminal-paste']) {
       expect(
         findings.find((entry) => entry.id === id),
@@ -202,15 +204,19 @@ describe('README を読めなかったとき', () => {
     }
   });
 
-  it('README は合計の上限で押し出されないよう、ワークフローより先に読む', () => {
-    expect(reviewFilePlan(['.github/workflows/a.yaml', 'README.md']).fetch).toEqual([
-      'README.md',
-      '.github/workflows/a.yaml',
-    ]);
+  // 危険側: README の名前を変えると、照合を逃れられること。README は GitHub が表示するものを API で取り、そのパスで照合する。
+  it('README.md 以外の名前の README も照合する', () => {
+    for (const path of ['readme.md', '.GitHub/README.md', 'docs/README.rst', 'README']) {
+      const findings = judgeByRules({ ...snapshot({ [path]: 'xattr -cr OBS.app' }), readmePath: path });
+      expect(
+        findings.find((entry) => entry.id === 'no-security-bypass'),
+        path,
+      ).toMatchObject({ result: 'not_met', serious: true, evidence: [{ file: path }] });
+    }
   });
 
   it('LLM には README の先頭だけを渡し、残りを渡していないと伝える', () => {
-    const [readme] = llmFiles([{ path: 'README.md', content: 'a'.repeat(40_000) }]);
+    const [readme] = llmFiles(snapshot({ 'README.md': 'a'.repeat(40_000) }));
     expect(readme?.content.startsWith('a'.repeat(32 * 1024))).toBe(true);
     expect(readme?.content.length).toBeLessThan(33 * 1024);
     expect(readme?.content).toContain('not provided because of the size limits');
@@ -255,6 +261,7 @@ describe('ci-scenario-tests', () => {
     for (const line of [
       'Start-Process -FilePath "$env:OBS_DIR\\bin\\64bit\\obs64.exe" -ArgumentList "--portable"',
       'obs --startreplaybuffer --minimize-to-tray &',
+      'obs -p &',
       'flatpak run com.obsproject.Studio --portable',
       '"/Applications/OBS.app/Contents/MacOS/OBS" --portable',
     ]) {
@@ -271,6 +278,7 @@ describe('ci-scenario-tests', () => {
       'sudo apt-get install -y obs-studio',
       'flatpak install -y flathub com.obsproject.Studio',
       '/usr/local/bin/obs --version',
+      'obs -V',
       'cp -R /Volumes/OBS/OBS.app/Contents/MacOS/OBS /tmp/',
       'codesign --verify /Applications/OBS.app/Contents/MacOS/OBS',
       'Copy-Item obs64.exe build/',
@@ -315,7 +323,7 @@ describe('LLM に渡す情報', () => {
 
   it('規則だけが読むファイルは LLM に渡さない', () => {
     const files = llmFiles(
-      snapshot({ 'README.md': '', 'CMakeLists.txt': '', '.github/workflows/a.yaml': '', 'CONTRIBUTING.md': '' }).files,
+      snapshot({ 'README.md': '', 'CMakeLists.txt': '', '.github/workflows/a.yaml': '', 'CONTRIBUTING.md': '' }),
     );
     expect(files.map((entry) => entry.path).sort()).toEqual(['.github/workflows/a.yaml', 'README.md']);
   });
@@ -371,8 +379,8 @@ describe('reviewFilePlan', () => {
       '.github/ISSUE_TEMPLATE/config.yml',
       '.github/ISSUE_TEMPLATE/bug.yml',
     ]);
+    // README は README の API で別に取得するため、ここには含めない。
     expect(plan.fetch).toEqual([
-      'README.md',
       ...Array.from({ length: 6 }, (_, i) => `.github/workflows/w${i}.yaml`),
       'cmake/windows/compilerconfig.cmake',
       'cmake/common/compiler_common.cmake',

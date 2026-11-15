@@ -68,7 +68,8 @@ describe('Workers AI の例外の分類', () => {
       }) as unknown as Env;
     await reviewRepository(env('soko-kun-ai'), new Budget(), 'a/b', collected, null);
     await reviewRepository(env(), new Budget(), 'a/b', collected, null);
-    expect(options).toEqual([{ gateway: { id: 'soko-kun-ai' } }, undefined]);
+    // service は、姉妹版と共有するゲートウェイのログで本家の消費を区別するためのメタデータ。
+    expect(options).toEqual([{ gateway: { id: 'soko-kun-ai', metadata: { service: 'plugin-soko-kun' } } }, undefined]);
   });
 
   it('無料枠の不足のあとは、時刻によらず 1 時間後にやり直す', () => {

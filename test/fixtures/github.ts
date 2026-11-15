@@ -91,9 +91,12 @@ export function githubHandlers(fixture: RepoFixture = {}, calls: string[] = []) 
       if (fixture.attestation === false) return new HttpResponse(null, { status: 404 });
       return HttpResponse.json({ attestations: [{ bundle: null, bundle_url: 'https://example.invalid/bundle' }] });
     }),
-    http.get(`${base}/readme`, () => {
+    // 登録のときの概要は raw で、レビューは JSON (path と size と base64 の中身) で受ける。
+    http.get(`${base}/readme`, ({ request }) => {
       track('readme');
-      return HttpResponse.text('# Title\n\nA pitch shift filter.\n');
+      const text = '# Title\n\nA pitch shift filter.\n';
+      if (request.headers.get('Accept')?.includes('raw')) return HttpResponse.text(text);
+      return HttpResponse.json({ path: 'README.md', size: text.length, encoding: 'base64', content: btoa(text) });
     }),
   ];
 }
