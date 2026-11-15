@@ -38,7 +38,7 @@
 
 ## 乗っ取りの兆候
 
-掲載中の版のタグから新しい版のタグまでの差分で判定します。差分は先頭の 24,000 文字までを読みます。
+`diff-` で始まる項目は、掲載中の版のタグから新しい版のタグまでの差分で判定します。差分は先頭の 24,000 文字までを読みます。ほかの項目の判定の方法は、各項目の内容に書きます。
 
 | ID | 内容 |
 | --- | --- |
@@ -46,15 +46,16 @@
 | `diff-binary-added` | バイナリのファイルが追加または変更された |
 | `diff-external-link` | このリポジトリ・`obsproject.com`・倉庫くん以外のホストへのリンクやダウンロードが追加された |
 | `diff-too-large` | 差分が 24,000 文字を超えた |
+| `tag-not-on-default-branch` | 新しい版のタグのコミットが、既定のブランチの履歴に無い。差分ではなく、記録した版のコミットと既定のブランチを GitHub の compare で比べて判定する。書き込みの権限を持つ人や漏れたトークンが、既定のブランチを通さないコードから版を作る経路を管理者の確認に回すため |
 | `owner-changed` | リポジトリの所有者が、登録したときから別のアカウントか組織に変わった。差分ではなく同期で判定し、管理者が版を承認するまで、変更のあとの新しい版に当てる ([ADR 0015](../decisions/0015-repository-rename-and-transfer.md)) |
 
-初めて登録する版と、この基準を入れた時点で掲載中の版には、差分の判定を当てません。
+初めて登録する版と、この基準を入れた時点で掲載中の版には、差分の判定を当てません。`tag-not-on-default-branch` は差分を使わないため、初めて登録する版にも当てます。この基準を入れた時点で掲載中の版には当てません。
 
 ## 判定の方法
 
 審査の基準と推奨の項目は、判定に要るものに応じて、ルール・LLM・判定しない、のいずれかで判定します。ファイルを見れば機械的に決まる項目はルールで判定し、同じリポジトリには同じ結果を返します。文章の意図を読む必要がある項目だけを LLM が判定します。入力に無い知識が要る項目は、材料を確実に得られるまで判定しません。
 
-入力は、新しい版のタグの時点のファイルの一覧と、一覧から選んで取得したファイルです。取得するのは、`.github/workflows/` のワークフロー (6 件まで)・README・`CMakeLists.txt`・パスに compiler を含む `cmake/` 配下のファイル (2 件まで)・`vcpkg.json`・`CONTRIBUTING.md`・`.github/PULL_REQUEST_TEMPLATE.md`・`.github/ISSUE_TEMPLATE/` のテンプレート (`config.yml` を除いて 2 件まで) です。一覧に無いファイルは取得しません。ソースのコードと配布物の中身は読みません。ファイルの一覧が大きすぎて切り詰められたときは、ファイルの有無とワークフローで決める判定を判定不能にします。
+入力は、新しい版のタグの時点のファイルの一覧と、一覧から選んで取得したファイルです。取得するのは、`.github/workflows/` のワークフロー (6 件まで)・README・`CMakeLists.txt`・パスに compiler を含む `cmake/` 配下のファイル (2 件まで)・`vcpkg.json`・`CONTRIBUTING.md`・`.github/PULL_REQUEST_TEMPLATE.md`・`.github/ISSUE_TEMPLATE/` のテンプレート (`config.yml` を除いて 2 件まで) です。一覧に無いファイルは取得しません。あわせて、リポジトリの有効な ruleset の一覧と、詳細を 3 件まで読みます。ソースのコードと配布物の中身は読みません。ファイルの一覧が大きすぎて切り詰められたときは、ファイルの有無とワークフローで決める判定を判定不能にします。
 
 LLM には、README・ワークフロー・Issue のテンプレート・乗っ取りの兆候の判定に使った差分と、本サービスが計算した次の事実を渡します。LLM が自分で探す手間と、足りない情報を思い込みで埋める余地を減らすためです。LLM に道具を渡して自分で調べさせることはしません。呼び出しが増えて無料枠と外部呼び出しの上限に当たり、リポジトリの内容から道具を呼ばせる攻撃の入り口も増えるためです。
 
@@ -88,6 +89,7 @@ LLM には、各項目の観点がリポジトリに当てはまれば満たす�
 | `user-verification-guide` | 利用者に、ダウンロードしたファイルを検証する手順を示す。README に `gh attestation verify`・SHA-256・checksum・`Get-FileHash`・ハッシュのいずれかがあれば満たす | ルール | live-backgroundremoval-lite の開発者ノート |
 | `install-location` | Windows では `C:\ProgramData\obs-studio\plugins` に置かせる。README にこのパスがあれば満たす | ルール | obs-backgroundremoval Issue 832 |
 | `hermetic-build` | ビルドのランナーの版を固定する。読んだワークフローに `-latest` のランナーが無ければ満たす。PATH の絞り込みは判定しない | ルール | obs-backgroundremoval PR 846 |
+| `repository-protection` | 既定のブランチとリリースのタグを ruleset で守る。有効な ruleset のうち、既定のブランチ (`~DEFAULT_BRANCH` か `~ALL`) を対象にして削除と強制 push を禁じ、承認 1 名以上の PR を必須にするブランチの ruleset と、タグの作成・更新・削除を制限するタグの ruleset の両方があれば満たす。ruleset の例外を許す相手は API で読めないため判定しない。既定のブランチを名前で指定した ruleset は数えない | ルール | 2026-11-15 の調査 (書き込みの権限を持つ人が既定のブランチ以外のコミットからリリースを作れる) |
 | `contribution-compliance` | コントリビューターに、ライセンスの同意・DCO・署名付きコミットを求める。`CONTRIBUTING.md` か PR のテンプレートに DCO・Signed-off-by・sign-off のいずれかがあれば満たす | ルール | live-backgroundremoval-lite の CONTRIBUTING.md |
 | `reuse-compliance` | REUSE に準拠する | ルール (将来) | live-backgroundremoval-lite の CONTRIBUTING.md |
 | `license-notices` | 同梱する依存とモデルのライセンスを列挙する | 判定しない | live-backgroundremoval-lite の README |

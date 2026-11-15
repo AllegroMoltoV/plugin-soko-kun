@@ -106,7 +106,13 @@ export function releaseCheckHandlers() {
     http.get(`${base}/contents/.soko-kun/config.json`, missing),
     http.get(`${base}/git/trees/:ref`, () => HttpResponse.json({ tree: [], truncated: false })),
     http.get(`${base}/contents/:file`, missing),
-    http.get(`${base}/compare/:range`, missing),
+    // タグのコミットの位置は、既定のブランチにあるものとして返す。差分の比較は 404。
+    http.get(`${base}/compare/:range`, ({ params }) =>
+      String(params.range).startsWith('HEAD...')
+        ? HttpResponse.json({ status: 'behind', commits: [], files: [] })
+        : missing(),
+    ),
+    http.get(`${base}/rulesets`, () => HttpResponse.json([])),
   ];
 }
 

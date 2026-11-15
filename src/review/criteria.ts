@@ -72,6 +72,13 @@ export const CRITERIA: Criterion[] = [
     fix: 'No action is needed. An administrator reviews it before listing. Smaller releases are checked automatically.',
   },
   {
+    id: 'tag-not-on-default-branch',
+    kind: 'takeover',
+    judgedBy: 'rule',
+    title: 'The release tag points to a commit that is not on the default branch',
+    fix: 'No action is needed if this is intended, for example a release branch. An administrator reviews it before listing. Tag releases on the default branch to have them checked automatically.',
+  },
+  {
     id: 'owner-changed',
     kind: 'takeover',
     judgedBy: 'rule',
@@ -186,6 +193,13 @@ export const CRITERIA: Criterion[] = [
     judgedBy: 'rule',
     title: 'Build runner images have fixed versions',
     fix: 'Use runner images with a fixed version, such as windows-2022, instead of windows-latest.',
+  },
+  {
+    id: 'repository-protection',
+    kind: 'recommendation',
+    judgedBy: 'rule',
+    title: 'The default branch and release tags are protected by rulesets',
+    fix: 'Add a branch ruleset for the default branch that blocks deletion and force pushes and requires a pull request with at least one approval, and a tag ruleset that restricts creating, updating, and deleting release tags to repository admins.',
   },
   {
     id: 'contribution-compliance',

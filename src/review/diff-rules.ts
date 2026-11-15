@@ -1,7 +1,13 @@
 // 乗っ取りの兆候のルールの検査 (docs/design/review-criteria.md の「乗っ取りの兆候」)。
 // 掲載中の版から新しい版までの差分 (unified diff) の先頭だけを読み、当たった項目とファイルを返す。
+// tag-not-on-default-branch は差分ではなくタグのコミットの位置で判定し (src/domain/release-checks.ts)、同じ一覧に保存する。
 export interface DiffHit {
-  rule: 'diff-workflow-changed' | 'diff-binary-added' | 'diff-external-link' | 'diff-too-large';
+  rule:
+    | 'diff-workflow-changed'
+    | 'diff-binary-added'
+    | 'diff-external-link'
+    | 'diff-too-large'
+    | 'tag-not-on-default-branch';
   file?: string;
 }
 

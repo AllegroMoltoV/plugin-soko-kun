@@ -200,6 +200,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: 'Protecting your releases',
+          paragraphs: [
+            'Tag each release on a commit of the default branch. A release whose tag points to a commit that is not on the default branch waits for an administrator to confirm it.',
+            'Anyone with write access to the repository can create a release. This platform recommends protecting the default branch with a ruleset that blocks deletion and force pushes and requires a pull request with at least one approval, and protecting release tags with a tag ruleset that lets only repository admins create, update, or delete them. These settings are not listing conditions.',
+          ],
+        },
+        {
           id: 'rename',
           heading: 'Renaming or transferring the repository',
           paragraphs: [
@@ -550,6 +557,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '掲載を更新するときは、GitHub で新しいリリースを公開してください。このプラットフォームは新しいリリースを自動で取り込み、検査を通ったら掲載します。リポジトリの説明から概要も更新します。',
             '新しいリリースが掲載されないときは、AI エージェントに list_my_plugins で理由を確かめさせてください。AI エージェントは理由と直し方を示します。',
             '掲載を取り下げるときは、リポジトリを非公開にするか削除してください。通報ページの方法で取り下げを依頼することもできます。',
+          ],
+        },
+        {
+          heading: 'リリースを守る設定',
+          paragraphs: [
+            'リリースのタグは、既定のブランチのコミットに付けてください。既定のブランチに無いコミットにタグを付けたリリースは、管理者の確認を待ちます。',
+            'リリースは、リポジトリへの書き込みの権限を持つ人なら誰でも作れます。本サービスは、既定のブランチを ruleset で守り、削除と強制 push を禁じて承認 1 名以上の PR を必須にすること、リリースのタグをタグの ruleset で守り、作成・更新・削除をリポジトリの管理者だけに許すことを勧めます。これらの設定は掲載の条件ではありません。',
           ],
         },
         {
@@ -910,6 +924,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '保护你的发布',
+          paragraphs: [
+            '请把发布的标签打在默认分支的提交上。标签指向不在默认分支上的提交的发布，会等待管理员确认。',
+            '对仓库有写入权限的人都可以创建发布。本平台建议用规则集保护默认分支，禁止删除和强制推送，并要求至少一人批准的拉取请求；同时用标签规则集保护发布标签，只允许仓库管理员创建、更新或删除标签。这些设置不是上架条件。',
+          ],
+        },
+        {
           id: 'rename',
           heading: '重命名或转移仓库',
           paragraphs: [
@@ -1243,6 +1264,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           ],
         },
         {
+          heading: '保護你的發行版本',
+          paragraphs: [
+            '請把發行版本的標籤打在預設分支的提交上。標籤指向不在預設分支上的提交的發行版本，會等待管理員確認。',
+            '對儲存庫有寫入權限的人都可以建立發行版本。本平台建議以規則集保護預設分支，禁止刪除與強制推送，並要求至少一人核准的拉取要求；同時以標籤規則集保護發行標籤，只允許儲存庫管理員建立、更新或刪除標籤。這些設定不是上架條件。',
+          ],
+        },
+        {
           id: 'rename',
           heading: '重新命名或轉移儲存庫',
           paragraphs: [
@@ -1573,6 +1601,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '게재 내용을 업데이트하려면 GitHub에서 새 릴리스를 공개해 주세요. 이 플랫폼은 새 릴리스를 자동으로 가져와 검사를 통과하면 게재합니다. 저장소 설명에서 개요도 업데이트합니다.',
             '새 릴리스가 게재되지 않으면 AI 에이전트에게 list_my_plugins로 이유를 확인하게 해 주세요. 에이전트는 이유와 고치는 방법을 보여 줍니다.',
             '게재를 철회하려면 저장소를 비공개로 하거나 삭제해 주세요. 신고 페이지의 방법으로 철회를 요청할 수도 있습니다.',
+          ],
+        },
+        {
+          heading: '릴리스 보호하기',
+          paragraphs: [
+            '릴리스 태그는 기본 브랜치의 커밋에 붙여 주세요. 기본 브랜치에 없는 커밋을 가리키는 태그의 릴리스는 관리자의 확인을 기다립니다.',
+            '저장소에 쓰기 권한이 있는 사람은 누구나 릴리스를 만들 수 있습니다. 이 플랫폼은 기본 브랜치를 룰셋으로 보호해 삭제와 강제 푸시를 막고 1명 이상의 승인이 있는 풀 리퀘스트를 필수로 할 것, 그리고 태그 룰셋으로 릴리스 태그를 보호해 저장소 관리자만 태그를 만들고 바꾸고 지울 수 있게 할 것을 권합니다. 이 설정들은 게재 조건이 아닙니다.',
           ],
         },
         {
@@ -1921,6 +1956,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Para atualizar a listagem, publique uma nova versão no GitHub. Esta plataforma a obtém automaticamente e a lista depois que ela passa nas verificações. Esta plataforma também atualiza o resumo a partir da descrição do repositório.',
             'Se uma nova versão não for listada, peça ao agente de IA para verificá-la com list_my_plugins. O agente mostra o motivo e como corrigir.',
             'Para retirar a listagem, torne o repositório privado ou exclua-o. Você também pode pedir a retirada como descrito na página Denunciar.',
+          ],
+        },
+        {
+          heading: 'Proteger suas versões',
+          paragraphs: [
+            'Crie a tag de cada versão em um commit do branch padrão. Uma versão cuja tag aponta para um commit fora do branch padrão aguarda a confirmação de um administrador.',
+            'Qualquer pessoa com permissão de escrita no repositório pode criar uma versão. Esta plataforma recomenda proteger o branch padrão com um ruleset que bloqueie a exclusão e o push forçado e exija um pull request com pelo menos uma aprovação, e proteger as tags de versão com um ruleset de tags que permita apenas aos administradores do repositório criar, atualizar ou excluir tags. Essas configurações não são condições de listagem.',
           ],
         },
         {
@@ -2280,6 +2322,13 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Para actualizar la publicación, publica una nueva versión en GitHub. Esta plataforma la obtiene automáticamente y la incluye después de que pasa las revisiones. Esta plataforma también actualiza el resumen a partir de la descripción del repositorio.',
             'Si una nueva versión no aparece en la lista, pide al agente de IA que la revise con list_my_plugins. El agente muestra el motivo y cómo corregirlo.',
             'Para retirar la publicación, haz privado el repositorio o elimínalo. También puedes pedir el retiro como se describe en la página Reportar.',
+          ],
+        },
+        {
+          heading: 'Proteger tus versiones',
+          paragraphs: [
+            'Crea la etiqueta de cada versión en un commit de la rama predeterminada. Una versión cuya etiqueta apunta a un commit fuera de la rama predeterminada espera la confirmación de un administrador.',
+            'Cualquier persona con permiso de escritura en el repositorio puede crear una versión. Esta plataforma recomienda proteger la rama predeterminada con un ruleset que bloquee la eliminación y el push forzado y exija un pull request con al menos una aprobación, y proteger las etiquetas de versión con un ruleset de etiquetas que solo permita a los administradores del repositorio crear, actualizar o eliminar etiquetas. Estos ajustes no son condiciones de publicación.',
           ],
         },
         {

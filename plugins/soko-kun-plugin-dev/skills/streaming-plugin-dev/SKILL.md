@@ -21,7 +21,7 @@ Get the author's explicit approval in the conversation before each of these oper
 
 - Creating a GitHub repository, or making a private repository public
 - `git push` to any branch, and pushing tags
-- Disabling or changing a branch ruleset, even temporarily
+- Creating, disabling, or changing a branch or tag ruleset, even temporarily
 - Creating, publishing, or deleting a GitHub release, and deleting tags or release assets
 - Changing repository settings, such as turning on immutable releases
 - Registering the plugin on Plugin Soko-kun with `submit_plugin` (the default `submit` mode)

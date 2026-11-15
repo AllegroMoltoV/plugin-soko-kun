@@ -3,7 +3,7 @@
 import type { Budget } from '../budget';
 import type { Env } from '../env';
 import { GitHubClient, GitHubError } from '../github';
-import { checkDiff } from '../review/diff-rules';
+import { checkDiff, type DiffHit } from '../review/diff-rules';
 import { type Finding, runReview } from '../review/llm';
 import { NETWORK_WAIT_MS, NETWORK_WAITING, readNetworkScan } from '../review/network';
 import {
@@ -19,11 +19,14 @@ import { getPluginViewByInternalId } from './catalog';
 import { OS_VALUES } from './metadata';
 import { MAX_REVIEW_ATTEMPTS } from './status';
 
+// ruleset の詳細を読む上限。
+const MAX_RULESET_DETAILS = 3;
 // レビューのファイルの収集の外部呼び出しの上限。ファイルの一覧 1、ワークフロー 6、README 1、CMakeLists.txt 1、
-// ビルドの設定の cmake 2、vcpkg.json 1、CONTRIBUTING 1、PR テンプレート 1、Issue テンプレート 2 の合計。
-export const REVIEW_FILES_COST = 16;
-// 1 件の検査の外部呼び出しの上限。宣言ファイル 1、差分 1、レビューのファイルの収集、LLM 1 の合計。
-export const RELEASE_CHECK_COST = 3 + REVIEW_FILES_COST;
+// ビルドの設定の cmake 2、vcpkg.json 1、CONTRIBUTING 1、PR テンプレート 1、Issue テンプレート 2、
+// ruleset の一覧 1 と詳細 MAX_RULESET_DETAILS の合計。
+export const REVIEW_FILES_COST = 17 + MAX_RULESET_DETAILS;
+// 1 件の検査の外部呼び出しの上限。宣言ファイル 1、差分 1、タグのコミットの位置 1、レビューのファイルの収集、LLM 1 の合計。
+export const RELEASE_CHECK_COST = 4 + REVIEW_FILES_COST;
 const MAX_DIFF_CHARS = 24_000;
 const MAX_FILE_BYTES = 32 * 1024;
 const MAX_TOTAL_CHARS = 60_000;
@@ -38,6 +41,7 @@ interface PendingRow {
   owner: string;
   repo: string;
   tag: string;
+  commit_sha: string | null;
   diff_state: string;
   config_state: string;
   review_state: string;
@@ -96,7 +100,7 @@ export async function runReleaseChecks(env: Env, budget: Budget): Promise<number
   const networkDeadline = new Date(now.getTime() - NETWORK_WAIT_MS).toISOString();
   budget.takeD1Query();
   const row = await env.DB.prepare(
-    `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, r.tag, c.diff_state, c.config_state, c.review_state,
+    `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, r.tag, r.commit_sha, c.diff_state, c.config_state, c.review_state,
        c.review_attempts, c.network_state, c.network_hits, ${NETWORK_READY} AS network_ready
      FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id JOIN plugins p ON p.id = r.plugin_id
      WHERE c.legacy = 0 AND p.removed = 0 AND c.review_attempts < ? AND (c.diff_state = 'pending'
@@ -164,26 +168,33 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   }
 
   // 差分の起点は、その時点の掲載対象のリリース。掲載中の版が無ければ、差分の検査を当てない。
+  // タグのコミットが既定のブランチにあるかは、掲載中の版の有無にかかわらず確かめる。
   let diff: string | null = null;
   if (row.diff_state === 'pending' || row.review_state !== 'done') {
     budget.takeD1Query();
     const view = await getPluginViewByInternalId(env, row.plugin_id);
     const base = view?.listedRelease ?? null;
-    if (base && base.tag !== row.tag) {
-      try {
-        const compared = await github.getCompareDiff(row.owner, row.repo, base.tag, row.tag, MAX_DIFF_CHARS);
-        diff = compared.text;
-        if (row.diff_state === 'pending') {
-          const hits = checkDiff(compared.text, compared.truncated, row.owner, row.repo);
-          update('diff_state = ?, diff_hits = ?', hits.length > 0 ? 'held' : 'passed', JSON.stringify(hits));
-        }
-      } catch (error) {
-        if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable'))
-          throw error;
-        if (row.diff_state === 'pending') update('diff_state = ?', 'error');
+    try {
+      const hits: DiffHit[] = [];
+      let compared = false;
+      if (base && base.tag !== row.tag) {
+        const result = await github.getCompareDiff(row.owner, row.repo, base.tag, row.tag, MAX_DIFF_CHARS);
+        diff = result.text;
+        hits.push(...checkDiff(result.text, result.truncated, row.owner, row.repo));
+        compared = true;
       }
-    } else if (row.diff_state === 'pending') {
-      update('diff_state = ?', 'skipped');
+      if (row.diff_state === 'pending') {
+        // タグの名前ではなく、証明と結び付いたコミットで比べる。タグと同じ名前のブランチで判定を変えられないようにするため。
+        if (!row.commit_sha) throw new Error('commit sha is not recorded');
+        if ((await github.getTagAncestry(row.owner, row.repo, row.commit_sha)) === 'outside') {
+          hits.push({ rule: 'tag-not-on-default-branch' });
+        }
+        const state = hits.length > 0 ? 'held' : compared ? 'passed' : 'skipped';
+        update('diff_state = ?, diff_hits = ?', state, JSON.stringify(hits));
+      }
+    } catch (error) {
+      if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
+      if (row.diff_state === 'pending') update('diff_state = ?', 'error');
     }
   }
 
@@ -260,7 +271,14 @@ export async function collectReviewFiles(
   const plan = reviewFilePlan(paths);
   for (const path of plan.fetch) await fetch(path);
   unreadFiles.push(...plan.skipped);
-  return { paths, truncated, files, unreadFiles };
+  let rulesets: CollectedFiles['rulesets'];
+  try {
+    rulesets = { readable: true, ...(await github.getRulesets(owner, repo, MAX_RULESET_DETAILS)) };
+  } catch (error) {
+    if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
+    rulesets = { readable: false };
+  }
+  return { paths, truncated, files, unreadFiles, rulesets };
 }
 
 // 取得するファイルの順番と、上限で読まないファイル。上限は REVIEW_FILES_COST の内訳に合わせる。
