@@ -309,6 +309,87 @@ function repositoryProtection(snapshot: RepositorySnapshot): Finding {
   return finding(id, 'not_met', `Checked by rules: the repository does not have ${missing.join(' or ')}. ${note}`);
 }
 
+// README の案内の型。姉妹版 (音のプラグイン倉庫くん) の src/review/rules.ts を写した。両方にある処理として同じ実装に保つ。
+// 否定の文脈 (「〜しないでください」) も当たるが、重大の指摘は管理者が根拠の行を見て判断する。
+const SECURITY_BYPASS: RegExp[] = [
+  // xattr -d com.apple.quarantine、xattr -rd、xattr -c、xattr -cr による隔離属性の除去。-l や -p の表示は当たらない。
+  /\bxattr\s+(?:-[a-z]+\s+)*-[a-z]*[cd][a-z]*\b/i,
+  /\bspctl\s+--(?:master|global)-disable\b/i,
+  /open anyway|このまま開く/i,
+  /\b(?:Add|Set)-MpPreference\b[^\n]*-(?:Exclusion|Disable)/i,
+];
+const WINDOWS_PROTECTION = /smartscreen|defender|smart app control/i;
+const TURN_OFF = /disabl|turn(?:ing)? off|switch(?:ing)? off|deactivat|exclu|whitelist|allowlist|無効|オフ|除外/i;
+
+const TERMINAL_PASTE: RegExp[] = [
+  // 取得した内容をシェルや osascript へパイプで渡す。
+  /\b(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:(?:ba|z|da|k)?sh|osascript|python3?|perl|ruby)\b/i,
+  // シェルにコマンド置換やプロセス置換で渡す。
+  /\b(?:ba|z)?sh\s+(?:-c\s+["']?\$\(|<\()\s*(?:curl|wget)\b/i,
+  // PowerShell の irm | iex と、iex (New-Object Net.WebClient).DownloadString(...)。
+  /\b(?:irm|iwr|invoke-restmethod|invoke-webrequest)\b[^\n]*\|\s*(?:iex|invoke-expression)\b/i,
+  /\b(?:iex|invoke-expression)\b[^\n]*(?:\birm\b|\biwr\b|invoke-restmethod|invoke-webrequest|downloadstring|net\.webclient)/i,
+  // base64 で埋め込んだ文字列を復号して実行する。
+  /\bbase64\s+(?:-d|-D|--decode)\b[^\n]*\|\s*(?:sudo\s+)?(?:(?:ba|z)?sh|osascript)\b/i,
+  /\bpowershell(?:\.exe)?\b[^\n]*\s-(?:e|ec|enc|encodedcommand)\s+[A-Za-z0-9+/=]{16,}/i,
+  /frombase64string[^\n]*(?:iex|invoke-expression)|(?:iex|invoke-expression)[^\n]*frombase64string/i,
+  /\bosascript\b[^\n]*(?:curl|wget|https?:\/\/)/i,
+];
+
+// README の行に案内の型を当てる。当たれば重大の not_met とし、当たった行を根拠に返す。
+function readmePattern(
+  snapshot: RepositorySnapshot,
+  id: string,
+  matches: (text: string) => boolean,
+  found: string,
+  none: string,
+): Finding {
+  const doc = readme(snapshot);
+  if (!doc) {
+    // 読めなかった README を、無い README と同じに扱わない。大きな README で照合を逃れられないようにするため。
+    if (snapshot.unreadFiles.includes('README.md')) {
+      return {
+        ...finding(
+          id,
+          'not_met',
+          'Checked by rules: README.md is larger than 128 KB or could not be read, so the rules could not check it.',
+        ),
+        serious: true,
+      };
+    }
+    if (snapshot.truncated) return finding(id, 'unclear', 'The repository file list was too large to read in full.');
+    return finding(id, 'met', 'Checked by rules: the repository has no README.md.');
+  }
+  const hits = doc.content
+    .split('\n')
+    .map((text, index) => ({ text, line: index + 1 }))
+    .filter(({ text }) => matches(text))
+    .map(({ line }) => at(doc.path, line));
+  if (hits.length === 0) return finding(id, 'met', `Checked by rules: ${none}`);
+  return { ...finding(id, 'not_met', `Checked by rules: ${found}`, hits), serious: true };
+}
+
+function noSecurityBypass(snapshot: RepositorySnapshot): Finding {
+  return readmePattern(
+    snapshot,
+    'no-security-bypass',
+    (text) =>
+      SECURITY_BYPASS.some((pattern) => pattern.test(text)) || (WINDOWS_PROTECTION.test(text) && TURN_OFF.test(text)),
+    'the README contains an instruction that removes the quarantine attribute, disables Gatekeeper, uses Open Anyway, or turns off or excludes SmartScreen, Microsoft Defender, or Smart App Control.',
+    'the README contains no instruction that turns off a security feature.',
+  );
+}
+
+function noTerminalPaste(snapshot: RepositorySnapshot): Finding {
+  return readmePattern(
+    snapshot,
+    'no-terminal-paste',
+    (text) => TERMINAL_PASTE.some((pattern) => pattern.test(text)),
+    'the README contains a command that downloads content and runs it at once.',
+    'the README contains no command that downloads content and runs it at once.',
+  );
+}
+
 function crashReportPrivacy(snapshot: RepositorySnapshot): Finding | null {
   // テンプレートがあれば、中身を LLM が判定する。
   if (issueTemplates(snapshot).length > 0 || snapshot.truncated) return null;
@@ -317,6 +398,8 @@ function crashReportPrivacy(snapshot: RepositorySnapshot): Finding | null {
 
 export function judgeByRules(snapshot: RepositorySnapshot): Finding[] {
   const findings = [
+    noSecurityBypass(snapshot),
+    noTerminalPaste(snapshot),
     ciHardening(snapshot),
     dependencyPinning(snapshot),
     buildHardening(snapshot),
@@ -326,6 +409,7 @@ export function judgeByRules(snapshot: RepositorySnapshot): Finding[] {
     contributionCompliance(snapshot),
     hermeticBuild(snapshot),
     repositoryProtection(snapshot),
+    ciScenarioTests(snapshot),
     crashReportPrivacy(snapshot),
   ];
   return findings.filter((entry): entry is Finding => entry !== null);
@@ -338,9 +422,21 @@ export function llmCriteriaFor(snapshot: RepositorySnapshot): string[] {
 }
 
 // LLM に渡すファイル。規則だけが読むビルドの設定、vcpkg.json、CONTRIBUTING は渡さない。
+// README は規則が全文を照合するために大きな上限で読むため、LLM には先頭の MAX_LLM_README_CHARS 文字だけを渡す。
 export function llmFiles(files: RepositorySnapshot['files']): RepositorySnapshot['files'] {
-  return files.filter((entry) => entry.path === 'README.md' || WORKFLOW.test(entry.path) || TEMPLATE.test(entry.path));
+  return files
+    .filter((entry) => entry.path === 'README.md' || WORKFLOW.test(entry.path) || TEMPLATE.test(entry.path))
+    .map((entry) =>
+      entry.path === 'README.md' && entry.content.length > MAX_LLM_README_CHARS
+        ? {
+            path: entry.path,
+            content: `${entry.content.slice(0, MAX_LLM_README_CHARS)}\n[The rest of README.md is not provided because of the size limits.]`,
+          }
+        : entry,
+    );
 }
+
+export const MAX_LLM_README_CHARS = 32 * 1024;
 
 // リポジトリから取った文字列を、事実の 1 行に収まる短い文字列にする。
 function clean(text: string): string {
@@ -388,6 +484,78 @@ export function computeFacts(snapshot: RepositorySnapshot, ruled: Finding[]): st
   lines.push(networkFact(snapshot.network));
   lines.push(`Results of the rule-based items: ${ruled.map((entry) => `${entry.id}=${entry.result}`).join(', ')}`);
   return lines.join('\n');
+}
+
+// ci-scenario-tests の判定。ビルドが通るだけで動作しないプラグインを見分けるため、CI のワークフローがテストを実行し、
+// かつテストのソースが libobs を初期化してモジュールを読み込むか、ワークフローが OBS Studio の実行ファイルを起動することを求める。
+// xvfb-run は画面の無い実行を示すだけで、OBS Studio の起動を示さない。テストが機能の結果を確かめているかは見ない。
+const TEST_SOURCE = /\.(c|cc|cpp|cxx|h|hpp|py)$/i;
+const TEST_DIR = /(^|\/)[^/]*(test|integration|scenario|e2e)[^/]*(\/|$)/i;
+const THIRD_PARTY = /(^|\/)(\.deps|build[^/]*|vendor|third[_-]?party|external|deps)\//i;
+const LIBOBS_INIT = /\b(obs_startup|obs_load_module|obs_init_module|obs_reset_video)\s*\(/;
+// テストの実行ファイルは変数で起動されることが多い (例: "${integration}")。そのため、テストに関わる語を含む行も実行の行に数える。
+const TEST_RUN = /\b(ctest|pytest|npm (run )?test|cargo test|make test)\b|integration|scenario|e2e/i;
+const OBS_EXECUTABLE = /\bobs(64)?\.exe\b|\/usr\/bin\/obs\b|\bOBS\.app\b/i;
+const LOCAL_INCLUDE = /^\s*#\s*include\s*"([^"]+)"/gm;
+
+// テストのソースの候補。パスに integration か e2e を含むものを先にする。
+export function testSources(paths: string[]): string[] {
+  const priority = (path: string) => Number(!/integration|e2e/i.test(path));
+  return paths
+    .filter((path) => TEST_SOURCE.test(path) && TEST_DIR.test(path) && !THIRD_PARTY.test(path))
+    .sort((a, b) => priority(a) - priority(b) || a.localeCompare(b));
+}
+
+// ソースの #include "..." のうち、一覧にあるファイル。libobs の初期化は補助のヘッダーに置かれることが多いため、たどって読む。
+export function localIncludes(path: string, content: string, paths: string[]): string[] {
+  const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
+  const known = new Set(paths);
+  const result: string[] = [];
+  for (const match of content.matchAll(LOCAL_INCLUDE)) {
+    const parts: string[] = [];
+    for (const part of `${dir}${match[1]}`.split('/')) {
+      if (part === '..') parts.pop();
+      else if (part !== '.' && part !== '') parts.push(part);
+    }
+    const resolved = parts.join('/');
+    if (known.has(resolved) && !result.includes(resolved)) result.push(resolved);
+  }
+  return result;
+}
+
+function ciScenarioTests(snapshot: RepositorySnapshot): Finding {
+  const id = 'ci-scenario-tests';
+  const flowHits = (pattern: RegExp) =>
+    workflows(snapshot).flatMap((flow) => matchingLines(flow.content, pattern).map(({ line }) => at(flow.path, line)));
+  const candidates = new Set(testSources(snapshot.paths));
+  const sources = snapshot.files.filter((entry) => candidates.has(entry.path));
+  const runs = flowHits(TEST_RUN);
+  const obs = flowHits(OBS_EXECUTABLE);
+  const init = sources.flatMap((entry) =>
+    matchingLines(entry.content, LIBOBS_INIT).map(({ line }) => at(entry.path, line)),
+  );
+  if (runs.length > 0 && (init.length > 0 || obs.length > 0)) {
+    return finding(
+      id,
+      'met',
+      init.length > 0
+        ? 'Checked by rules: a workflow runs tests, and a test source starts libobs or loads a module.'
+        : 'Checked by rules: a workflow runs tests and starts the OBS Studio executable.',
+      [runs[0] as Evidence, ...(init.length > 0 ? init : obs).slice(0, 2)],
+    );
+  }
+  if (snapshot.truncated || unreadWorkflows(snapshot)) {
+    return finding(id, 'unclear', 'The repository file list or some workflows could not be read in full.');
+  }
+  const read = sources.map((entry) => entry.path).join(', ') || 'none';
+  return finding(
+    id,
+    'not_met',
+    runs.length === 0
+      ? 'Checked by rules: no workflow line runs tests.'
+      : `Checked by rules: a workflow runs tests, but the test sources read (${read}) do not start libobs or load a module, and no workflow starts the OBS Studio executable.`,
+    runs.slice(0, 2),
+  );
 }
 
 // 通信の API の検出の結果の事実。行の文字列はリポジトリのコードから取ったデータで、1 行に収める。

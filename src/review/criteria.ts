@@ -95,21 +95,27 @@ export const CRITERIA: Criterion[] = [
   {
     id: 'ci-scenario-tests',
     kind: 'criterion',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'Tests exercise the plugin in real use scenarios',
-    viewpoint:
-      'CI runs tests that load the plugin in OBS Studio and check its features, not only a build that compiles. The facts list the scripts under .github/scripts; read the workflows that call them.',
-    fix: 'Add a CI job that starts OBS Studio with the built plugin and checks that its features work in a scene.',
+    // 依頼者の決定 (2026-11-15): libobs を画面なしで初期化してプラグインを読み込むテストも満たす。LLM の判定が回によって
+    // 分かれたため、同じ日にルールの判定に移した。
+    fix: 'Add a CI job that loads the built plugin, through libobs without a window or by starting OBS Studio, and checks that a plugin feature produces the expected result.',
   },
   {
     id: 'no-security-bypass',
     kind: 'criterion',
-    judgedBy: 'llm',
+    judgedBy: 'rule',
     title: 'Users are not told to turn off security features',
-    viewpoint:
-      'The README and install instructions contain no step that tells users to disable SmartScreen, Microsoft Defender, Gatekeeper, or Smart App Control. If they contain such a step, answer not_met; if they contain none, answer met.',
-    serious: 'The instructions tell users to disable a security feature.',
-    fix: 'Remove instructions that disable security features. If a warning appears, explain how to verify the file instead.',
+    serious: 'The instructions tell users to turn off a security feature.',
+    fix: 'Remove instructions that remove the quarantine attribute, disable Gatekeeper, or turn off SmartScreen, Microsoft Defender, or Smart App Control. Sign and notarize the files instead, and explain how to verify them.',
+  },
+  {
+    id: 'no-terminal-paste',
+    kind: 'criterion',
+    judgedBy: 'rule',
+    title: 'Users are not told to paste a command that downloads and runs code',
+    serious: 'The instructions tell users to paste a command that downloads and runs code.',
+    fix: 'Remove commands that pipe downloaded content into a shell, PowerShell, or osascript. Tell users to download the zip archive from the release page instead.',
   },
   {
     id: 'dependency-pinning',

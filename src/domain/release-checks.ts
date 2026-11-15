@@ -11,24 +11,34 @@ import {
   judgeByRules,
   llmCriteriaFor,
   llmFiles,
+  localIncludes,
+  MAX_LLM_README_CHARS,
   mergeFindings,
   networkFiles,
   type RepositorySnapshot,
+  testSources,
 } from '../review/rules';
 import { getPluginViewByInternalId } from './catalog';
 import { OS_VALUES } from './metadata';
 import { MAX_REVIEW_ATTEMPTS } from './status';
 
-// ruleset の詳細を読む上限。
-const MAX_RULESET_DETAILS = 3;
+// ruleset の詳細を読む上限。テストのソースを読む分と合わせて、検査 1 件の予算に収める (docs/design/scanning.md)。
+const MAX_RULESET_DETAILS = 2;
+// ci-scenario-tests の判定のために、規則だけが読むテストのソースの上限。テストの本体と、include をたどった補助のヘッダー
+// 2 段の分。LLM には渡さない。
+const MAX_TEST_SOURCES = 3;
 // レビューのファイルの収集の外部呼び出しの上限。ファイルの一覧 1、ワークフロー 6、README 1、CMakeLists.txt 1、
 // ビルドの設定の cmake 2、vcpkg.json 1、CONTRIBUTING 1、PR テンプレート 1、Issue テンプレート 2、
-// ruleset の一覧 1 と詳細 MAX_RULESET_DETAILS の合計。
-export const REVIEW_FILES_COST = 17 + MAX_RULESET_DETAILS;
+// ruleset の一覧 1 と詳細 MAX_RULESET_DETAILS、テストのソース MAX_TEST_SOURCES の合計。
+export const REVIEW_FILES_COST = 17 + MAX_RULESET_DETAILS + MAX_TEST_SOURCES;
 // 1 件の検査の外部呼び出しの上限。宣言ファイル 1、差分 1、タグのコミットの位置 1、レビューのファイルの収集、LLM 1 の合計。
 export const RELEASE_CHECK_COST = 4 + REVIEW_FILES_COST;
 const MAX_DIFF_CHARS = 24_000;
 const MAX_FILE_BYTES = 32 * 1024;
+// README は no-security-bypass と no-terminal-paste が全文を照合するため、大きな上限で読む。LLM には先頭だけを渡す
+// (MAX_LLM_README_CHARS)。この上限を超える README は読めなかったものとし、規則が重大の指摘にする。
+const MAX_README_BYTES = 128 * 1024;
+// LLM に渡すファイルの合計の上限。README は LLM に渡す分だけを数え、規則だけが読むテストのソースは数えない。
 const MAX_TOTAL_CHARS = 60_000;
 const MAX_WORKFLOWS = 6;
 const MAX_COMPILER_FILES = 2;
@@ -246,35 +256,56 @@ export async function collectReviewFiles(
   const files: CollectedFiles['files'] = [];
   const unreadFiles: string[] = [];
   let total = 0;
-  const fetch = async (path: string) => {
+  // 取得できなかったときは 'unread' を返す。取得の関数が受け付けない文字を含むパスも、読まずに未読とする。
+  const read = async (path: string, maxBytes: number): Promise<string | null | 'unread'> => {
     const slash = path.lastIndexOf('/');
-    let text: string | 'too_large' | null;
     try {
-      text = await github.getTextFile(
+      const text = await github.getTextFile(
         owner,
         repo,
         slash < 0 ? '' : path.slice(0, slash),
         path.slice(slash + 1),
         ref,
-        MAX_FILE_BYTES,
+        maxBytes,
       );
+      return text === 'too_large' ? 'unread' : text;
     } catch (error) {
-      // 取得の関数が受け付けない文字を含むパスは、読まずに未読として記録する。
       if (error instanceof GitHubError || error instanceof BudgetExceededError) throw error;
-      unreadFiles.push(path);
-      return;
+      return 'unread';
     }
+  };
+  const fetch = async (path: string) => {
+    const readme = path === 'README.md';
+    const text = await read(path, readme ? MAX_README_BYTES : MAX_FILE_BYTES);
     if (text === null) return;
-    if (text === 'too_large' || total + text.length > MAX_TOTAL_CHARS) {
+    const counted = text === 'unread' ? 0 : readme ? Math.min(text.length, MAX_LLM_README_CHARS) : text.length;
+    if (text === 'unread' || total + counted > MAX_TOTAL_CHARS) {
       unreadFiles.push(path);
       return;
     }
-    total += text.length;
+    total += counted;
     files.push({ path, content: text });
   };
   const plan = reviewFilePlan(paths);
   for (const path of plan.fetch) await fetch(path);
   unreadFiles.push(...plan.skipped);
+  // テストのソースは、テストの本体から #include "..." をたどって読む。libobs の初期化は補助のヘッダーに置かれることが多いため。
+  // 規則だけが読み、LLM に渡す合計に数えない。読まなかった候補は未読に数えない (判定の材料の候補にすぎないため)。
+  const candidates = testSources(paths);
+  const queue: string[] = [];
+  const seen = new Set<string>();
+  let fetchedSources = 0;
+  while (fetchedSources < MAX_TEST_SOURCES) {
+    const next = queue.shift() ?? candidates.find((path) => !seen.has(path));
+    if (next === undefined) break;
+    if (seen.has(next)) continue;
+    seen.add(next);
+    fetchedSources += 1;
+    const text = await read(next, MAX_FILE_BYTES);
+    if (text === null || text === 'unread') continue;
+    files.push({ path: next, content: text });
+    queue.push(...localIncludes(next, text, paths).filter((path) => !seen.has(path)));
+  }
   let rulesets: CollectedFiles['rulesets'];
   try {
     rulesets = { readable: true, ...(await github.getRulesets(owner, repo, MAX_RULESET_DETAILS)) };
@@ -299,9 +330,10 @@ export function reviewFilePlan(paths: string[]): { fetch: string[]; skipped: str
     .filter((path) => /^cmake\/.*compiler[^/]*\.cmake$/i.test(path))
     .sort((a, b) => Number(!a.includes('windows')) - Number(!b.includes('windows')));
   const first = (candidates: string[]) => candidates.filter((path) => paths.includes(path)).slice(0, 1);
+  // README を最初に読む。先に読むファイルで合計の上限を使い切られ、README の照合を逃れられないようにするため。
   const fetch = [
-    ...workflows.slice(0, MAX_WORKFLOWS),
     ...first(['README.md']),
+    ...workflows.slice(0, MAX_WORKFLOWS),
     ...first(['CMakeLists.txt']),
     ...compiler.slice(0, MAX_COMPILER_FILES),
     ...first(['vcpkg.json']),

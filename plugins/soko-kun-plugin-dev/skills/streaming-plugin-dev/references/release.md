@@ -68,7 +68,7 @@ Any change under `.github/workflows/`, `.github/actions/`, or `.github/scripts/`
 
 - After these changes, a release also contains the macOS `.pkg`, the Ubuntu `.deb` and `.ddeb`, and the source `.tar.xz`, in addition to the Windows `.zip`.
 - The template's packaging configuration also collects `.exe` files (`'windows-x64;zip|exe'`). The default Windows packaging produced only a zip in the listed plugins. Do not attach an installer: `.exe` and `.msi` files fail `distribution-format`.
-- The macOS `.pkg` from the template is not signed or notarized, and Gatekeeper rejected it. If you list only Windows, declare it in `.soko-kun/config.json` with `"os": ["windows"]` (see [soko-kun.md](soko-kun.md)).
+- The macOS `.pkg` from the template is not signed or notarized, and Gatekeeper rejected it. If you list only Windows, declare it in `.soko-kun/config.json` with `"os": ["windows"]` (see [soko-kun.md](soko-kun.md)). Do not tell users in the README to work around Gatekeeper ("Open Anyway", `xattr`): such instructions are a serious review finding and hold the release.
 
 ## Turn on immutable releases
 
