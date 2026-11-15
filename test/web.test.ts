@@ -1,7 +1,9 @@
 // Web の危険側の境界: 外部メタデータによる XSS、検査前のプラグインの公開、スクリプトの許可。
 import { env, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { submitPlugin } from '../src/domain/submit';
+import { SUBMIT_ERROR_CODES, submitPlugin } from '../src/domain/submit';
+import { PAGES } from '../src/web/content';
+import { LANGS } from '../src/web/i18n';
 import { markListable } from './fixtures/checks';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from './fixtures/github';
 import { png } from './fixtures/images';
@@ -126,6 +128,8 @@ describe('Web', () => {
     const detail = await (await SELF.fetch(`${ORIGIN}/plugins/${OWNER}/${REPO}?lang=en`)).text();
     expect(detail).toContain('Suspended versions');
     expect(detail).toContain('releases/download');
+    // 利用者がダウンロードボタンを押す前に読めるよう、警告はボタンより上に出す。
+    expect(detail.indexOf('Suspended versions')).toBeLessThan(detail.indexOf('class="download"'));
   });
 
   it('機械翻訳した概要に含まれる script もエスケープする', async () => {
@@ -228,5 +232,23 @@ describe('Web', () => {
     expect(top).not.toContain('<meta name="robots" content="noindex"/>');
     const search = await (await SELF.fetch(`${ORIGIN}/?lang=en&q=pitch`)).text();
     expect(search).toContain('<meta name="robots" content="noindex"/>');
+  });
+
+  // 拒否された作者が /submit で理由と直し方を確かめられるよう、submit_plugin の理由のコードを 7 言語の一覧にすべて載せる。
+  it('作者向けの案内の 7 言語に、submit_plugin のすべての理由のコードがある', () => {
+    for (const lang of LANGS) {
+      const text = JSON.stringify(PAGES[lang].submit);
+      const missing = SUBMIT_ERROR_CODES.filter((code) => !text.includes(code));
+      expect(missing, lang).toEqual([]);
+    }
+  });
+
+  // 連絡先を表示したページで言語を切り替えると、言語の一覧のリンクは GET の /contact を指す。
+  it('GET の /contact は 404 にせず、アドレスを含まない連絡先のページを返す', async () => {
+    const response = await SELF.fetch(`${ORIGIN}/contact?lang=ja`);
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).not.toContain('[at]');
+    expect(html).toContain('method="post" action="/contact?lang=ja"');
   });
 });

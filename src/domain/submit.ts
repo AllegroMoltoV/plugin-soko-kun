@@ -24,24 +24,28 @@ import {
 
 export const SUBMITS_PER_DAY = 10;
 
-export type SubmitErrorCode =
-  | 'invalid_url'
-  | 'rate_limited'
-  | 'not_found'
-  | 'not_admin'
-  | 'private_repository'
-  | 'archived_repository'
-  | 'no_license'
-  | 'not_obs_plugin'
-  | 'no_release'
-  | 'no_verifiable_asset'
-  | 'unsupported_tag'
-  | 'not_immutable'
-  | 'installer_not_allowed'
-  | 'no_attestation'
-  | 'duplicate'
-  | 'name_reserved'
-  | 'github_unavailable';
+// submit_plugin が返す理由のコード。作者向けの案内 (/submit) の 7 言語の一覧にすべて載せる (test/web.test.ts)。
+export const SUBMIT_ERROR_CODES = [
+  'invalid_url',
+  'rate_limited',
+  'not_found',
+  'not_admin',
+  'private_repository',
+  'archived_repository',
+  'no_license',
+  'not_obs_plugin',
+  'no_release',
+  'no_verifiable_asset',
+  'unsupported_tag',
+  'not_immutable',
+  'installer_not_allowed',
+  'no_attestation',
+  'duplicate',
+  'name_reserved',
+  'github_unavailable',
+] as const;
+
+export type SubmitErrorCode = (typeof SUBMIT_ERROR_CODES)[number];
 
 export type SubmitResult =
   | { ok: true; pluginId: string; status: 'pending'; detailUrl: string; assetsToScan: number; note: string }

@@ -17,6 +17,8 @@ concurrency:
 
 env:
   SOKO_KUN_ORIGIN: https://soko-kun.allegromoltov.jp
+  # 通信の検出で第三者のソースを取り出すときに残す、ディスクの空き (3 GiB)。姉妹版と同じ値。
+  MIN_FREE_BYTES: '3221225472'
 
 jobs:
   verify:
@@ -110,10 +112,15 @@ jobs:
             commit=$(jq -r '.commitSha' <<< "${item}")
             src="${work}/src-${release_id}"
             scan=""
-            if [[ "${repository}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] && [[ "${commit}" =~ ^[0-9a-f]{40}$ ]]; then
+            # 第三者のソースで、同じ回のほかの版の検証を止めないよう、取得と取り出しに時間の上限を付け、
+            # 取り出しの前後でディスクの空きを確かめる。Git LFS のファイルは取得しない。足りなければその版は error にして先へ進む。
+            if [[ "${repository}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] && [[ "${commit}" =~ ^[0-9a-f]{40}$ ]] \
+                && [ "$(df --output=avail -B1 "${work}" | tail -1 | tr -d ' ')" -ge "${MIN_FREE_BYTES}" ]; then
               mkdir -p "${src}"
-              if (cd "${src}" && git init -q && timeout 120 git fetch -q --depth 1 "https://github.com/${repository}.git" "${commit}" \
-                  && git checkout -q FETCH_HEAD); then
+              if (cd "${src}" && export GIT_LFS_SKIP_SMUDGE=1 && git init -q \
+                  && timeout 120 git fetch -q --depth 1 --no-tags "https://github.com/${repository}.git" "${commit}" \
+                  && timeout 120 git checkout -q FETCH_HEAD) \
+                  && [ "$(df --output=avail -B1 "${work}" | tail -1 | tr -d ' ')" -ge "${MIN_FREE_BYTES}" ]; then
                 scan=$(timeout 60 bash .github/scripts/scan-network.sh "${src}" || true)
               fi
             fi

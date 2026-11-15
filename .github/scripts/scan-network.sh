@@ -42,11 +42,10 @@ for entry in "${patterns[@]}"; do
     hits=$(jq -c --arg file "${file#"${dir}"/}" --argjson line "${number}" --arg api "${name}" --arg text "${text:0:160}" \
       '. + [{file: $file, line: $line, api: $api, text: $text}]' <<< "${hits}")
     count=$((count + 1))
-  done < <(grep -rnIE \
-    --include='*.c' --include='*.cc' --include='*.cpp' --include='*.cxx' \
-    --include='*.h' --include='*.hh' --include='*.hpp' --include='*.m' --include='*.mm' \
-    --exclude-dir=.git --exclude-dir=.deps --exclude-dir=build --exclude-dir='build_*' \
-    -e "${regex}" "${dir}" | sort -t: -k1,1 -k2,2n || true)
+  # 拡張子とディレクトリで絞らず、.git を除くすべてのテキストファイルを探す (-I でバイナリは読まない)。C のプリプロセッサは
+  # 拡張子に関係なく #include で取り込み、grep の --include は大文字と小文字を区別するため、拡張子で絞ると
+  # net.inc や NET.CPP に置いた通信の処理を見逃す。取得するのはコミット済みのファイルだけなので、build や .deps も探す。
+  done < <(grep -rnIE --exclude-dir=.git -e "${regex}" "${dir}" | sort -t: -k1,1 -k2,2n || true)
 done
 
 jq -n --argjson hits "${hits}" --argjson truncated "${truncated}" '{hits: $hits, truncated: $truncated}'

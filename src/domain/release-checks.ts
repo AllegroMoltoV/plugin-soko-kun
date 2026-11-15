@@ -275,17 +275,32 @@ export async function collectReviewFiles(
     }
   };
   const fetch = async (path: string) => {
-    const readme = path === 'README.md';
-    const text = await read(path, readme ? MAX_README_BYTES : MAX_FILE_BYTES);
+    const text = await read(path, MAX_FILE_BYTES);
     if (text === null) return;
-    const counted = text === 'unread' ? 0 : readme ? Math.min(text.length, MAX_LLM_README_CHARS) : text.length;
-    if (text === 'unread' || total + counted > MAX_TOTAL_CHARS) {
+    if (text === 'unread' || total + text.length > MAX_TOTAL_CHARS) {
       unreadFiles.push(path);
       return;
     }
-    total += counted;
+    total += text.length;
     files.push({ path, content: text });
   };
+  // README は GitHub がリポジトリの画面に表示するものを最初に取得する。名前を変えた README と、先に読むファイルで
+  // 合計の上限を使い切ることで、README の照合を逃れられないようにするため。合計には LLM に渡す分だけを数える。
+  let readmePath: string | null = null;
+  let readmeUnread = false;
+  try {
+    const readme = await github.getReadmeAt(owner, repo, ref, MAX_README_BYTES);
+    if (readme === 'too_large') readmeUnread = true;
+    else if (readme) {
+      readmePath = readme.path;
+      files.push(readme);
+      total += Math.min(readme.content.length, MAX_LLM_README_CHARS);
+    }
+  } catch (error) {
+    if (error instanceof GitHubError || error instanceof BudgetExceededError) throw error;
+    readmeUnread = true;
+  }
+  if (readmeUnread) unreadFiles.push('README');
   const plan = reviewFilePlan(paths);
   for (const path of plan.fetch) await fetch(path);
   unreadFiles.push(...plan.skipped);
@@ -314,7 +329,7 @@ export async function collectReviewFiles(
     if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
     rulesets = { readable: false };
   }
-  return { paths, truncated, files, unreadFiles, rulesets };
+  return { paths, truncated, files, unreadFiles, rulesets, readmePath, readmeUnread };
 }
 
 // 取得するファイルの順番と、上限で読まないファイル。上限は REVIEW_FILES_COST の内訳に合わせる。
@@ -330,9 +345,8 @@ export function reviewFilePlan(paths: string[]): { fetch: string[]; skipped: str
     .filter((path) => /^cmake\/.*compiler[^/]*\.cmake$/i.test(path))
     .sort((a, b) => Number(!a.includes('windows')) - Number(!b.includes('windows')));
   const first = (candidates: string[]) => candidates.filter((path) => paths.includes(path)).slice(0, 1);
-  // README を最初に読む。先に読むファイルで合計の上限を使い切られ、README の照合を逃れられないようにするため。
+  // README は collectReviewFiles が GitHub の README の API で先に取得するため、ここには含めない。
   const fetch = [
-    ...first(['README.md']),
     ...workflows.slice(0, MAX_WORKFLOWS),
     ...first(['CMakeLists.txt']),
     ...compiler.slice(0, MAX_COMPILER_FILES),
@@ -366,7 +380,7 @@ export async function reviewRepository(
       env.AI,
       {
         repository,
-        files: llmFiles(collected.files),
+        files: llmFiles(collected),
         unreadFiles: collected.unreadFiles,
         facts: computeFacts(collected, ruled),
         criteria: llmCriteriaFor(collected),

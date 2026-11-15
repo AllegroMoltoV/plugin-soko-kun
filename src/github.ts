@@ -269,6 +269,37 @@ export class GitHubClient {
     return bytes.length > maxBytes ? null : bytes;
   }
 
+  // ref の時点で GitHub がリポジトリの画面に表示する README を返す。探す場所 (.github、直下、docs) と名前と拡張子は
+  // GitHub が決めるため、こちらで写さない。名前を変えた README で照合を逃れられないようにするため。
+  // README が無ければ null、maxBytes を超えれば 'too_large' を返す。中身は UTF-8 として読む。
+  async getReadmeAt(
+    owner: string,
+    repo: string,
+    ref: string,
+    maxBytes: number,
+  ): Promise<{ path: string; content: string } | 'too_large' | null> {
+    let response: Response;
+    try {
+      response = await this.request(
+        `${API}/repos/${path(owner, repo)}/readme?ref=${encodeURIComponent(path(ref))}`,
+        'application/vnd.github+json',
+      );
+    } catch (error) {
+      if (error instanceof GitHubError && error.kind === 'not_found') return null;
+      throw error;
+    }
+    // 中身は base64 で 4/3 倍になる。JSON のほかの欄の分を足した上限で読み、超えたら読まずに打ち切る。
+    const text = await readLimited(response, Math.ceil((maxBytes * 4) / 3) + 16 * 1024);
+    if (text === null) return 'too_large';
+    const body = JSON.parse(text) as { path?: unknown; size?: unknown; encoding?: unknown; content?: unknown };
+    if (typeof body.path !== 'string' || typeof body.size !== 'number') throw new Error('unexpected readme response');
+    if (body.size > maxBytes) return 'too_large';
+    if (body.encoding !== 'base64' || typeof body.content !== 'string') throw new Error('unexpected readme encoding');
+    const binary = atob(body.content.replace(/\s/g, ''));
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return { path: body.path, content: new TextDecoder().decode(bytes) };
+  }
+
   // ファイルが無ければ null、上限を超えれば 'too_large' を返す。文字列は UTF-8 として読む。
   async getTextFile(
     owner: string,
