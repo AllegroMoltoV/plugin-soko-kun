@@ -134,7 +134,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
     {
       name: 'plugin-soko-kun',
       title: 'Plugin Soko-kun',
-      version: '0.2.11',
+      version: '0.2.12',
       websiteUrl: env.ORIGIN,
       icons: [
         { src: `${env.ORIGIN}/logo.png`, mimeType: 'image/png', sizes: ['256x256'] },

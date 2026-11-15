@@ -11,7 +11,8 @@ import { ScannerRateLimitedError, scanWithMalwareBazaar } from '../scanners';
 import { runTranslations } from '../translate';
 import { loadAllViews } from './catalog';
 import { inferOs } from './metadata';
-import { runReleaseChecks } from './release-checks';
+import { type ReadmeFetch, readmeWatchStatement } from './readme-watch';
+import { MAX_README_BYTES, runReleaseChecks } from './release-checks';
 import { releaseNotesStatement } from './release-notes';
 import { REWRITE_ASSET_URLS, REWRITE_RELEASE_URLS } from './release-urls';
 import type { Scanner } from './status';
@@ -434,7 +435,8 @@ const SNAPSHOT_RETENTION_DAYS = 15;
 const dayOf = (date: Date) => date.toISOString().slice(0, 10);
 
 // プラグインごとに 1 日 1 回、すべてのリリースの配布物のダウンロード数の合計を記録する。
-async function runDownloads(env: Env, budget: Budget, report: CronReport, today = new Date()): Promise<void> {
+// 掲載中か、README の照合で確認待ちのプラグインは、同じ回で既定のブランチの README も照合する (readme-watch.ts)。
+export async function runDownloads(env: Env, budget: Budget, report: CronReport, today = new Date()): Promise<void> {
   const github = new GitHubClient(budget, {
     kind: 'app',
     clientId: env.GITHUB_CLIENT_ID,
@@ -443,22 +445,27 @@ async function runDownloads(env: Env, budget: Budget, report: CronReport, today 
   const day = dayOf(today);
   budget.takeD1Query();
   const { results } = await env.DB.prepare(
-    `SELECT p.id, p.owner, p.repo, (SELECT max(d.day) FROM download_snapshots d WHERE d.plugin_id = p.id) AS last_day
+    `SELECT p.id, p.owner, p.repo, p.readme_state,
+       (p.readme_held = 1 OR EXISTS (SELECT 1 FROM listing_periods l WHERE l.plugin_id = p.id AND l.ended_at IS NULL)) AS watch,
+       (SELECT max(d.day) FROM download_snapshots d WHERE d.plugin_id = p.id) AS last_day
      FROM plugins p WHERE p.removed = 0 AND (last_day IS NULL OR last_day < ?)
      ORDER BY last_day IS NOT NULL, last_day LIMIT ?`,
   )
     .bind(day, DOWNLOADS_PER_RUN)
-    .all<{ id: string; owner: string; repo: string }>();
+    .all<{ id: string; owner: string; repo: string; readme_state: string | null; watch: number }>();
   const statements: D1PreparedStatement[] = [];
   for (const row of results) {
-    if (!budget.canFetch()) break;
+    // README を照合するプラグインは、記録と照合の 2 件がそろって残るときだけ処理する。照合しないまま記録だけが進むと、
+    // その日のうちに処理し直されず、照合が抜けるため。
+    if (!budget.canFetch(row.watch ? 2 : 1)) break;
     try {
       const releases = await github.listReleases(row.owner, row.repo);
+      const pluginStatements: D1PreparedStatement[] = [];
       const total = releases
         .filter((release) => !release.draft)
         .flatMap((release) => release.assets)
         .reduce((sum, asset) => sum + (asset.download_count ?? 0), 0);
-      statements.push(
+      pluginStatements.push(
         env.DB.prepare(
           'INSERT INTO download_snapshots (plugin_id, day, total) VALUES (?, ?, ?) ON CONFLICT (plugin_id, day) DO UPDATE SET total = excluded.total',
         ).bind(row.id, day, total),
@@ -466,8 +473,13 @@ async function runDownloads(env: Env, budget: Budget, report: CronReport, today 
       // 同期は最新のリリースしか読まないため、掲載中の版が最新でないときの本文の編集は、ここで 1 日 1 回照合する。
       // 掲載中の版は新しい側の数件にあるため、新しい順の NOTES_RELEASES_PER_PLUGIN 件に限る。行の無いリリースは更新しない。
       for (const release of releases.filter((entry) => !entry.draft).slice(0, NOTES_RELEASES_PER_PLUGIN)) {
-        statements.push(await releaseNotesStatement(env.DB, release.id, release.body));
+        pluginStatements.push(await releaseNotesStatement(env.DB, release.id, release.body));
       }
+      if (row.watch) {
+        const statement = await readmeWatchStatement(env.DB, row.id, row.readme_state, await fetchReadme(github, row));
+        if (statement) pluginStatements.push(statement);
+      }
+      statements.push(...pluginStatements);
     } catch (error) {
       if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) {
         report.stoppedBy = `github_${error.kind}`;
@@ -484,6 +496,19 @@ async function runDownloads(env: Env, budget: Budget, report: CronReport, today 
   budget.takeD1Query();
   await env.DB.batch(statements);
   report.downloadsRecorded = statements.length - 1;
+}
+
+// 既定のブランチの README を取得する。GitHub の一時的な障害は呼び出し元へ投げ、記録ごと次の起動へ回す。
+// ほかの失敗は照合の失敗として返し、確認待ちにする。形の合わない応答で照合を逃れられないようにするため。
+async function fetchReadme(github: GitHubClient, row: { owner: string; repo: string }): Promise<ReadmeFetch> {
+  try {
+    const readme = await github.getReadmeAt(row.owner, row.repo, 'HEAD', MAX_README_BYTES);
+    return readme === null || readme === 'too_large' ? readme : { content: readme.content };
+  } catch (error) {
+    if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
+    if (error instanceof BudgetExceededError) throw error;
+    return { error: error instanceof GitHubError ? `github_${error.kind}` : 'unexpected_response' };
+  }
 }
 
 // 掲載の期間と、マルウェアを検出した版を記録する。どちらの表も行を削除しない (ADR 0013)。

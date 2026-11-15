@@ -1,6 +1,6 @@
 # データモデル
 
-D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0011_network_scans.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
+D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0013_readme_watch.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
 
 ## テーブルの一覧
 
@@ -50,6 +50,9 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `declared_os` | TEXT | | `.soko-kun/config.json` の `os` を JSON の配列で保存した値。NULL のときは宣言が無い |
 | `release_workflow` | TEXT | | 初めて証明を検証できた版の、署名したワークフローのパス (例: `.github/workflows/push.yaml`) |
 | `owner_changed_at` | TEXT | | 同期で所有者の変更を検出した日時。値がある間は、まだ掲載していない新しい版を管理者の確認待ちにする。管理者が版を承認すると NULL に戻す ([ADR 0015](../decisions/0015-repository-rename-and-transfer.md)) |
+| `readme_state` | TEXT | | 掲載の後の既定のブランチの README の照合の基準。案内の型に当たった行の本文の SHA-256 (16 進) の JSON の配列か、README が上限を超えたことを示す `too_large`。NULL は未照合。本文は保存しない |
+| `readme_hits` | TEXT | | 最後の照合で当たった行の JSON (`[{line, rule, text}]`、`text` は 200 文字まで) か、照合に失敗した理由 (`{error}`)。管理者の確認にだけ使う |
+| `readme_held` | INTEGER | NOT NULL、既定値 0 | 基準に無い当たった行が現れた、README が新たに上限を超えた、または照合に失敗した。1 の間は、管理者が解くまでどの版も掲載しない |
 
 ## releases
 
@@ -246,6 +249,7 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 - 配布物を 1 件以上持つ。
 - すべての配布物について、MalwareBazaar の結果が確定である。
 - `release_suspensions` に記録されていない。
+- `plugins` の `readme_held` が 0 である。版の承認では解けず、`legacy` が 1 のリリースにも適用する。
 
 `release_checks` の `legacy` が 0 のリリースは、さらに次をすべて満たす必要があります。
 

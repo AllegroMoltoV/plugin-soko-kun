@@ -70,6 +70,8 @@ export interface PluginView {
   internalId: string;
   // 所有者が変わり、管理者がまだ版を承認していない。作者向けの理由の算出にだけ使う (ADR 0015)。
   ownerChanged: boolean;
+  // 既定のブランチの README の照合で、管理者の確認を待っている (作者の報告にだけ使う)。
+  readmeHeld: boolean;
   // 表示名。.soko-kun/config.json の name、無ければリポジトリ名。外部データ。
   name: string;
   owner: string;
@@ -112,6 +114,7 @@ interface PluginRow {
   display_name: string | null;
   declared_os: string | null;
   owner_changed_at: string | null;
+  readme_held: number;
   created_at: string;
   updated_at: string;
 }
@@ -374,6 +377,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
       checks: checksByRelease.get(release.github_release_id),
       suspended: suspendedReleases.has(release.github_release_id),
       ownerChanged: plugin.owner_changed_at !== null,
+      readmeHeld: plugin.readme_held === 1,
     }));
     const status = computeStatus(
       { adminSuspended: plugin.admin_suspended === 1, removed: plugin.removed === 1 },
@@ -391,6 +395,7 @@ async function loadViews(env: Env, pluginId?: string): Promise<PluginView[]> {
       id: `${plugin.owner}/${plugin.repo}`.toLowerCase(),
       internalId: plugin.id,
       ownerChanged: plugin.owner_changed_at !== null,
+      readmeHeld: plugin.readme_held === 1,
       name: plugin.display_name ?? plugin.repo,
       owner: plugin.owner,
       repo: plugin.repo,
