@@ -121,7 +121,7 @@ Done when:
 
 ### 7. List on Plugin Soko-kun
 
-Run `submit_plugin` in `check` mode, fix what it reports, register the plugin with the author's approval, and check the state with `list_my_plugins` 15 minutes or more after each release. See [references/soko-kun.md](references/soko-kun.md).
+Run `submit_plugin` in `check` mode, fix what it reports, register the plugin with the author's approval, and check the state with `list_my_plugins` 15 minutes or more after each release, then again at each `checkAgainAfter` while the version is checking. See [references/soko-kun.md](references/soko-kun.md).
 
 Done when:
 
