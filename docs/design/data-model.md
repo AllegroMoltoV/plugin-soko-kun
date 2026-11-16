@@ -150,7 +150,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `immutable` | INTEGER | NOT NULL、既定値 0 | 1 のとき、GitHub のリリースの API の `immutable` が true |
 | `base_release_id` | INTEGER | | 差分の起点にした掲載中のリリース。初めて登録した版では NULL |
 | `diff_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`passed`・`held`・`skipped`・`error` のいずれか。`skipped` は起点が無いとき |
-| `diff_hits` | TEXT | | 当たった乗っ取りの兆候の ID とファイルの JSON |
+| `diff_hits` | TEXT | | 当たった乗っ取りの兆候の ID とファイルの JSON。ファイルは差分の見出しから取ったパスで、200 文字までに切り詰める |
 | `config_state` | TEXT | NOT NULL、既定値 `pending` | `.soko-kun/config.json` の判定。`pending`・`ok`・`missing`・`invalid`・`no_declared_assets` のいずれか |
 | `review_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`done`・`failed` のいずれか |
 | `review_attempts` | INTEGER | NOT NULL、既定値 0 | レビューを試みた回数。AI Gateway の支出の上限、Workers AI の無料枠の不足、混雑は数えない |

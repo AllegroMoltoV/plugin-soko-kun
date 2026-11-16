@@ -134,7 +134,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
     {
       name: 'plugin-soko-kun',
       title: 'Plugin Soko-kun',
-      version: '0.2.17',
+      version: '0.2.18',
       websiteUrl: env.ORIGIN,
       icons: [
         { src: `${env.ORIGIN}/logo.png`, mimeType: 'image/png', sizes: ['256x256'] },
@@ -215,8 +215,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
         // 登録を書き込むが既存のものは消さない。同じリポジトリの再登録は duplicate で拒否するため、繰り返しても結果は増えない。
         // GitHub に問い合わせて条件を確かめる。
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-        description:
-          'Register a public GitHub repository of an OBS Studio plugin that you administer, or check it without registering (mode "check"). Requires signing in with GitHub (in Claude Code, run /mcp and sign in). The plugin is listed automatically after automated checks pass. New releases are picked up automatically; check them with list_my_plugins.',
+        description: `Register a public GitHub repository of an OBS Studio plugin that you administer, or check it without registering (mode "check"). Requires signing in with GitHub (in Claude Code, run /mcp and sign in). The plugin is listed automatically after automated checks pass. New releases are picked up automatically; check them with list_my_plugins. ${UNTRUSTED_NOTE}`,
         inputSchema: {
           mode: z
             .enum(['submit', 'check'])
@@ -263,8 +262,7 @@ export function buildMcpServer(env: Env, user?: SignedInUser): McpServer {
         title: 'List my OBS Studio plugins and their check results',
         // 自前の D1 を読み、GitHub で管理権限を確かめるだけで、書き込まない。
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-        description:
-          'For OBS Studio plugin authors. Returns the plugins you administer on GitHub, each version state (listed, checking, held, rejected, suspended), the blockers that keep a version from being listed with how to fix them, and repository review findings. Call it 15 minutes or more after publishing a release. Requires signing in with GitHub.',
+        description: `For OBS Studio plugin authors. Returns the plugins you administer on GitHub, each version state (listed, checking, held, rejected, suspended), the blockers that keep a version from being listed with how to fix them, and repository review findings. Call it 15 minutes or more after publishing a release. Requires signing in with GitHub. ${UNTRUSTED_NOTE}`,
         inputSchema: {
           pluginId: z
             .string()
