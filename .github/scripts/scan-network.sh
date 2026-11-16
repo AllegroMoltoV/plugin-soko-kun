@@ -45,7 +45,10 @@ for entry in "${patterns[@]}"; do
   # 拡張子とディレクトリで絞らず、.git を除くすべてのテキストファイルを探す (-I でバイナリは読まない)。C のプリプロセッサは
   # 拡張子に関係なく #include で取り込み、grep の --include は大文字と小文字を区別するため、拡張子で絞ると
   # net.inc や NET.CPP に置いた通信の処理を見逃す。取得するのはコミット済みのファイルだけなので、build や .deps も探す。
-  done < <(grep -rnIE --exclude-dir=.git -e "${regex}" "${dir}" | sort -t: -k1,1 -k2,2n || true)
+  # UTF-8 として読めないバイト (cp1252 や Shift_JIS のコメント) を含む行も当てるため、grep だけをバイト列として実行する。
+  # UTF-8 のロケールの grep は、その行を出力しないか、Binary file ... matches と出力する。スクリプト全体には掛けず、
+  # 行の文字列の切り出し (${text:0:160}) を文字単位のまま保つ。
+  done < <(LC_ALL=C grep -rnIE --exclude-dir=.git -e "${regex}" "${dir}" | sort -t: -k1,1 -k2,2n || true)
 done
 
 jq -n --argjson hits "${hits}" --argjson truncated "${truncated}" '{hits: $hits, truncated: $truncated}'
