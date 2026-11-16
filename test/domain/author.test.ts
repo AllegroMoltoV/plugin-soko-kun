@@ -1,7 +1,7 @@
 // list_my_plugins の危険側の境界: 管理者でない人に、確認待ちの版や理由やレビューの指摘を返さない。
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { listMyPlugins, resumeOf, versionState } from '../../src/domain/author';
+import { listMyPlugins, nextCheck, resumeOf, versionState } from '../../src/domain/author';
 import { submitPlugin } from '../../src/domain/submit';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from '../fixtures/github';
 import { network } from '../setup';
@@ -121,6 +121,18 @@ describe('resumeOf', () => {
     const b = resumeOf('scan_pending', null, published, at('2026-11-15T01:14:00Z'));
     expect(a).toBe('2026-11-15T01:30:00.000Z');
     expect(b).toBe(a);
+  });
+
+  // 上限を返すと、作者のエージェントが完了の見込みと読み、held になった後も上限まで待ち続けた (2026-11-16)。
+  it('次に確かめる時刻は次の定期処理の区切りの 5 分後で、上限の resumesAt は動かない', () => {
+    const now = at('2026-11-15T00:28:00Z');
+    expect(nextCheck(['review_pending'], null, published, now)).toBe('2026-11-15T00:35:00.000Z');
+    expect(resumeOf('review_pending', null, published, now)).toBe('2026-11-15T06:30:00.000Z');
+  });
+
+  it('支出の上限で review だけを待つときは、次に確かめる時刻をその時刻にする', () => {
+    const now = at('2026-11-15T00:28:00Z');
+    expect(nextCheck(['review_pending'], '2026-11-15T03:00:00.000Z', published, now)).toBe('2026-11-15T03:00:00.000Z');
   });
 
   it('支出の上限などで待つときは、その時刻を返す', () => {

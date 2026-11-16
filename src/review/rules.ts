@@ -21,8 +21,10 @@ export interface RepositorySnapshot {
   readmeUnread?: boolean;
   // 新しい版のリリースノートで、案内の型に当たった行。未設定なら照合していない (確認のモード)。
   releaseNotesHits?: Array<{ line: number; rule: 'no-security-bypass' | 'no-terminal-paste' }>;
-  // README 以外の文書の照合の結果 (GitHub Actions)。'missing' は、期限までに結果が届かなかった。未設定なら照合していない。
-  docScan?: DocScan | 'missing';
+  // README 以外の文書の照合の結果。本審査は GitHub Actions、確認のモードは src/review/check-docs.ts が照合する。
+  // 'missing' は、本審査で期限までに結果が届かなかった。{missing} は、確認のモードで照合できなかった理由。
+  // note は、照合の結果に添える説明。未設定なら照合していない。
+  docScan?: (DocScan & { note?: string }) | 'missing' | { missing: string };
   // 通信の API の検出の結果。null か未設定なら、検出していない (確認のモード、期限切れ、検出の失敗)。
   network?: NetworkScan | null;
   // 有効な ruleset。未設定か readable が false なら、読めなかった。
@@ -349,26 +351,30 @@ function readmePattern(
   const notes = (snapshot.releaseNotesHits ?? [])
     .filter((hit) => hit.rule === id)
     .map((hit) => at(RELEASE_NOTES, hit.line));
+  const scanned =
+    snapshot.docScan && snapshot.docScan !== 'missing' && 'hits' in snapshot.docScan ? snapshot.docScan : null;
   // README 以外の文書の当たり。README と同じファイルの当たりは、README の照合と重なるため捨てる。
-  const docs =
-    snapshot.docScan && snapshot.docScan !== 'missing'
-      ? snapshot.docScan.hits
-          .filter((hit) => hit.rule === id && hit.file !== snapshot.readmePath)
-          .map((hit) => at(hit.file, hit.line))
-      : [];
+  const docs = scanned
+    ? scanned.hits
+        .filter((hit) => hit.rule === id && hit.file !== snapshot.readmePath)
+        .map((hit) => at(hit.file, hit.line))
+    : [];
   const sources = [
     'the README',
     ...(snapshot.releaseNotesHits ? ['the release notes'] : []),
-    ...(snapshot.docScan && snapshot.docScan !== 'missing' ? ['the other documents'] : []),
+    ...(scanned ? ['the other documents'] : []),
   ];
-  // 文書の照合の結果が期限までに届かなかった版を、照合した版と同じに扱わない。
-  // リポジトリを大きくして取得を時間切れにすることで、照合を逃れられないようにするため。
-  if (snapshot.docScan === 'missing') {
+  const note = scanned?.note ? ` ${scanned.note}` : '';
+  // 文書を照合できなかった版を、照合した版と同じに扱わない。
+  // リポジトリを大きくして取得を時間切れにすることで、照合を逃れられないようにするため。確認のモードでも、作者が公開の前に知れるよう重大にする。
+  if (snapshot.docScan && !scanned) {
     return {
       ...finding(
         id,
         'not_met',
-        'Checked by rules: the documents other than the README could not be checked because the source could not be fetched and scanned in time.',
+        snapshot.docScan === 'missing'
+          ? 'Checked by rules: the documents other than the README could not be checked because the source could not be fetched and scanned in time.'
+          : (snapshot.docScan as { missing: string }).missing,
         notes,
       ),
       serious: true,
@@ -399,10 +405,13 @@ function readmePattern(
     ...docs,
   ];
   if (hits.length > 0)
-    return { ...finding(id, 'not_met', `Checked by rules: ${sources.join(' or ')} ${found}`, hits), serious: true };
+    return {
+      ...finding(id, 'not_met', `Checked by rules: ${sources.join(' or ')} ${found}${note}`, hits),
+      serious: true,
+    };
   if (!doc && !snapshot.releaseNotesHits && !snapshot.docScan)
     return finding(id, 'met', 'Checked by rules: the repository has no README.');
-  return finding(id, 'met', `Checked by rules: no ${none} was found in ${sources.join(' and ')}.`);
+  return finding(id, 'met', `Checked by rules: no ${none} was found in ${sources.join(' and ')}.${note}`);
 }
 
 function noSecurityBypass(snapshot: RepositorySnapshot): Finding {
