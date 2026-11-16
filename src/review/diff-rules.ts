@@ -11,6 +11,9 @@ export interface DiffHit {
   file?: string;
 }
 
+// 当たりのファイル名の長さの上限。ファイル名は差分の見出しから取る作者側の文字列で、作者の AI に返すため、長い文を運ばせない。
+export const MAX_HIT_FILE = 200;
+
 const DIFF_HEADER = 'diff --git ';
 const FILE_HEADER = /^diff --git a\/(\S+) b\/(\S+)$/;
 const URL_PATTERN = /https?:\/\/[^\s"'<>()`\]]+/gi;
@@ -62,7 +65,7 @@ export function checkDiff(diff: string, truncated: boolean, owner: string, repo:
     // 見出しは、パスを取り出せない形 (空白や非 ASCII を含むパス) でも必ずファイルの区切りとして扱う。
     // 区切りを読み飛ばすと、前のファイルの状態を持ち越して、ワークフローの変更とバイナリの追加を逃すため。
     if (line.startsWith(DIFF_HEADER)) {
-      file = FILE_HEADER.exec(line)?.[2] ?? line.slice(DIFF_HEADER.length);
+      file = (FILE_HEADER.exec(line)?.[2] ?? line.slice(DIFF_HEADER.length)).slice(0, MAX_HIT_FILE);
       deleted = false;
       inHunk = false;
       if (WORKFLOW_IN_HEADER.test(line)) add({ rule: 'diff-workflow-changed', file });
