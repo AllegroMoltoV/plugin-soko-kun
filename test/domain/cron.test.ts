@@ -118,7 +118,9 @@ describe('runCron', () => {
           ],
         }),
       ),
-      http.get(`https://api.github.com/repos/${OWNER}/${REPO}/commits/v1.2.0`, () => HttpResponse.json({ sha: 'abc' })),
+      http.get(`https://api.github.com/repos/${OWNER}/${REPO}/commits/refs/tags/v1.2.0`, () =>
+        HttpResponse.json({ sha: 'abc' }),
+      ),
       ...releaseCheckHandlers(),
     );
     await runCron(env, undefined);
@@ -677,6 +679,49 @@ describe('新しい版の検査のタグのコミットの位置', () => {
       compare(() => new HttpResponse(large, { headers: { 'Content-Type': 'application/json' } }), []),
     );
     expect((await check())?.diff_state).toBe('held');
+  });
+
+  // タグと同じ名前のブランチで検査の対象を変えられないよう、差分・宣言ファイル・レビューのファイルはタグの名前ではなく記録済みのコミットで読む。
+  it('掲載中の版があれば、差分と宣言ファイルとレビューのファイルを、タグの名前ではなくコミットで読む', async () => {
+    await registerFixture();
+    await markListable(env.DB);
+    const baseSha = await env.DB.prepare('SELECT commit_sha FROM releases').first<string>('commit_sha');
+    const headSha = 'b'.repeat(40);
+    const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO releases (github_release_id, plugin_id, tag, name, commit_sha, published_at, html_url)
+         SELECT 7002, plugin_id, 'v1.2.0', 'v1.2.0', ?, ?, 'https://github.com/x/y/releases/tag/v1.2.0' FROM releases`,
+      ).bind(headSha, old),
+      env.DB.prepare('INSERT INTO release_checks (github_release_id, immutable) VALUES (7002, 1)'),
+    ]);
+    const urls: string[] = [];
+    const base = 'https://api.github.com/repos/:owner/:repo';
+    const recorded = (path: string, respond: () => Response) =>
+      http.get(`${base}${path}`, ({ request }) => {
+        urls.push(request.url);
+        return respond();
+      });
+    const missing = () => new HttpResponse(null, { status: 404 });
+    network.use(
+      recorded('/compare/:range', () => HttpResponse.json({ status: 'behind', commits: [], files: [] })),
+      recorded('/contents/.soko-kun/config.json', missing),
+      recorded('/git/trees/:ref', () => HttpResponse.json({ tree: [], truncated: false })),
+      recorded('/readme', missing),
+      ...releaseCheckHandlers(),
+    );
+    await runReleaseChecks(env, new Budget());
+    const paths = urls.map((url) => decodeURIComponent(new URL(url).pathname + new URL(url).search));
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(`/compare/${baseSha}...${headSha}`),
+        expect.stringContaining(`/compare/HEAD...${headSha}`),
+        expect.stringContaining(`/contents/.soko-kun/config.json?ref=${headSha}`),
+        expect.stringContaining(`/git/trees/${headSha}`),
+        expect.stringContaining(`/readme?ref=${headSha}`),
+      ]),
+    );
+    expect(paths.filter((path) => path.includes('v1.1.0') || path.includes('v1.2.0'))).toEqual([]);
   });
 
   it('タグのコミットが既定のブランチにあれば、掲載中の版が無い版は skipped にする', async () => {

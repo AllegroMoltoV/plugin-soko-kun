@@ -52,7 +52,7 @@ interface PendingRow {
   owner: string;
   repo: string;
   tag: string;
-  commit_sha: string | null;
+  commit_sha: string;
   diff_state: string;
   config_state: string;
   review_state: string;
@@ -165,7 +165,14 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
     const assets = await env.DB.prepare('SELECT os FROM assets WHERE release_id = ?')
       .bind(row.github_release_id)
       .all<{ os: string | null }>();
-    const text = await github.getTextFile(row.owner, row.repo, '.soko-kun', 'config.json', row.tag, MAX_CONFIG_BYTES);
+    const text = await github.getTextFile(
+      row.owner,
+      row.repo,
+      '.soko-kun',
+      'config.json',
+      row.commit_sha,
+      MAX_CONFIG_BYTES,
+    );
     const config = parseConfig(
       text,
       assets.results.map((asset) => asset.os),
@@ -184,6 +191,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
 
   // 差分の起点は、その時点の掲載対象のリリース。掲載中の版が無ければ、差分の検査を当てない。
   // タグのコミットが既定のブランチにあるかは、掲載中の版の有無にかかわらず確かめる。
+  // 差分も位置の判定も、タグの名前ではなく、証明と結び付いた記録済みのコミットで比べる。タグと同じ名前のブランチで判定を変えられないようにするため。
   let diff: string | null = null;
   if (row.diff_state === 'pending' || row.review_state !== 'done') {
     budget.takeD1Query();
@@ -193,14 +201,12 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
       const hits: DiffHit[] = [];
       let compared = false;
       if (base && base.tag !== row.tag) {
-        const result = await github.getCompareDiff(row.owner, row.repo, base.tag, row.tag, MAX_DIFF_CHARS);
+        const result = await github.getCompareDiff(row.owner, row.repo, base.commitSha, row.commit_sha, MAX_DIFF_CHARS);
         diff = result.text;
         hits.push(...checkDiff(result.text, result.truncated, row.owner, row.repo));
         compared = true;
       }
       if (row.diff_state === 'pending') {
-        // タグの名前ではなく、証明と結び付いたコミットで比べる。タグと同じ名前のブランチで判定を変えられないようにするため。
-        if (!row.commit_sha) throw new Error('commit sha is not recorded');
         if ((await github.getTagAncestry(row.owner, row.repo, row.commit_sha)) === 'outside') {
           hits.push({ rule: 'tag-not-on-default-branch' });
         }
@@ -218,7 +224,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
   // LLM のレビュー
   // 通信の検出の結果を待つ間は、宣言ファイルと差分の検査だけを進める。
   if (row.review_state !== 'done' && row.network_ready === 1) {
-    const input = await collectReviewFiles(github, row.owner, row.repo, row.tag);
+    const input = await collectReviewFiles(github, row.owner, row.repo, row.commit_sha);
     input.network = row.network_state === 'done' ? readNetworkScan(row.network_hits) : null;
     // リリースノートは同期の時点で照合してある。照合していない版 (この仕組みより前の版) は未設定のままにする。
     input.releaseNotesHits = readReleaseNotesHits(row.notes_hits);

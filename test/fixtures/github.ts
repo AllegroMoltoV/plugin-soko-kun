@@ -82,7 +82,7 @@ export function githubHandlers(fixture: RepoFixture = {}, calls: string[] = []) 
         { headers: { ETag: '"etag-1"' } },
       );
     }),
-    http.get(`${base}/commits/v1.1.0`, () => {
+    http.get(`${base}/commits/refs/tags/v1.1.0`, () => {
       track('commit');
       return HttpResponse.json({ sha: '3f2a9c1000000000000000000000000000000000' });
     }),
