@@ -29,6 +29,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # 通信の検出のスクリプト (verify.yaml で使う) のテスト。
+      - run: bash .github/scripts/test-scan-network.sh
 
   actionlint:
     runs-on: ubuntu-latest
