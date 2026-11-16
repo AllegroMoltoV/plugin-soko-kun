@@ -320,7 +320,7 @@ export class GitHubClient {
     }
   }
 
-  // 2 つのタグの間の差分を diff の形式で受け、先頭の maxChars 文字だけを読んで接続を切る。
+  // 2 つのコミットの間の差分を diff の形式で受け、先頭の maxChars 文字だけを読んで接続を切る。
   // JSON の compare は使わない。無料プランの CPU 時間の上限で決めた扱いで、Workers Paid での扱いは差分の上限を超えたときの扱いと合わせて見直す (Beads の p3q の C3)。
   async getCompareDiff(
     owner: string,
@@ -414,8 +414,9 @@ export class GitHubClient {
     }
   }
 
-  async getCommitSha(owner: string, repo: string, ref: string): Promise<string> {
-    const response = await this.request(`${API}/repos/${path(owner, repo)}/commits/${path(ref)}`);
+  // タグの完全な参照名 (refs/tags/<tag>) で解決する。短い名前で問い合わせると、タグと同じ名前のブランチに解決されうるため。
+  async getCommitSha(owner: string, repo: string, tag: string): Promise<string> {
+    const response = await this.request(`${API}/repos/${path(owner, repo)}/commits/refs/tags/${path(tag)}`);
     const body = (await response.json()) as { sha: string };
     return body.sha;
   }
