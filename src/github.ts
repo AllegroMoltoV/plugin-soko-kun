@@ -27,7 +27,6 @@ export interface GitHubRepo {
   private: boolean;
   archived: boolean;
   description: string | null;
-  default_branch: string;
   license: { spdx_id: string | null } | null;
   permissions?: { admin?: boolean };
 }

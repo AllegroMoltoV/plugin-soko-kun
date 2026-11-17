@@ -528,25 +528,20 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
     const evaluated = await evaluateConditions(asUser, asApp, parsed, false);
     const { repo } = evaluated;
     const admin = evaluated.conditions.find((item) => item.code === 'not_admin')?.result === 'passed';
+    // 既定のブランチは名前でなく HEAD で指す。名前は release/1.x のように / などを含み、API のパスの区切りの検査を通らない。
+    const ref = 'HEAD';
     // 宣言ファイルは版の検査でだけ読んでいたため、誤りが不変のリリースの公開の後に分かった。公開の前に形を確かめる。
     let config: ConfigCheck = { result: 'unchecked' };
     if (admin && budget.canFetch(1 + REVIEW_FILES_COST + TARBALL_COST + 1)) {
-      config = await checkConfig(asApp, repo.owner.login, repo.name, repo.default_branch, evaluated.assets);
+      config = await checkConfig(asApp, repo.owner.login, repo.name, ref, evaluated.assets);
     }
     let review: { findings: Finding[]; unreadFiles: string[] } | null = null;
     let unavailable: ReviewOutcome['kind'] | null = null;
     if (admin && budget.canFetch(REVIEW_FILES_COST + 1)) {
-      const collected = await collectReviewFiles(asApp, repo.owner.login, repo.name, repo.default_branch);
+      const collected = await collectReviewFiles(asApp, repo.owner.login, repo.name, ref);
       // README 以外の文書も、本審査と同じ選び方で照合する。照合できなかったときも重大にし、作者が公開の前に知れるようにする。
       collected.docScan = budget.canFetch(TARBALL_COST + 1)
-        ? await scanDocsForCheck(
-            asApp,
-            repo.owner.login,
-            repo.name,
-            repo.default_branch,
-            collected.paths,
-            collected.truncated,
-          )
+        ? await scanDocsForCheck(asApp, repo.owner.login, repo.name, ref, collected.paths, collected.truncated)
         : {
             missing:
               'Checked by rules: the documents other than the README could not be checked in the check mode because this request ran out of its budget of GitHub API calls (the latest release has many files). The check after a release checks them.',

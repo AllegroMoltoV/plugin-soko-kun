@@ -175,4 +175,23 @@ describe('checkPlugin (確認のモード)', () => {
     expect(result.config).toMatchObject({ result: 'invalid' });
     expect(result.config.fix).toContain('"os"');
   });
+
+  // 既定のブランチの名前は / などを含みうる。名前を API のパスに使うと、確認のモードが結果を返さず内部エラーになる。
+  it('既定のブランチの名前に / を含むリポジトリでも、HEAD で読んで結果を返す', async () => {
+    const refs: string[] = [];
+    network.use(...githubHandlers({ release: 'none', defaultBranch: 'release/1.x' }), ...releaseCheckHandlers());
+    network.use(
+      http.get(`https://api.github.com/repos/${OWNER}/${REPO}/contents/.soko-kun/config.json`, ({ request }) => {
+        refs.push(`config:${new URL(request.url).searchParams.get('ref')}`);
+        return new HttpResponse(null, { status: 404 });
+      }),
+      http.get(`https://api.github.com/repos/${OWNER}/${REPO}/git/trees/:ref`, ({ params }) => {
+        refs.push(`tree:${params.ref}`);
+        return HttpResponse.json({ tree: [], truncated: false });
+      }),
+    );
+    const result = (await checkPlugin(env, submitter, url)) as { mode?: string; config: { result: string } };
+    expect(result).toMatchObject({ mode: 'check', config: { result: 'missing' } });
+    expect(refs).toEqual(['config:HEAD', 'tree:HEAD']);
+  });
 });
