@@ -3,6 +3,7 @@
 
 import type { RulesetSnapshot } from '../github';
 import { LLM_CRITERIA } from './criteria';
+import { MAX_HIT_FILE } from './diff-rules';
 import { type GuidanceRule, matchesSecurityBypass, matchesTerminalPaste } from './guidance-patterns.mjs';
 import type { Finding, FindingResult } from './llm';
 import type { DocScan, NetworkScan } from './network';
@@ -440,6 +441,43 @@ function crashReportPrivacy(snapshot: RepositorySnapshot): Finding | null {
   return finding('crash-report-privacy', 'not_met', 'Checked by rules: the repository has no issue templates.');
 }
 
+// エージェントとエディターの設定。深さを問わず、パスの途中の区切りがディレクトリの名前に、最後の区切りがファイルの名前に
+// 一致すれば当たる。CLAUDE.md と AGENTS.md はこの綴りで読まれるため、大文字と小文字を区別する。
+// 定義は姉妹版 (音のプラグイン倉庫くん) と同じに保つ。
+const AGENT_EDITOR_DIRS = new Set(['.claude', '.codex', '.cursor', '.windsurf', '.vscode', '.vs', '.idea']);
+const AGENT_EDITOR_FILES = new Set(['CLAUDE.md', 'AGENTS.md', '.cursorrules']);
+
+// 当たった場所。ディレクトリは、その中の何個のファイルが当たっても 1 か所として数え、末尾に / を付ける。
+function agentEditorLocation(path: string): string | null {
+  const parts = path.split('/');
+  const dir = parts.slice(0, -1).findIndex((part) => AGENT_EDITOR_DIRS.has(part));
+  if (dir >= 0) return `${parts.slice(0, dir + 1).join('/')}/`;
+  return AGENT_EDITOR_FILES.has(parts.at(-1) ?? '') ? path : null;
+}
+
+function agentEditorConfig(snapshot: RepositorySnapshot): Finding {
+  const id = 'agent-editor-config';
+  const locations = [
+    ...new Set(
+      [...snapshot.paths].sort().flatMap((path) => {
+        const location = agentEditorLocation(path);
+        return location === null ? [] : [location];
+      }),
+    ),
+  ];
+  // パスはリポジトリの文字列なので、根拠に入れる長さを切る。
+  if (locations.length > 0)
+    return finding(
+      id,
+      'not_met',
+      'Checked by rules: the repository contains agent or editor settings, which the checks read like any other file.',
+      locations.map((location) => ({ file: location.slice(0, MAX_HIT_FILE) })),
+    );
+  if (snapshot.truncated)
+    return finding(id, 'unclear', 'Checked by rules: the repository file list was too large to read in full.');
+  return finding(id, 'met', 'Checked by rules: the repository contains no agent or editor settings.');
+}
+
 export function judgeByRules(snapshot: RepositorySnapshot): Finding[] {
   const findings = [
     noSecurityBypass(snapshot),
@@ -453,6 +491,7 @@ export function judgeByRules(snapshot: RepositorySnapshot): Finding[] {
     contributionCompliance(snapshot),
     hermeticBuild(snapshot),
     repositoryProtection(snapshot),
+    agentEditorConfig(snapshot),
     ciScenarioTests(snapshot),
     crashReportPrivacy(snapshot),
   ];

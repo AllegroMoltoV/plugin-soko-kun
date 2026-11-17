@@ -208,6 +208,13 @@ export const CRITERIA: Criterion[] = [
     fix: 'Add a branch ruleset for the default branch that blocks deletion and force pushes and requires a pull request with at least one approval, and a tag ruleset that restricts creating, updating, and deleting release tags to repository admins. If you develop alone, add the Repository admin role to the bypass list of the branch ruleset with "For pull requests only" (bypass_mode: pull_request), so that you can merge your own pull request without an approval while force pushes and deletion stay blocked. Do not use the default "Always allow", which also allows force pushes and deletion. The catalog cannot read bypass lists and does not check them.',
   },
   {
+    id: 'agent-editor-config',
+    kind: 'recommendation',
+    judgedBy: 'rule',
+    title: 'Agent and editor settings are not committed unless intended',
+    fix: 'If you did not mean to publish them, remove agent and editor settings such as CLAUDE.md, AGENTS.md, .claude/, .codex/, .cursor/, .windsurf/, .vscode/, .vs/, and .idea/ from the repository and add them to .gitignore. The checks read these files like any other file, so they can cause findings or administrator reviews you did not expect. No action is needed if you share them on purpose, such as an AGENTS.md for contributors or .vscode/extensions.json and launch.json.',
+  },
+  {
     id: 'contribution-compliance',
     kind: 'recommendation',
     judgedBy: 'rule',

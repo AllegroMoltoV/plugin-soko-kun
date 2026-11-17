@@ -43,6 +43,8 @@ Copying `.github` from another plugin brings its plugin-specific workflows, such
 
 The template's `.gitignore` excludes `/*` and adds back allowed paths with `!/`. Add a `!/` line each time you add a top-level folder such as `docs`, `tests`, `tools`, or `.soko-kun`. Otherwise the folder silently stays out of commits.
 
+Add only the folders the plugin needs. Do not add `!/` lines for agent and editor settings such as `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.codex/`, `.cursor/`, `.vscode/`, `.vs/`, or `.idea/` unless you mean to publish them. The template excludes only top-level paths, so such settings inside a subfolder (for example `src/CLAUDE.md`) are committed; add them to `.gitignore` as well. Plugin Soko-kun reads these files like any other file, so they can cause findings or administrator reviews, and the review reports them as the recommendation `agent-editor-config`.
+
 ### The Windows install prefix breaks the install step
 
 The template sets the Windows install prefix to `$ENV{ALLUSERSPROFILE}/obs-studio/plugins` in `cmake/windows/defaults.cmake`. The environment variable contains backslashes, which become invalid escapes in `cmake_install.cmake` and break `cmake --install`. Convert the value with `file(TO_CMAKE_PATH ...)` before using it as the prefix.
