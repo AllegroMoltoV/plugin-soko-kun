@@ -18,6 +18,7 @@ export interface RepoFixture {
   immutable?: boolean;
   installer?: boolean;
   attestation?: boolean;
+  defaultBranch?: string;
 }
 
 export const OBS_CMAKE =
@@ -43,7 +44,7 @@ export function githubHandlers(fixture: RepoFixture = {}, calls: string[] = []) 
         private: fixture.private ?? false,
         archived: fixture.archived ?? false,
         description: 'Real-time <script>alert(1)</script> pitch shift filter',
-        default_branch: 'main',
+        default_branch: fixture.defaultBranch ?? 'main',
         license: fixture.license === null ? null : { spdx_id: fixture.license ?? 'GPL-2.0' },
         permissions: { admin: fixture.admin ?? true, pull: true },
       });
