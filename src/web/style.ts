@@ -211,6 +211,8 @@ table.info th { width: 8.5rem; background: var(--surface); font-weight: normal; 
 /* 作者の申告は、倉庫くんが確かめた事実と見分けられるよう、破線の枠にする。 */
 table.info.declared th, table.info.declared td { border-style: dashed; }
 .pill.declared { border-style: dashed; }
+/* 入手が無料と商用利用可のタグ。安心して使える情報なので、ほかのタグと見分けられる色にする。 */
+.pill.free { border-color: var(--ink); font-weight: bold; }
 .declared-text { margin: 0; }
 td > p { margin: 0 0 2px; }
 /* 作者向けの最重要の文。登録の判断の前提のため、ページの先頭で枠と太い左の線で目立たせる。 */

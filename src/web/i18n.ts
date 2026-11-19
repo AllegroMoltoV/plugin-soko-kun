@@ -94,6 +94,8 @@ export interface Dict {
   tagRestricted: string;
   authorImportantLabel: string;
   authorImportant: string;
+  tagFree: string;
+  tagCommercial: string;
   commercialUse: string;
   commercialCode: string;
   commercialAssetsNone: string;
@@ -242,7 +244,9 @@ const en: Dict = {
   tagRestricted: 'Assets restrict commercial use',
   authorImportantLabel: 'Before you submit',
   authorImportant:
-    'When your plugin is listed on this platform, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license. Income from sales is limited to selling or support outside this platform on that basis. If you want to earn only by selling the files, or to restrict commercial use, your plugin is not eligible for listing.',
+    'When your plugin is listed on this platform, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license. Income from sales is limited to selling or support outside this platform on that basis. If you want to earn only by selling the files, or to restrict commercial use, your plugin is not eligible for listing. If bundled assets restrict commercial use, declare restrictedAssets in .soko-kun/config.json. Without the declaration, the plugin is shown as OK for commercial use.',
+  tagFree: 'Free',
+  tagCommercial: 'Commercial use OK',
   commercialUse: 'Commercial use',
   commercialCode: 'The code can be used commercially under the conditions of its license (checked by this platform).',
   commercialAssetsNone: 'Bundled assets: the author declared no restrictions.',
@@ -406,7 +410,9 @@ const ja: Dict = {
   tagRestricted: '素材に商用利用の制限あり',
   authorImportantLabel: '登録する前に',
   authorImportant:
-    '倉庫くんに掲載すると、プラグインのファイルは誰でも GitHub から無料で入手でき、コードはライセンスの条件にしたがって誰でも商用利用・再配布できます。販売の収益は、この前提のうえでの外部での販売や支援に限られます。ファイルの販売だけで収益を得たい場合や、商用利用を制限したい場合は、倉庫くんの掲載の対象になりません。',
+    '倉庫くんに掲載すると、プラグインのファイルは誰でも GitHub から無料で入手でき、コードはライセンスの条件にしたがって誰でも商用利用・再配布できます。販売の収益は、この前提のうえでの外部での販売や支援に限られます。ファイルの販売だけで収益を得たい場合や、商用利用を制限したい場合は、倉庫くんの掲載の対象になりません。商用利用を制限する同梱素材があるときは、.soko-kun/config.json の restrictedAssets で申告してください。申告が無いと、商用利用可と表示されます。',
+  tagFree: '無料',
+  tagCommercial: '商用利用可',
   commercialUse: '商用利用',
   commercialCode: 'コードは、ライセンスの条件にしたがって商用利用できます (倉庫くんが確認)。',
   commercialAssetsNone: '同梱素材: 作者は制限が無いと申告しています。',
@@ -568,7 +574,9 @@ const zhHans: Dict = {
   tagRestricted: '素材限制商业用途',
   authorImportantLabel: '登记之前',
   authorImportant:
-    '插件在本平台上架后，任何人都可以从 GitHub 免费获取其文件，并可按照许可证的条件将代码用于商业用途和再分发。销售收入仅限于在此前提下于本平台以外进行的销售或赞助。如果您只想通过出售文件获得收入，或想限制商业用途，您的插件不属于上架对象。',
+    '插件在本平台上架后，任何人都可以从 GitHub 免费获取其文件，并可按照许可证的条件将代码用于商业用途和再分发。销售收入仅限于在此前提下于本平台以外进行的销售或赞助。如果您只想通过出售文件获得收入，或想限制商业用途，您的插件不属于上架对象。如果捆绑素材限制商业用途，请在 .soko-kun/config.json 的 restrictedAssets 中声明。如未声明，插件将显示为可商用。',
+  tagFree: '免费',
+  tagCommercial: '可商用',
   commercialUse: '商业用途',
   commercialCode: '代码可按照许可证的条件用于商业用途（本平台已确认）。',
   commercialAssetsNone: '捆绑素材：作者声明没有限制。',
@@ -725,7 +733,9 @@ const zhHant: Dict = {
   tagRestricted: '素材限制商業用途',
   authorImportantLabel: '登記之前',
   authorImportant:
-    '外掛在本平台上架後，任何人都可以從 GitHub 免費取得其檔案，並可依照授權的條件將程式碼用於商業用途和再散布。銷售收入僅限於在此前提下於本平台以外進行的銷售或贊助。如果您只想透過販售檔案獲得收入，或想限制商業用途，您的外掛不屬於上架對象。',
+    '外掛在本平台上架後，任何人都可以從 GitHub 免費取得其檔案，並可依照授權的條件將程式碼用於商業用途和再散布。銷售收入僅限於在此前提下於本平台以外進行的銷售或贊助。如果您只想透過販售檔案獲得收入，或想限制商業用途，您的外掛不屬於上架對象。如果隨附素材限制商業用途，請在 .soko-kun/config.json 的 restrictedAssets 中聲明。如未聲明，外掛將顯示為可商用。',
+  tagFree: '免費',
+  tagCommercial: '可商用',
   commercialUse: '商業用途',
   commercialCode: '程式碼可依照授權的條件用於商業用途（本平台已確認）。',
   commercialAssetsNone: '隨附素材：作者聲明沒有限制。',
@@ -886,7 +896,9 @@ const ko: Dict = {
   tagRestricted: '소재에 상업적 이용 제한 있음',
   authorImportantLabel: '등록하기 전에',
   authorImportant:
-    '이 플랫폼에 게재하면 누구나 GitHub에서 플러그인 파일을 무료로 받을 수 있고, 코드는 라이선스 조건에 따라 누구나 상업적으로 이용하고 재배포할 수 있습니다. 판매 수익은 이 전제 위에서 이 플랫폼 밖에서 하는 판매나 후원에 한정됩니다. 파일 판매만으로 수익을 얻고 싶거나 상업적 이용을 제한하고 싶다면 게재 대상이 아닙니다.',
+    '이 플랫폼에 게재하면 누구나 GitHub에서 플러그인 파일을 무료로 받을 수 있고, 코드는 라이선스 조건에 따라 누구나 상업적으로 이용하고 재배포할 수 있습니다. 판매 수익은 이 전제 위에서 이 플랫폼 밖에서 하는 판매나 후원에 한정됩니다. 파일 판매만으로 수익을 얻고 싶거나 상업적 이용을 제한하고 싶다면 게재 대상이 아닙니다. 상업적 이용을 제한하는 소재를 포함한다면 .soko-kun/config.json의 restrictedAssets로 신고해 주세요. 신고가 없으면 상업적 이용 가능으로 표시됩니다.',
+  tagFree: '무료',
+  tagCommercial: '상업적 이용 가능',
   commercialUse: '상업적 이용',
   commercialCode: '코드는 라이선스 조건에 따라 상업적으로 이용할 수 있습니다 (이 플랫폼이 확인).',
   commercialAssetsNone: '포함된 소재: 작성자가 제한이 없다고 신고했습니다.',
@@ -1049,7 +1061,9 @@ const ptBR: Dict = {
   tagRestricted: 'Recursos restringem uso comercial',
   authorImportantLabel: 'Antes de enviar',
   authorImportant:
-    'Quando seu plugin é listado nesta plataforma, qualquer pessoa pode baixar os arquivos de graça no GitHub, e qualquer pessoa pode usar e redistribuir o código comercialmente, conforme as condições da licença. A receita de vendas fica limitada a vendas ou apoios fora desta plataforma, com base nisso. Se você quer ganhar apenas vendendo os arquivos, ou restringir o uso comercial, seu plugin não pode ser listado.',
+    'Quando seu plugin é listado nesta plataforma, qualquer pessoa pode baixar os arquivos de graça no GitHub, e qualquer pessoa pode usar e redistribuir o código comercialmente, conforme as condições da licença. A receita de vendas fica limitada a vendas ou apoios fora desta plataforma, com base nisso. Se você quer ganhar apenas vendendo os arquivos, ou restringir o uso comercial, seu plugin não pode ser listado. Se recursos incluídos restringem o uso comercial, declare restrictedAssets em .soko-kun/config.json. Sem a declaração, o plugin aparece com uso comercial permitido.',
+  tagFree: 'Grátis',
+  tagCommercial: 'Uso comercial permitido',
   commercialUse: 'Uso comercial',
   commercialCode:
     'O código pode ser usado comercialmente conforme as condições da licença (verificado por esta plataforma).',
@@ -1212,7 +1226,9 @@ const es419: Dict = {
   tagRestricted: 'Recursos restringen el uso comercial',
   authorImportantLabel: 'Antes de enviar',
   authorImportant:
-    'Cuando tu plugin se lista en esta plataforma, cualquier persona puede descargar sus archivos gratis desde GitHub, y cualquier persona puede usar y redistribuir el código comercialmente según las condiciones de la licencia. Los ingresos por ventas se limitan a ventas o apoyos fuera de esta plataforma sobre esta base. Si quieres ganar solo vendiendo los archivos, o restringir el uso comercial, tu plugin no puede listarse.',
+    'Cuando tu plugin se lista en esta plataforma, cualquier persona puede descargar sus archivos gratis desde GitHub, y cualquier persona puede usar y redistribuir el código comercialmente según las condiciones de la licencia. Los ingresos por ventas se limitan a ventas o apoyos fuera de esta plataforma sobre esta base. Si quieres ganar solo vendiendo los archivos, o restringir el uso comercial, tu plugin no puede listarse. Si los recursos incluidos restringen el uso comercial, declara restrictedAssets en .soko-kun/config.json. Sin la declaración, el plugin se muestra con uso comercial permitido.',
+  tagFree: 'Gratis',
+  tagCommercial: 'Uso comercial permitido',
   commercialUse: 'Uso comercial',
   commercialCode:
     'El código se puede usar comercialmente según las condiciones de la licencia (verificado por esta plataforma).',
