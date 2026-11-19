@@ -1,6 +1,6 @@
 import type { Child, FC } from 'hono/jsx';
 import type { ImageView, PluginView, SuspendedReleaseView } from '../domain/catalog';
-import { hasRestrictedAssets } from '../domain/declarations';
+import { hasRestrictedAssets, isPaid } from '../domain/declarations';
 import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
 import type { Block, PageContent } from './content';
@@ -100,8 +100,9 @@ export const Linkified: FC<{ text: string }> = ({ text }) => {
   );
 };
 
-// 料金と利用の条件のタグ (依頼者 2026-11-19)。入手は掲載の条件で必ず無料のため、全件に「入手は無料」を付ける。
-// 「無料」だけでは使うのも無料と読めるため、入手に限った言い方にする。
+// 料金と利用の条件のタグ (依頼者 2026-11-19)。入手は掲載の条件で必ず無料のため、全件に無料のタグを付ける。
+// 有料の機能か外部の有料サービスを申告したものだけ「入手は無料」とし、それ以外は「無料」とする。
+// 全件を「入手は無料」にすると、無料のものに留保の含みが付くため。商用利用と同じく、例外を作者の申告で表す。
 // 商用利用は既定で「商用利用可」とし、作者が同梱素材の制限を申告したときだけ「素材に商用利用の制限あり」に替える。
 // 2つを同時に出すと、どちらが正しいか読み手が決められないため。
 // 有料は、作者への支払い (paidFeatures) と別の会社への支払い (paidServices) を別のタグにする。
@@ -109,7 +110,7 @@ export const Linkified: FC<{ text: string }> = ({ text }) => {
 const PricingTags: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => (
   <>
     <li>
-      <span class="pill">{t.tagFree}</span>
+      <span class="pill">{isPaid(view.declarations) ? t.tagFree : t.tagFreeOfCharge}</span>
     </li>
     {hasRestrictedAssets(view.declarations) ? (
       <li>
