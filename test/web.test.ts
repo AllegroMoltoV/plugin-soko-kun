@@ -31,6 +31,27 @@ describe('Web', () => {
     expect(html).not.toContain('<script>alert(1)</script>');
   });
 
+  // 外部の有料 API を使うだけのプラグインに、作者に払う追加機能があるように見えるタグを付けない (2026-11-19 ai-assistant-for-obs)。
+  it('有料のサービスだけを申告したプラグインには、有料の機能のタグを付けない', async () => {
+    await register();
+    await markListable(env.DB);
+    await env.DB.prepare('UPDATE release_checks SET declarations = ?')
+      .bind(
+        JSON.stringify({
+          paidFeatures: false,
+          paidServices: ['OpenAI API'],
+          restrictedAssets: false,
+          supportUrl: null,
+          notices: [],
+        }),
+      )
+      .run();
+    const html = await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text();
+    expect(html).toContain('外部の有料サービスが必要');
+    expect(html).not.toContain('有料の機能あり');
+    expect(html).toContain('入手は無料');
+  });
+
   it('スクリプトを許可しない CSP を付ける', async () => {
     const response = await SELF.fetch(`${ORIGIN}/?lang=en`);
     const csp = response.headers.get('Content-Security-Policy') ?? '';
