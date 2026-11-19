@@ -179,7 +179,8 @@ form.search button { height: var(--control-height); }
 form.search select { font-size: 12px; max-width: 100%; background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
 
 ol.cards { list-style: none; margin: 0; padding: 0; }
-ol.cards li { border-bottom: 1px dotted var(--line); padding: 8px 2px; }
+/* カードの区切り。子のタグの li に当てないよう、カードの li だけを選ぶ。 */
+ol.cards > li { border-bottom: 1px dotted var(--line); padding: 8px 2px; }
 .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
 .card-head a { font-size: 14px; font-weight: bold; min-width: 0; }
 .card-head .ver { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
@@ -210,9 +211,6 @@ table.info th { width: 8.5rem; background: var(--surface); font-weight: normal; 
 .pricing h3 { font-size: 12px; margin: 8px 0 3px; }
 /* 作者の申告は、倉庫くんが確かめた事実と見分けられるよう、破線の枠にする。 */
 table.info.declared th, table.info.declared td { border-style: dashed; }
-.pill.declared { border-style: dashed; }
-/* 入手が無料と商用利用可のタグ。安心して使える情報なので、ほかのタグと見分けられる色にする。 */
-.pill.free { border-color: var(--ink); font-weight: bold; }
 .declared-text { margin: 0; }
 td > p { margin: 0 0 2px; }
 /* 作者向けの最重要の文。登録の判断の前提のため、ページの先頭で枠と太い左の線で目立たせる。 */

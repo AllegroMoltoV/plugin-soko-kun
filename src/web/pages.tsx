@@ -106,20 +106,20 @@ export const Linkified: FC<{ text: string }> = ({ text }) => {
 const PricingTags: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => (
   <>
     <li>
-      <span class="pill free">{t.tagFree}</span>
+      <span class="pill">{t.tagFree}</span>
     </li>
     {hasRestrictedAssets(view.declarations) ? (
       <li>
-        <span class="pill declared">{t.tagRestricted}</span>
+        <span class="pill">{t.tagRestricted}</span>
       </li>
     ) : view.licenseOpen ? (
       <li>
-        <span class="pill free">{t.tagCommercial}</span>
+        <span class="pill">{t.tagCommercial}</span>
       </li>
     ) : null}
     {isPaid(view.declarations) ? (
       <li>
-        <span class="pill declared">{t.tagPaid}</span>
+        <span class="pill">{t.tagPaid}</span>
       </li>
     ) : null}
   </>
