@@ -155,7 +155,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `license_state` | TEXT | NOT NULL、既定値 `pending` | 版のタグのコミットの時点のライセンスの判定。`pending`・`passed`・`no_license`・`license_unrecognized`・`license_not_open` のいずれか。マイグレーション `0015` の時点で保存済みの行には、版ごとに取得した値を書いた |
 | `license_spdx` | TEXT | | GitHub がタグのコミットで検出した SPDX 識別子。ライセンスのファイルが無ければ NULL。詳細ページと MCP に表示するライセンスは、掲載中の版のこの値 |
 | `declarations` | TEXT | | 宣言ファイルの申告の JSON (`{paidFeatures, paidServices, restrictedAssets, supportUrl, notices}`)。申告の無い項目は null。`notices` は誤った項目の固定のコードの配列。宣言ファイルの無い版、`config_state` が `ok` 以外の版、マイグレーション `0015` の時点で保存済みの版は NULL。表示には掲載中の版の値を使う。値は作者の申告で、外部データ |
-| `display_name` | TEXT | | その版の `.soko-kun/config.json` の `name`。外部データ。表示には掲載中の版の値を使い、掲載中の版が無い間はいちばん新しい版の値を使う。NULL のときはリポジトリ名を表示する。マイグレーション `0016` で、既存の行には `plugins.display_name` の値を写した |
+| `display_name` | TEXT | | その版の `.soko-kun/config.json` の `name`。外部データ。表示には掲載中の版の値を使い、掲載中の版が無い間 (停止・掲載終了) は最後に掲載していた版 (listing_periods の started_at が最も新しい版) の値を使う。掲載したことの無いプラグインはリポジトリ名を表示し、作者向けの list_my_plugins にだけ、いちばん新しい版の値を返す。NULL のときはリポジトリ名を表示する。マイグレーション `0016` で、既存の行には `plugins.display_name` の値を写した |
 | `declared_os` | TEXT | | その版の `.soko-kun/config.json` の `os` を JSON の配列で保存した値。NULL のときは宣言が無い。表示名と同じく、掲載中の版の値を使う |
 | `review_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`done`・`failed` のいずれか |
 | `review_attempts` | INTEGER | NOT NULL、既定値 0 | レビューを試みた回数。AI Gateway の支出の上限、Workers AI の無料枠の不足、混雑は数えない |

@@ -212,6 +212,7 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
     attestations,
     suspensions,
     periods,
+    lastListings,
   ] = await env.DB.batch([
     bind(env.DB.prepare(`SELECT * FROM plugins p ${where}`)),
     bind(env.DB.prepare(`SELECT r.* FROM releases r JOIN plugins p ON p.id = r.plugin_id ${where}`)),
@@ -271,7 +272,26 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
            JOIN plugins p ON p.id = s.plugin_id ${where}`,
       ),
     ),
+    // 版ごとの掲載の始まり。掲載中の版が無いとき、最後に掲載していた版の表示名と対応 OS を使うため (zkd)。
+    bind(
+      env.DB.prepare(
+        `SELECT l.plugin_id, l.github_release_id, max(l.started_at) AS started_at FROM listing_periods l
+           JOIN plugins p ON p.id = l.plugin_id ${where} GROUP BY l.plugin_id, l.github_release_id`,
+      ),
+    ),
   ]);
+  // プラグインごとの、最後に掲載を始めた版。
+  const lastListedByPlugin = new Map<string, { releaseId: number; startedAt: string }>();
+  for (const row of (lastListings?.results ?? []) as Array<{
+    plugin_id: string;
+    github_release_id: number;
+    started_at: string;
+  }>) {
+    const current = lastListedByPlugin.get(row.plugin_id);
+    if (!current || row.started_at > current.startedAt) {
+      lastListedByPlugin.set(row.plugin_id, { releaseId: row.github_release_id, startedAt: row.started_at });
+    }
+  }
   const snapshotsByPlugin = new Map<string, Array<{ day: string; total: number }>>();
   for (const row of (snapshots?.results ?? []) as Array<{ plugin_id: string; day: string; total: number }>) {
     const list = snapshotsByPlugin.get(row.plugin_id) ?? [];
@@ -447,9 +467,11 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
         }
       : null;
     // 作者が OS を宣言していれば、宣言した OS の配布物だけを載せる。OS を推定できないソースの配布物は残す。
-    // 表示名と対応 OS は、掲載中の版の宣言ファイルの値を使う。掲載中の版が無い間 (初回の検査中など) は、いちばん新しい版の値を使う (8fh)。
-    const newest = [...pluginReleases].sort((a, b) => b.published_at.localeCompare(a.published_at))[0];
-    const shownCheck = listedCheck ?? (newest ? checkRowsByRelease.get(newest.github_release_id) : undefined);
+    // 表示名と対応 OS は、掲載中の版の宣言ファイルの値を使う (8fh)。掲載中の版が無い間 (停止・掲載終了) は、最後に掲載していた版の値を使う。
+    // いちばん新しい版の値を使うと、検査を通っていない版 (乗っ取りの兆候で止めた版など) の名前が公開のページに出るため (zkd)。
+    // 掲載したことの無いプラグインは、リポジトリ名を出す。
+    const lastListed = lastListedByPlugin.get(plugin.id);
+    const shownCheck = listedCheck ?? (lastListed ? checkRowsByRelease.get(lastListed.releaseId) : undefined);
     const declaredOs = parseDeclaredOs(shownCheck?.declared_os ?? null);
     const listedAssets = (listed ? (assetsByRelease.get(listed.github_release_id) ?? []) : []).filter(
       (asset) => !declaredOs || asset.os === null || declaredOs.includes(asset.os),
