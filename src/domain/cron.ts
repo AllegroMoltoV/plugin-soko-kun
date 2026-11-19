@@ -18,7 +18,9 @@ import { releaseNotesStatement } from './release-notes';
 import { REWRITE_ASSET_URLS, REWRITE_RELEASE_URLS } from './release-urls';
 import type { Scanner } from './status';
 
-export const MALWAREBAZAAR_PER_RUN = 10;
+// 版の検査がタグの時点のライセンスの取得 (1 件) を足したため、1 回の起動の上限 45 (ADR 0017) に収まるよう 10 から 9 にした。
+// 15 分ごとに 9 件で、1 日に 864 件を照会できる。
+export const MALWAREBAZAAR_PER_RUN = 9;
 const MAX_ATTEMPTS = 5;
 const TAG = /^[A-Za-z0-9._-]{1,100}$/;
 

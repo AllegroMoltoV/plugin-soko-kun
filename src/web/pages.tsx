@@ -1,5 +1,6 @@
 import type { Child, FC } from 'hono/jsx';
 import type { ImageView, PluginView, SuspendedReleaseView } from '../domain/catalog';
+import { hasRestrictedAssets, isPaid } from '../domain/declarations';
 import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
 import type { Block, PageContent } from './content';
@@ -99,6 +100,78 @@ export const Linkified: FC<{ text: string }> = ({ text }) => {
   );
 };
 
+// 料金と利用の条件。倉庫くんが確かめた事実と、作者の申告を、見出しで分けて出す (ADR 0018)。
+// 申告の値と支援のリンクは作者が書くため、表示はエスケープし、リンクは宣言ファイルの判定で許可した宛先だけにする。
+const Pricing: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => {
+  const declared = view.declarations;
+  const flag = (value: boolean | null | undefined) =>
+    value === null || value === undefined ? t.notDeclared : value ? t.declaredYes : t.declaredNo;
+  const services = declared?.paidServices;
+  return (
+    <section class="pricing">
+      <h2 class="bar">{t.pricingHeading}</h2>
+      <h3>{t.pricingChecked}</h3>
+      <table class="info">
+        <tbody>
+          <tr>
+            <th scope="row">{t.acquisition}</th>
+            <td>{t.acquisitionFree}</td>
+          </tr>
+          <tr>
+            <th scope="row">{t.license}</th>
+            <td>
+              <a href={`https://spdx.org/licenses/${encodeURIComponent(view.license)}.html`} rel="noopener noreferrer">
+                <span translate="no">{view.license}</span>
+              </a>
+              {view.licenseOpen ? ` (${t.licenseOpen})` : null}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>{t.pricingDeclared}</h3>
+      <table class="info declared">
+        <tbody>
+          <tr>
+            <th scope="row">{t.paidFeatures}</th>
+            <td>{flag(declared?.paidFeatures)}</td>
+          </tr>
+          <tr>
+            <th scope="row">{t.paidServices}</th>
+            <td>
+              {services === null || services === undefined ? (
+                t.notDeclared
+              ) : services.length === 0 ? (
+                t.declaredNo
+              ) : (
+                <span lang="und">{services.join(', ')}</span>
+              )}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">{t.restrictedAssets}</th>
+            <td>
+              {flag(declared?.restrictedAssets)}
+              {declared?.restrictedAssets ? ` ${t.restrictedNote}` : null}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">{t.supportLink}</th>
+            <td>
+              {declared?.supportUrl ? (
+                <a href={declared.supportUrl} rel="noopener noreferrer nofollow ugc">
+                  <span translate="no">{declared.supportUrl}</span>
+                </a>
+              ) : (
+                t.notDeclared
+              )}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  );
+};
+
 export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ items, t, lang }) =>
   items.length === 0 ? (
     <p>{t.noResults}</p>
@@ -131,6 +204,17 @@ export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ 
                 <span class="pill">{t.os[os]}</span>
               </li>
             ))}
+            {/* 作者の申告のタグは、申告が真のときだけ出す。申告なしは保証ではないため、何も出さない。 */}
+            {isPaid(view.declarations) ? (
+              <li>
+                <span class="pill declared">{t.tagPaid}</span>
+              </li>
+            ) : null}
+            {hasRestrictedAssets(view.declarations) ? (
+              <li>
+                <span class="pill declared">{t.tagRestricted}</span>
+              </li>
+            ) : null}
           </ul>
           <Summary view={view} t={t} lang={lang} showOriginal={false} />
           <p class="meta">
@@ -519,6 +603,8 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
         </div>
       ) : null}
 
+      <Pricing view={view} t={t} />
+
       <h2 class="bar">{t.version}</h2>
       <table class="info">
         <tbody>
@@ -533,10 +619,6 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
           <tr>
             <th scope="row">{t.builtWithObs}</th>
             <td>{view.listedRelease?.obsBuildVersion ?? t.unknown}</td>
-          </tr>
-          <tr>
-            <th scope="row">{t.license}</th>
-            <td translate="no">{view.license}</td>
           </tr>
           <tr>
             <th scope="row">{t.version}</th>

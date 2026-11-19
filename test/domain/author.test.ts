@@ -3,6 +3,7 @@ import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { listMyPlugins, nextCheck, resumeOf, versionState } from '../../src/domain/author';
 import { submitPlugin } from '../../src/domain/submit';
+import { markListable } from '../fixtures/checks';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from '../fixtures/github';
 import { network } from '../setup';
 
@@ -122,6 +123,24 @@ describe('listMyPlugins', () => {
         ]),
       },
     });
+  });
+});
+
+// 掲載を止めない注意を blockers に入れると、掲載中の版が rejected に見える (ADR 0018)。
+describe('notices', () => {
+  it('申告の無い掲載中の版には declarations_missing を返し、状態は listed のままにする', async () => {
+    await register();
+    await markListable(env.DB);
+    network.use(...githubHandlers());
+    const result = await listMyPlugins(env, { githubUserId: 4242, githubLogin: OWNER, githubToken: USER_TOKEN }, {});
+    const version = (
+      result as {
+        plugins: Array<{ versions: Array<{ state: string; blockers: unknown[]; notices: Array<{ code: string }> }> }>;
+      }
+    ).plugins[0]?.versions[0];
+    expect(version?.state).toBe('listed');
+    expect(version?.blockers).toEqual([]);
+    expect(version?.notices.map((notice) => notice.code)).toEqual(['declarations_missing']);
   });
 });
 

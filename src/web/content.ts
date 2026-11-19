@@ -37,6 +37,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Plugin Soko-kun is an independent, open registry of third-party plugins for OBS Studio. It is an unofficial service that is not affiliated with the OBS Project or OBS Forums.',
             'The registry does not host files. It records information from public GitHub repositories and links to the files that authors publish in GitHub Releases.',
             'Download files directly from GitHub, because this platform does not host them.',
+            'Plugin files are free to download from public GitHub releases. Plugins that are distributed only as paid files without public source are not listed.',
+            'The license on a plugin page, and whether it is approved by the OSI or certified as free by the FSF, is what this platform checked at the tag of the listed version. Paid features, paid external services, restrictions on bundled assets, and the support page are declared by the author. This platform does not verify the declarations.',
           ],
         },
         {
@@ -48,6 +50,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Searching and viewing details work without signing in to GitHub. To submit a repository, sign in with GitHub from the MCP client (in Claude Code, run /mcp; in Codex, run codex mcp login plugin-soko-kun). This platform itself never gets write access to your GitHub repositories.',
             'Example requests: "Find a pitch shift plugin that works on Windows", "Register the OBS plugin in this GitHub repository", "Check whether my plugin\'s new release is listed".',
+            'search_plugins takes excludePaid and excludeRestrictedAssets. With excludePaid set to true, it leaves out plugins that declare paid features or paid external services. With excludeRestrictedAssets set to true, it leaves out plugins that declare restrictions on bundled assets. Neither leaves out plugins without declarations, so the results can still include plugins with paid features or restricted assets.',
           ],
         },
         {
@@ -69,7 +72,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 'The repository is public on GitHub and is not archived.',
-                'GitHub detects a license for the repository. Add a LICENSE file if GitHub shows no license.',
+                'The license of the code, at the tag of the version, is approved by the OSI or certified as free by the FSF. This platform uses the license that GitHub detects at the commit of the tag. OBS Studio plugins link with libobs, so choose GPL-2.0-or-later or a license compatible with it.',
                 'The CMakeLists.txt at the root of the repository references libobs, for example with find_package(libobs), and the repository contains C or C++ sources.',
                 'The latest release on GitHub has the plugin files attached. GitHub records a SHA-256 digest for files uploaded to a release, and this platform uses that digest for checks.',
                 'The latest release is an immutable release. Turn on immutable releases in the repository settings before you publish it.',
@@ -78,6 +81,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'The release passes the automated checks. The Security page describes the checks.',
               ],
             },
+            'This platform lists only files that are free to download from public GitHub releases. Plugins that publish the same files for free on GitHub and also sell them or accept donations elsewhere can be listed, and so can plugins that unlock some features when users pay the author.',
+            'Plugins that are distributed only as paid files without public source are not listed, because this platform cannot check their contents before purchase.',
             'Whether AI was used to develop a plugin does not affect listing. The same conditions apply to every plugin. Disclosing the use of AI is not required.',
             'This platform does not certify safety or quality by listing a plugin, so check plugins yourself before using them.',
           ],
@@ -105,7 +110,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 'The repository is public on GitHub and is not archived.',
-                'GitHub detects a license for the repository. Add a LICENSE file if GitHub shows no license.',
+                'The license of the code, at the tag of the version, is approved by the OSI or certified as free by the FSF. This platform uses the license that GitHub detects at the commit of the tag. OBS Studio plugins link with libobs, so choose GPL-2.0-or-later or a license compatible with it.',
                 'The CMakeLists.txt at the root of the repository references libobs, for example with find_package(libobs), and the repository contains C or C++ sources.',
                 'The latest release on GitHub has the plugin files attached. GitHub records a SHA-256 digest for files uploaded to a release, and this platform uses that digest for checks.',
                 'The latest release is an immutable release. Turn on immutable releases in the repository settings before you publish it.',
@@ -113,6 +118,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'The release has no exe or msi installers. Ship Windows builds as zip files.',
               ],
             },
+            'Paid sales and support are handled as follows.',
+            {
+              list: [
+                'Selling or accepting donations elsewhere: If you publish the same files for free on GitHub, you can also sell them in an external store or accept donations. Put your support or store page in supportUrl in .soko-kun/config.json.',
+                'Unlocking some features with payment: A plugin with features that users unlock by paying the author can be listed if you declare paidFeatures in .soko-kun/config.json.',
+                'Paid files without public source: Plugins that are distributed only as paid files without public source are not listed, because their contents cannot be checked before purchase.',
+              ],
+            },
+            'Write external links from the first release. If a later release adds supportUrl, or links in the README to a store, a support page, or an asset license page, that release waits for an administrator to confirm it. Until then, the previously listed release stays listed.',
           ],
         },
         {
@@ -143,7 +157,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
               list: [
                 'not_admin: You do not have admin permission on the repository. Ask an administrator of the repository to submit it.',
                 'private_repository, archived_repository: Make the repository public, or unarchive it.',
-                'no_license: Add a LICENSE file that GitHub can detect.',
+                'no_license: GitHub finds no license file at the commit of the latest release tag. Put a LICENSE file with a license approved by the OSI or certified as free by the FSF at the root of the repository, then publish a new release. OBS Studio plugins link with libobs, so use GPL-2.0-or-later or a license compatible with it.',
+                'license_unrecognized: GitHub cannot identify the license file. Keep only the standard license text in LICENSE. Move copyright notes, third-party notices, and asset licenses to NOTICE or the README, then publish a new release.',
+                'license_not_open: The license is not approved by the OSI and not certified as free by the FSF. This platform lists only plugins under such licenses. Change the license, then publish a new release.',
                 'not_obs_plugin: Make the root CMakeLists.txt reference libobs.',
                 'no_release, no_verifiable_asset: Publish a release with the plugin files attached.',
                 'duplicate: The repository is already registered. Open its page from the search.',
@@ -179,17 +195,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '.soko-kun/config.json',
           paragraphs: [
-            'Authors can declare the display name and the supported OS in .soko-kun/config.json. Place the file in the same .soko-kun folder as the images.',
-            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            'In .soko-kun/config.json, authors can declare the display name and the supported OS, and also declare paid features, paid external services, restrictions on bundled assets, and a support page. Place the file in the same .soko-kun folder as the images.',
+            {
+              code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"],\n  "paidFeatures": false,\n  "paidServices": [],\n  "restrictedAssets": false,\n  "supportUrl": "https://github.com/sponsors/<account>"\n}',
+            },
             {
               list: [
                 'name: The display name, from 1 to 60 characters. Without it, this platform shows the repository name.',
                 'os: An array of windows, macos, and linux. With it, this platform lists the files for the declared OS and the files whose OS cannot be guessed from the name, and hides the files guessed to be for another OS. Without it, this platform guesses the OS from the file names.',
+                'paidFeatures: true if some features are unlocked by paying the author, otherwise false.',
+                'paidServices: An array of the names of paid services that users must subscribe to separately, including services for which users bring their own paid API key. Up to 5 names of up to 60 characters each. Write [] if there are none.',
+                'restrictedAssets: true if bundled assets such as models, sounds, fonts, or images prohibit commercial use or have other restrictions, otherwise false. State the origin and license of each bundled asset in the README or a NOTICE file.',
+                'supportUrl: The https URL of your support or store page. Only booth.pm, gumroad.com, itch.io, patreon.com, ko-fi.com and their subdomains, and https://github.com/sponsors/<account> are accepted.',
               ],
             },
-            'Both fields are optional.',
+            'All fields are optional. Without the four declarations, the plugin page and the MCP responses show that the author has not declared them.',
+            'Declarations are made by the author, and this platform does not verify them. "Do not list false information" in the obligations of authors in the terms of use also applies to them. The review reports a recommendation when the README and the declarations disagree.',
             'This platform reads the file at the tag of each new release, so publish a new release after you change the file.',
-            'This platform does not list a release whose file is invalid, or that has no files for the declared OS.',
+            'This platform does not list a release whose file is not valid JSON, whose name or os is invalid, or that has no files for the declared OS. An invalid value of the four declarations is ignored and treated as not declared, and does not stop the listing. list_my_plugins and the check mode of submit_plugin report it in notices.',
+            'Write supportUrl in the first release. Adding it in a later release makes that release wait for an administrator to confirm it.',
+            'When the listed release declares none of the four, list_my_plugins returns declarations_missing in notices. It does not stop the listing.',
           ],
         },
         {
@@ -233,6 +258,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'Malware lookup: The SHA-256 digest of each file, as published by GitHub, is looked up in MalwareBazaar, a database of known malware samples. Listed files are looked up again regularly.',
                 'Changes since the listed release: The changes from the listed release to the new release are checked against rules. A release that matches a rule waits for an administrator to confirm it.',
                 'Development practice review: Items that the repository files decide, such as pinned actions and build flags, are checked by rules. Only the items that need reading text, such as how the README explains the data the plugin sends, are judged by an LLM, with facts computed by the catalog. The review does not read the whole source code: the catalog searches the source for network API use and reads a few test files for one criterion. The LLM receives only the first 32,768 characters of the README, so explain the data the plugin sends early in the README. Instructions that turn off a security feature or run a downloaded command are checked in the README, the release notes, and the other documents in the repository, including edits to the release notes after listing. After listing, the README on the default branch is also checked once a day; if a new instruction appears, no version of the plugin is listed until an administrator confirms it. The criteria are based on concerns and recommendations that an OBS plugin developer has published. A release with a serious finding waits for an administrator to confirm it.',
+                'License: The license that GitHub detects at the commit of the release tag must be approved by the OSI or certified as free by the FSF, according to the SPDX License List. No LLM is used for this. The condition also applies to releases listed before it was introduced.',
               ],
             },
             'The review criteria are public on GitHub: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
@@ -246,12 +272,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'The malware lookup detects only threats already known to MalwareBazaar. New or targeted malware may not be detected, so use plugins carefully even when nothing is detected.',
             'The digest identifies the file that GitHub served when it was recorded. Compare the SHA-256 of the file you download with the value shown here.',
+            'The license check looks only at the license type that GitHub detects from the LICENSE file. It does not check whether the licenses of dependencies and bundled assets are compatible with it.',
+            'Paid features, paid external services, and restrictions on bundled assets are declared by the author. This platform does not verify them. The review can find a disagreement with the declarations only in what the README states.',
           ],
         },
         {
           heading: 'Disclaimer',
           paragraphs: [
             'This platform is provided as is, without warranty of any kind, so install plugins at your own risk. The authors of each plugin are responsible for their software.',
+            'The license and the declarations shown here are not a warranty either. The license is what GitHub detected, and the declarations are made by the author. Check the conditions of use in the license text and the README of each plugin.',
           ],
         },
       ],
@@ -263,6 +292,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Public reports',
           paragraphs: [
             'Report incorrect information or policy issues as an issue in the GitHub repository: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
+            'Also report incorrect declarations on a plugin page here: paid features, paid external services, restrictions on bundled assets, and the support page.',
           ],
         },
         {
@@ -398,6 +428,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '配信プラグイン倉庫くんは OBS Studio 向けのサードパーティ製プラグインを集めた、独立したオープンなレジストリです。このプラットフォームは OBS Project および OBS Forums と関係のない非公式のサービスです。',
             'このプラットフォームは配布物を保管しません。このプラットフォームは公開されている GitHub リポジトリの情報を記録し、作者が GitHub Releases で公開した配布物へ案内します。',
             'このプラットフォームは配布物を保管しないので、配布物は GitHub から直接ダウンロードしてください。',
+            'プラグインの配布物は、GitHub の公開のリリースから無料で入手できます。ソースを公開せず、有料の配布物だけを配るプラグインは掲載しません。',
+            'プラグインのページのライセンスと、OSI の承認や FSF の自由の認定の有無は、このプラットフォームが掲載中の版のタグの時点で確かめた結果です。有料の機能・外部の有料サービス・同梱の素材の制限・支援のページは、作者の申告です。このプラットフォームは申告の内容を確かめません。',
           ],
         },
         {
@@ -409,6 +441,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '検索と詳細取得については、GitHub サインインなしで使えます。リポジトリを登録するときは、MCP クライアントから GitHub でサインインしてください (Claude Code では /mcp を、Codex では codex mcp login plugin-soko-kun を実行)。なおこのプラットフォーム自体が GitHub リポジトリへの書き込み権限を取得することはありません。',
             '話しかけ方の例:「Windows で動くピッチシフトのプラグインを探して」「この GitHub リポジトリの OBS プラグインを登録して」「自分のプラグインの新しいリリースの掲載の状態を確かめて」',
+            'search_plugins の引数 excludePaid を true にすると、有料の機能や外部の有料サービスを申告したプラグインを除きます。excludeRestrictedAssets を true にすると、同梱の素材の制限を申告したプラグインを除きます。どちらの引数も、申告の無いプラグインを除きません。そのため、結果に有料の機能や素材の制限を持つプラグインが残ることがあります。',
           ],
         },
         {
@@ -430,7 +463,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 'リポジトリが GitHub で公開されていて、アーカイブされていないこと。',
-                'GitHub がリポジトリのライセンスを検出できること。GitHub にライセンスが表示されないときは、LICENSE ファイルを追加してください。',
+                'コードのライセンスが、版のタグの時点で、OSI の承認か FSF の自由の認定を持つこと。このプラットフォームは、GitHub がタグのコミットで検出したライセンスで判定します。OBS Studio のプラグインは libobs とリンクするので、GPL-2.0-or-later か、これと両立するライセンスを選んでください。',
                 'リポジトリの直下の CMakeLists.txt が find_package(libobs) などで libobs を参照していて、C または C++ のソースがあること。',
                 'GitHub の最新のリリースに、プラグインの配布物が添付されていること。GitHub はリリースにアップロードした配布物に SHA-256 を記録し、このプラットフォームはその値で検査します。',
                 '最新のリリースが不変のリリース (immutable release) であること。公開する前に、リポジトリの設定で不変のリリースを有効にしてください。',
@@ -439,6 +472,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'リリースが自動検査を通ること。検査の内容はセキュリティと免責のページに記載しています。',
               ],
             },
+            '掲載するのは、GitHub の公開のリリースから無料で入手できる配布物だけです。同じ配布物を GitHub で無料で公開したうえで外部で販売や寄付を受けるプラグインと、一部の機能を作者への支払いで解放するプラグインは掲載できます。',
+            'ソースを公開せず、有料の配布物だけを配るプラグインは掲載の対象外です。購入の前に、このプラットフォームが中身を検査できないためです。',
             '開発に AI を使ったかどうかは掲載に影響しません。このプラットフォームはすべてのプラグインに同じ条件を適用し、AI の使用の申告も求めません。',
             'このプラットフォームは掲載によって安全性や品質を認証しないので、各自で確かめてから利用してください。',
           ],
@@ -466,7 +501,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 'リポジトリが GitHub で公開されていて、アーカイブされていないこと。',
-                'GitHub がリポジトリのライセンスを検出できること。GitHub にライセンスが表示されないときは、LICENSE ファイルを追加してください。',
+                'コードのライセンスが、版のタグの時点で、OSI の承認か FSF の自由の認定を持つこと。このプラットフォームは、GitHub がタグのコミットで検出したライセンスで判定します。OBS Studio のプラグインは libobs とリンクするので、GPL-2.0-or-later か、これと両立するライセンスを選んでください。',
                 'リポジトリの直下の CMakeLists.txt が find_package(libobs) などで libobs を参照していて、C または C++ のソースがあること。',
                 'GitHub の最新のリリースに、プラグインの配布物が添付されていること。GitHub はリリースにアップロードした配布物に SHA-256 を記録し、このプラットフォームはその値で検査します。',
                 '最新のリリースが不変のリリース (immutable release) であること。公開する前に、リポジトリの設定で不変のリリースを有効にしてください。',
@@ -474,6 +509,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '配布物に exe や msi のインストーラーが無いこと。Windows 向けの配布物は zip で配ってください。',
               ],
             },
+            '有料の販売と支援の扱いは次のとおりです。',
+            {
+              list: [
+                '外部での販売と寄付: 同じ配布物を GitHub で無料で公開していれば、外部のストアで販売したり、寄付を受けたりできます。支援や購入のページは、.soko-kun/config.json の supportUrl に書いてください。',
+                '一部の機能の有料での解放: 作者への支払いで解放する機能があるプラグインも、.soko-kun/config.json の paidFeatures で申告すれば掲載できます。',
+                'ソースを公開しない有料の配布: ソースを公開せず、有料の配布物だけを配るプラグインは対象外です。購入の前に中身を検査できないためです。',
+              ],
+            },
+            '外部のリンクは最初の版から書いてください。supportUrl や、README の購入先・支援先・素材のライセンスのページへのリンクを掲載の後の版で足すと、その版は管理者の確認待ちになります。確認を待つ間は、前に掲載していた版を掲載し続けます。',
           ],
         },
         {
@@ -504,7 +548,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
               list: [
                 'not_admin: リポジトリの管理権限がありません。リポジトリの管理者に登録を頼んでください。',
                 'private_repository、archived_repository: リポジトリを公開するか、アーカイブを解除してください。',
-                'no_license: GitHub が検出できる LICENSE ファイルを追加してください。',
+                'no_license: 最新のリリースのタグのコミットに、GitHub が検出できるライセンスのファイルがありません。OSI の承認か FSF の自由の認定を持つライセンスの LICENSE ファイルをリポジトリの直下に置き、新しいリリースを公開してください。OBS Studio のプラグインは libobs とリンクするので、GPL-2.0-or-later か、これと両立するライセンスにしてください。',
+                'license_unrecognized: GitHub がライセンスの種類を識別できません。LICENSE にライセンスの標準の本文だけを置いてください。著作権の表示・第三者の告知・素材のライセンスを NOTICE か README へ移し、新しいリリースを公開してください。',
+                'license_not_open: ライセンスが、OSI の承認も FSF の自由の認定も持ちません。このプラットフォームは、これらを持つライセンスのプラグインだけを掲載します。ライセンスを変えて、新しいリリースを公開してください。',
                 'not_obs_plugin: 直下の CMakeLists.txt で libobs を参照してください。',
                 'no_release、no_verifiable_asset: 配布物を添付したリリースを公開してください。',
                 'duplicate: リポジトリは登録済みです。検索からプラグインのページを開いてください。',
@@ -540,17 +586,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '.soko-kun/config.json',
           paragraphs: [
-            '作者は .soko-kun/config.json で、表示名と対応 OS を宣言できます。画像と同じ .soko-kun フォルダーにファイルを置いてください。',
-            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            '作者は .soko-kun/config.json で、表示名と対応 OS を宣言し、有料の機能・外部の有料サービス・同梱の素材の制限・支援のページを申告できます。画像と同じ .soko-kun フォルダーにファイルを置いてください。',
+            {
+              code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"],\n  "paidFeatures": false,\n  "paidServices": [],\n  "restrictedAssets": false,\n  "supportUrl": "https://github.com/sponsors/<account>"\n}',
+            },
             {
               list: [
                 'name: 表示名です。1〜60 文字で書いてください。書かないときは、リポジトリ名を表示します。',
                 'os: windows・macos・linux を配列で書きます。書くと、このプラットフォームは宣言した OS の配布物と、ファイル名から OS を推定できない配布物を掲載し、ほかの OS と推定した配布物は掲載しません。書かないときは、配布物のファイル名から OS を推定します。',
+                'paidFeatures: 作者への支払いで解放する機能があれば true、無ければ false にします。',
+                'paidServices: 利用者が別に契約する有料のサービスの名前を、配列で書きます。利用者が自分の有料の API キーを用意するサービスも書いてください。1 件 60 文字以内で、5 件までです。無いときは [] にします。',
+                'restrictedAssets: 同梱のモデル・音・フォント・画像のような素材に、商用利用の禁止などの制限があれば true、無ければ false にします。素材ごとの出所とライセンスは、README か NOTICE ファイルに書いてください。',
+                'supportUrl: 作者の支援や購入のページの https の URL です。受け付ける宛先は、booth.pm・gumroad.com・itch.io・patreon.com・ko-fi.com とそれぞれのサブドメイン、および https://github.com/sponsors/<アカウント> だけです。',
               ],
             },
-            'どちらの項目も任意です。',
+            'どの項目も任意です。申告の 4 つの項目が無いときは、プラグインのページと MCP の応答で、作者の申告が無いことを示します。',
+            '申告は作者によるもので、このプラットフォームは内容を確かめません。利用規約の「登録する作者が守ること」にある「虚偽の情報を掲載しないこと」は、申告にも当たります。レビューは、README の記述と申告の食い違いを推奨の項目として指摘します。',
             'このプラットフォームは新しいリリースのタグの時点のファイルを読むので、ファイルを変えたときは新しいリリースを公開してください。',
-            'ファイルの内容が条件に合わないリリースと、宣言した OS の配布物が無いリリースは掲載しません。',
+            'JSON として読めないファイルのリリース、name や os の値が条件に合わないリリース、宣言した OS の配布物が無いリリースは掲載しません。申告の 4 つの項目の値が誤っているときは、その項目を申告なしとして扱い、掲載は止めません。誤りは、list_my_plugins と submit_plugin の確認のモードの notices で知らせます。',
+            'supportUrl は最初の版から書いてください。掲載の後の版で supportUrl を足すと、その版は管理者の確認待ちになります。',
+            '掲載中の版に申告が 1 つも無いときは、list_my_plugins が notices に declarations_missing を返します。掲載は止めません。',
           ],
         },
         {
@@ -594,6 +649,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'マルウェアの照会: GitHub が公開する配布物の SHA-256 を、既知のマルウェアのデータベースである MalwareBazaar で照会します。掲載中の配布物も定期的に照会し直します。',
                 '新しい版の差分: 掲載中のリリースから新しいリリースまでの変更を、ルールで検査します。ルールに当たったリリースは、管理者の確認待ちにします。',
                 '開発の実践のレビュー: アクションの固定やビルドの設定のように、リポジトリのファイルで決まる項目はルールで判定します。README でのデータの送信の説明のように、文章を読む必要がある項目だけを、倉庫くんが計算した事実とともに LLM が判定します。ソースのコードの全体は読みません。読むのは、通信の API の使用の検出と、1 つの項目のためのテストのファイル数件です。LLM に渡す README は先頭の 32,768 文字だけのため、プラグインが送るデータの説明は README の前半に書いてください。セキュリティの機能を切らせる案内と、取得したものを実行させるコマンドは、README・リリースノート・リポジトリのほかの文書で照合し、掲載の後のリリースノートの編集も照合します。掲載の後も既定のブランチの README を 1 日 1 回照合し、新しい案内が足されていれば、管理者が確かめるまでプラグインのどの版も掲載しません。基準は、OBS のプラグインの開発者が公開物で述べている懸念と推奨にもとづきます。重大な指摘があるリリースは、管理者の確認待ちにします。',
+                'ライセンス: 版のタグのコミットの時点で GitHub が検出したライセンスが、SPDX License List で OSI の承認か FSF の自由の認定を持つことを確かめます。この判定に LLM は使いません。この条件は、条件を足す前に掲載した版にも当てます。',
               ],
             },
             'レビューの基準は GitHub で公開しています: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
@@ -607,12 +663,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'マルウェアの照会で検出できるのは、MalwareBazaar に既に知られている脅威だけです。新しいマルウェアや標的型のマルウェアは検出できないことがあるので、検査で何も検出されなくても、注意して利用してください。',
             'SHA-256 は、記録した時点で GitHub が配布していたファイルを表します。ダウンロードしたファイルの SHA-256 をここに示した値と照合してください。',
+            'ライセンスの判定は、GitHub が LICENSE ファイルから検出した種類だけを見ます。依存するライブラリや同梱の素材のライセンスとの両立は確かめません。',
+            '有料の機能・外部の有料サービス・同梱の素材の制限は、作者の申告です。このプラットフォームは申告を確かめません。レビューが申告との食い違いを見つけられるのは、README に書かれた範囲だけです。',
           ],
         },
         {
           heading: '免責',
           paragraphs: [
             'このプラットフォームは現状のまま提供し、いかなる保証もしないので、プラグインは個人の責任にもとづき導入してください。各プラグインの責任はその作者にあります。',
+            'ライセンスと申告の表示も、保証ではありません。ライセンスは GitHub が検出した結果で、申告は作者によるものです。利用の条件は、各プラグインのライセンスの本文と README で確かめてください。',
           ],
         },
       ],
@@ -624,6 +683,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '公開でよい通報',
           paragraphs: [
             '誤った情報や掲載ポリシーに関する問題は、GitHub リポジトリの Issues で報告してください: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
+            'プラグインのページにある作者の申告の誤りも、ここで報告してください。有料の機能・外部の有料サービス・同梱の素材の制限・支援のページの申告が対象です。',
           ],
         },
         {
@@ -763,6 +823,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '配信プラグイン倉庫くん（Plugin Soko-kun）是一个独立、开放的 OBS Studio 第三方插件收录服务。本服务是与 OBS Project 及 OBS Forums 无关的非官方服务。',
             '本服务不保存文件。它记录公开 GitHub 仓库的信息，并引导用户前往作者在 GitHub Releases 发布的文件。',
             '本平台不保存文件，请直接从 GitHub 下载文件。',
+            '插件文件可以从 GitHub 的公开发布中免费获取。本平台不收录不公开源代码、只分发付费文件的插件。',
+            '插件页面上的许可证，以及它是否获得 OSI 批准或 FSF 自由认定，是本平台在已收录版本的标签时确认的结果。付费功能、付费外部服务、捆绑素材的限制和支持页面由作者申报，本平台不核实申报的内容。',
           ],
         },
         {
@@ -774,6 +836,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '搜索和查看详情无需登录 GitHub。提交仓库时，请在 MCP 客户端中使用 GitHub 登录（在 Claude Code 中运行 /mcp，在 Codex 中运行 codex mcp login plugin-soko-kun）。本平台本身不会获得 GitHub 仓库的写入权限。',
             '示例：“帮我找一个能在 Windows 上使用的变调插件”“把这个 GitHub 仓库的 OBS 插件登记上去”“确认我的插件的新版本是否已收录”',
+            'search_plugins 支持参数 excludePaid 和 excludeRestrictedAssets。将 excludePaid 设为 true 时，会排除申报了付费功能或付费外部服务的插件；将 excludeRestrictedAssets 设为 true 时，会排除申报了捆绑素材限制的插件。两者都不会排除没有申报的插件，因此结果中仍可能包含有付费功能或素材限制的插件。',
           ],
         },
         {
@@ -795,7 +858,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 '仓库在 GitHub 上公开，且未归档。',
-                'GitHub 能检测到仓库的许可证。如果 GitHub 未显示许可证，请添加 LICENSE 文件。',
+                '代码的许可证在版本标签时获得 OSI 批准或 FSF 自由认定。本平台使用 GitHub 在标签的提交中检测到的许可证进行判断。OBS Studio 插件会链接 libobs，因此请选择 GPL-2.0-or-later 或与其兼容的许可证。',
                 '仓库根目录的 CMakeLists.txt 通过 find_package(libobs) 等方式引用 libobs，且仓库包含 C 或 C++ 源代码。',
                 'GitHub 上的最新发布附有插件文件。GitHub 会为上传到发布中的文件记录 SHA-256，本平台使用该值进行检查。',
                 '最新发布是不可变发布（immutable release）。发布前，请在仓库设置中启用不可变发布。',
@@ -804,6 +867,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '发布通过自动检查。检查内容见“安全与免责声明”页面。',
               ],
             },
+            '本平台只收录可以从 GitHub 的公开发布中免费获取的文件。在 GitHub 上免费公开相同文件、同时在外部销售或接受捐赠的插件，以及通过向作者付费解锁部分功能的插件，都可以收录。',
+            '不公开源代码、只分发付费文件的插件不在收录范围内，因为本平台无法在购买前检查其内容。',
             '是否使用 AI 开发不影响收录。所有插件适用相同条件，也不要求申报 AI 的使用。',
             '本平台不会因收录而认证安全性或质量，请自行确认后再使用。',
           ],
@@ -831,7 +896,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 '仓库在 GitHub 上公开，且未归档。',
-                'GitHub 能检测到仓库的许可证。如果 GitHub 未显示许可证，请添加 LICENSE 文件。',
+                '代码的许可证在版本标签时获得 OSI 批准或 FSF 自由认定。本平台使用 GitHub 在标签的提交中检测到的许可证进行判断。OBS Studio 插件会链接 libobs，因此请选择 GPL-2.0-or-later 或与其兼容的许可证。',
                 '仓库根目录的 CMakeLists.txt 通过 find_package(libobs) 等方式引用 libobs，且仓库包含 C 或 C++ 源代码。',
                 'GitHub 上的最新发布附有插件文件。GitHub 会为上传到发布中的文件记录 SHA-256，本平台使用该值进行检查。',
                 '最新发布是不可变发布（immutable release）。发布前，请在仓库设置中启用不可变发布。',
@@ -839,6 +904,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '发布中没有 exe 或 msi 安装程序。Windows 版本请以 zip 文件分发。',
               ],
             },
+            '付费销售与支持的处理方式如下。',
+            {
+              list: [
+                '在外部销售或接受捐赠：只要在 GitHub 上免费公开相同的文件，也可以在外部商店销售或接受捐赠。请将支持或购买页面写在 .soko-kun/config.json 的 supportUrl 中。',
+                '付费解锁部分功能：有通过向作者付费解锁的功能的插件，只要在 .soko-kun/config.json 的 paidFeatures 中申报，也可以收录。',
+                '不公开源代码的付费分发：不公开源代码、只分发付费文件的插件不在收录范围内，因为无法在购买前检查其内容。',
+              ],
+            },
+            '请从第一个版本起就写好外部链接。如果在之后的版本中添加 supportUrl，或在 README 中添加指向购买页面、支持页面或素材许可证页面的链接，该版本将等待管理员确认。在此期间，之前收录的版本会继续收录。',
           ],
         },
         {
@@ -869,7 +943,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
               list: [
                 'not_admin：您没有该仓库的管理权限。请让仓库管理员提交。',
                 'private_repository、archived_repository：请公开仓库或取消归档。',
-                'no_license：请添加 GitHub 能检测到的 LICENSE 文件。',
+                'no_license：在最新发布标签的提交中，GitHub 找不到许可证文件。请在仓库根目录放置使用获得 OSI 批准或 FSF 自由认定的许可证的 LICENSE 文件，然后发布新版本。OBS Studio 插件会链接 libobs，因此请使用 GPL-2.0-or-later 或与其兼容的许可证。',
+                'license_unrecognized：GitHub 无法识别许可证文件。请在 LICENSE 中只保留许可证的标准文本，将版权说明、第三方声明和素材许可证移到 NOTICE 或 README，然后发布新版本。',
+                'license_not_open：该许可证既未获得 OSI 批准，也未获得 FSF 自由认定。本平台只收录使用此类许可证的插件。请更改许可证，然后发布新版本。',
                 'not_obs_plugin：请在根目录的 CMakeLists.txt 中引用 libobs。',
                 'no_release、no_verifiable_asset：请发布附有插件文件的版本。',
                 'duplicate：该仓库已登记。请通过搜索打开插件页面。',
@@ -905,17 +981,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '.soko-kun/config.json',
           paragraphs: [
-            '作者可以在 .soko-kun/config.json 中声明显示名称和支持的操作系统。请将该文件放在与图片相同的 .soko-kun 文件夹中。',
-            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            '作者可以在 .soko-kun/config.json 中声明显示名称和支持的操作系统，并申报付费功能、付费外部服务、捆绑素材的限制和支持页面。请将该文件放在与图片相同的 .soko-kun 文件夹中。',
+            {
+              code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"],\n  "paidFeatures": false,\n  "paidServices": [],\n  "restrictedAssets": false,\n  "supportUrl": "https://github.com/sponsors/<account>"\n}',
+            },
             {
               list: [
                 'name：显示名称，1 到 60 个字符。未填写时，本平台显示仓库名称。',
                 'os：由 windows、macos、linux 组成的数组。填写后，本平台收录所声明操作系统的文件以及无法从文件名推断操作系统的文件，不收录推断为其他操作系统的文件。未填写时，本平台根据文件名推断操作系统。',
+                'paidFeatures：如果有通过向作者付费解锁的功能，填 true，否则填 false。',
+                'paidServices：用户需要另行订阅的付费服务名称的数组，包括需要用户自备付费 API 密钥的服务。最多 5 项，每项不超过 60 个字符。没有时填 []。',
+                'restrictedAssets：如果模型、声音、字体、图片等捆绑素材有禁止商用等限制，填 true，否则填 false。请在 README 或 NOTICE 文件中写明每个捆绑素材的来源和许可证。',
+                'supportUrl：作者的支持或购买页面的 https URL。只接受 booth.pm、gumroad.com、itch.io、patreon.com、ko-fi.com 及其子域名，以及 https://github.com/sponsors/<账号>。',
               ],
             },
-            '两个字段都是可选的。',
+            '所有字段都是可选的。没有这四项申报时，插件页面和 MCP 的响应会显示作者未申报。',
+            '申报由作者做出，本平台不核实其内容。使用条款中作者须遵守的“不发布虚假信息”也适用于申报。审查会将 README 与申报不一致之处作为建议项目指出。',
             '本平台读取每个新发布标签时的该文件，因此更改文件后请发布新的版本。',
-            '如果文件内容不符合条件，或没有所声明操作系统的文件，本平台不会收录该发布。',
+            '如果文件不是有效的 JSON、name 或 os 不符合条件，或没有所声明操作系统的文件，本平台不会收录该发布。四项申报的值有误时，本平台将该项视为未申报，不会因此停止收录，并通过 list_my_plugins 和 submit_plugin 检查模式的 notices 告知。',
+            '请从第一个版本起写好 supportUrl。在之后的版本中添加 supportUrl，该版本将等待管理员确认。',
+            '已收录的版本没有任何申报时，list_my_plugins 会在 notices 中返回 declarations_missing。这不会停止收录。',
           ],
         },
         {
@@ -959,6 +1044,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '恶意软件查询：在已知恶意软件数据库 MalwareBazaar 中查询 GitHub 公布的每个文件的 SHA-256。已收录的文件也会定期重新查询。',
                 '与已收录发布的差异：按规则检查从已收录发布到新发布的变更。符合规则的发布将等待管理员确认。',
                 '开发实践审查：由仓库文件即可判定的项目（例如 Action 的固定和构建设置）按规则判定。只有需要阅读文字的项目（例如 README 中对插件发送数据的说明）才由 LLM 结合本服务计算的事实进行判定。不会完整阅读源代码：本服务只在源代码中查找网络 API 的使用，并为一个项目读取少量测试文件。LLM 只会收到 README 的前 32,768 个字符，因此请在 README 的前半部分说明插件发送的数据。关闭安全功能的说明和运行下载内容的命令，会在 README、发布说明和仓库中的其他文档中检查，包括上架后对发布说明的编辑。上架后，每天还会检查一次默认分支的 README；如果出现新的此类说明，在管理员确认之前，该插件的任何版本都不会上架。审查标准基于一位 OBS 插件开发者公开发表的担忧与建议。有严重问题的发布将等待管理员确认。',
+                '许可证：确认 GitHub 在发布标签的提交中检测到的许可证，按照 SPDX License List 获得 OSI 批准或 FSF 自由认定。此项判断不使用 LLM。此条件也适用于在引入之前已收录的发布。',
               ],
             },
             '审查标准在 GitHub 上公开：https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
@@ -972,11 +1058,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '恶意软件查询只能检出 MalwareBazaar 中已知的威胁。新型或定向的恶意软件可能无法检出，因此即使未检出任何问题，也请谨慎使用。',
             'SHA-256 代表记录时 GitHub 提供的文件。请将下载文件的 SHA-256 与此处显示的值进行比对。',
+            '许可证检查只看 GitHub 从 LICENSE 文件检测到的许可证类型，不确认依赖库和捆绑素材的许可证是否与其兼容。',
+            '付费功能、付费外部服务和捆绑素材的限制由作者申报，本平台不核实。审查只能在 README 写明的范围内发现与申报的不一致。',
           ],
         },
         {
           heading: '免责声明',
-          paragraphs: ['本服务按现状提供，不作任何保证。安装插件的风险由用户自行承担。各插件由其作者负责。'],
+          paragraphs: [
+            '本服务按现状提供，不作任何保证。安装插件的风险由用户自行承担。各插件由其作者负责。',
+            '许可证和申报的显示也不构成保证。许可证是 GitHub 检测的结果，申报由作者做出。请通过各插件的许可证正文和 README 自行确认使用条件。',
+          ],
         },
       ],
     },
@@ -987,6 +1078,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '公开举报',
           paragraphs: [
             '错误信息或收录政策相关问题，请在 GitHub 仓库的 Issues 中提交：https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
+            '插件页面上作者申报的错误，例如付费功能、付费外部服务、捆绑素材的限制和支持页面，也请在这里报告。',
           ],
         },
         {
@@ -1104,6 +1196,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '配信プラグイン倉庫くん（Plugin Soko-kun）是一個獨立、開放的 OBS Studio 第三方外掛收錄服務。本服務是與 OBS Project 及 OBS Forums 無關的非官方服務。',
             '本服務不保存檔案。它記錄公開 GitHub 儲存庫的資訊，並引導使用者前往作者在 GitHub Releases 發布的檔案。',
             '本平台不保存檔案，請直接從 GitHub 下載檔案。',
+            '外掛檔案可以從 GitHub 的公開發行中免費取得。本平台不收錄不公開原始碼、只散布付費檔案的外掛。',
+            '外掛頁面上的授權，以及它是否獲得 OSI 核准或 FSF 自由認定，是本平台在已收錄版本的標籤時確認的結果。付費功能、付費外部服務、隨附素材的限制和贊助頁面由作者申報，本平台不核實申報的內容。',
           ],
         },
         {
@@ -1115,6 +1209,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '搜尋與查看詳情無需登入 GitHub。提交儲存庫時，請在 MCP 用戶端中以 GitHub 登入（在 Claude Code 中執行 /mcp，在 Codex 中執行 codex mcp login plugin-soko-kun）。本平台本身不會取得 GitHub 儲存庫的寫入權限。',
             '範例：「幫我找一個能在 Windows 上使用的變調外掛」「把這個 GitHub 儲存庫的 OBS 外掛登記上去」「確認我的外掛的新版本是否已收錄」',
+            'search_plugins 支援參數 excludePaid 和 excludeRestrictedAssets。將 excludePaid 設為 true 時，會排除申報了付費功能或付費外部服務的外掛；將 excludeRestrictedAssets 設為 true 時，會排除申報了隨附素材限制的外掛。兩者都不會排除沒有申報的外掛，因此結果中仍可能包含有付費功能或素材限制的外掛。',
           ],
         },
         {
@@ -1136,7 +1231,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 '儲存庫在 GitHub 上公開，且未封存。',
-                'GitHub 能偵測到儲存庫的授權。如果 GitHub 未顯示授權，請新增 LICENSE 檔案。',
+                '程式碼的授權在版本標籤時獲得 OSI 核准或 FSF 自由認定。本平台使用 GitHub 在標籤的提交中偵測到的授權進行判斷。OBS Studio 外掛會連結 libobs，因此請選擇 GPL-2.0-or-later 或與其相容的授權。',
                 '儲存庫根目錄的 CMakeLists.txt 透過 find_package(libobs) 等方式參照 libobs，且儲存庫包含 C 或 C++ 原始碼。',
                 'GitHub 上的最新發行附有外掛檔案。GitHub 會為上傳到發行中的檔案記錄 SHA-256，本平台使用該值進行檢查。',
                 '最新發行是不可變發行（immutable release）。發布前，請在儲存庫設定中啟用不可變發行。',
@@ -1145,6 +1240,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '發行通過自動檢查。檢查內容請見「安全與免責聲明」頁面。',
               ],
             },
+            '本平台只收錄可以從 GitHub 的公開發行中免費取得的檔案。在 GitHub 上免費公開相同檔案、同時在外部販售或接受捐贈的外掛，以及透過向作者付費解鎖部分功能的外掛，都可以收錄。',
+            '不公開原始碼、只散布付費檔案的外掛不在收錄範圍內，因為本平台無法在購買前檢查其內容。',
             '是否使用 AI 開發不影響收錄。所有外掛適用相同條件，也不要求申報 AI 的使用。',
             '本平台不會因收錄而認證安全性或品質，請自行確認後再使用。',
           ],
@@ -1172,7 +1269,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 '儲存庫在 GitHub 上公開，且未封存。',
-                'GitHub 能偵測到儲存庫的授權。如果 GitHub 未顯示授權，請新增 LICENSE 檔案。',
+                '程式碼的授權在版本標籤時獲得 OSI 核准或 FSF 自由認定。本平台使用 GitHub 在標籤的提交中偵測到的授權進行判斷。OBS Studio 外掛會連結 libobs，因此請選擇 GPL-2.0-or-later 或與其相容的授權。',
                 '儲存庫根目錄的 CMakeLists.txt 透過 find_package(libobs) 等方式參照 libobs，且儲存庫包含 C 或 C++ 原始碼。',
                 'GitHub 上的最新發行附有外掛檔案。GitHub 會為上傳到發行中的檔案記錄 SHA-256，本平台使用該值進行檢查。',
                 '最新發行是不可變發行（immutable release）。發布前，請在儲存庫設定中啟用不可變發行。',
@@ -1180,6 +1277,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '發行中沒有 exe 或 msi 安裝程式。Windows 版本請以 zip 檔案發布。',
               ],
             },
+            '付費販售與贊助的處理方式如下。',
+            {
+              list: [
+                '在外部販售或接受捐贈：只要在 GitHub 上免費公開相同的檔案，也可以在外部商店販售或接受捐贈。請將贊助或購買頁面寫在 .soko-kun/config.json 的 supportUrl 中。',
+                '付費解鎖部分功能：有透過向作者付費解鎖之功能的外掛，只要在 .soko-kun/config.json 的 paidFeatures 中申報，也可以收錄。',
+                '不公開原始碼的付費散布：不公開原始碼、只散布付費檔案的外掛不在收錄範圍內，因為無法在購買前檢查其內容。',
+              ],
+            },
+            '請從第一個版本起就寫好外部連結。如果在之後的版本中新增 supportUrl，或在 README 中新增指向購買頁面、贊助頁面或素材授權頁面的連結，該版本將等待管理員確認。在此期間，之前收錄的版本會繼續收錄。',
           ],
         },
         {
@@ -1210,7 +1316,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
               list: [
                 'not_admin：您沒有該儲存庫的管理權限。請讓儲存庫管理員提交。',
                 'private_repository、archived_repository：請公開儲存庫或解除封存。',
-                'no_license：請新增 GitHub 能偵測到的 LICENSE 檔案。',
+                'no_license：在最新發行標籤的提交中，GitHub 找不到授權檔案。請在儲存庫根目錄放置使用獲得 OSI 核准或 FSF 自由認定之授權的 LICENSE 檔案，然後發布新版本。OBS Studio 外掛會連結 libobs，因此請使用 GPL-2.0-or-later 或與其相容的授權。',
+                'license_unrecognized：GitHub 無法識別授權檔案。請在 LICENSE 中只保留授權的標準文字，將著作權聲明、第三方聲明和素材授權移到 NOTICE 或 README，然後發布新版本。',
+                'license_not_open：該授權既未獲得 OSI 核准，也未獲得 FSF 自由認定。本平台只收錄使用此類授權的外掛。請變更授權，然後發布新版本。',
                 'not_obs_plugin：請在根目錄的 CMakeLists.txt 中參照 libobs。',
                 'no_release、no_verifiable_asset：請發布附有外掛檔案的版本。',
                 'duplicate：該儲存庫已登記。請透過搜尋開啟外掛頁面。',
@@ -1246,17 +1354,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '.soko-kun/config.json',
           paragraphs: [
-            '作者可以在 .soko-kun/config.json 中宣告顯示名稱和支援的作業系統。請將該檔案放在與圖片相同的 .soko-kun 資料夾中。',
-            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            '作者可以在 .soko-kun/config.json 中宣告顯示名稱和支援的作業系統，並申報付費功能、付費外部服務、隨附素材的限制和贊助頁面。請將該檔案放在與圖片相同的 .soko-kun 資料夾中。',
+            {
+              code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"],\n  "paidFeatures": false,\n  "paidServices": [],\n  "restrictedAssets": false,\n  "supportUrl": "https://github.com/sponsors/<account>"\n}',
+            },
             {
               list: [
                 'name：顯示名稱，1 到 60 個字元。未填寫時，本平台顯示儲存庫名稱。',
                 'os：由 windows、macos、linux 組成的陣列。填寫後，本平台收錄所宣告作業系統的檔案以及無法從檔案名稱推斷作業系統的檔案，不收錄推斷為其他作業系統的檔案。未填寫時，本平台根據檔案名稱推斷作業系統。',
+                'paidFeatures：如果有透過向作者付費解鎖的功能，填 true，否則填 false。',
+                'paidServices：使用者需要另行訂閱的付費服務名稱的陣列，包括需要使用者自備付費 API 金鑰的服務。最多 5 項，每項不超過 60 個字元。沒有時填 []。',
+                'restrictedAssets：如果模型、聲音、字型、圖片等隨附素材有禁止商用等限制，填 true，否則填 false。請在 README 或 NOTICE 檔案中寫明每個隨附素材的來源和授權。',
+                'supportUrl：作者的贊助或購買頁面的 https URL。只接受 booth.pm、gumroad.com、itch.io、patreon.com、ko-fi.com 及其子網域，以及 https://github.com/sponsors/<帳號>。',
               ],
             },
-            '兩個欄位都是選填的。',
+            '所有欄位都是選填的。沒有這四項申報時，外掛頁面和 MCP 的回應會顯示作者未申報。',
+            '申報由作者做出，本平台不核實其內容。使用條款中作者須遵守的「不刊登不實資訊」也適用於申報。審查會將 README 與申報不一致之處作為建議項目指出。',
             '本平台讀取每個新發行標籤時的該檔案，因此變更檔案後請發布新的版本。',
-            '若檔案內容不符合條件，或沒有所宣告作業系統的檔案，本平台不會收錄該發行。',
+            '若檔案不是有效的 JSON、name 或 os 不符合條件，或沒有所宣告作業系統的檔案，本平台不會收錄該發行。四項申報的值有誤時，本平台將該項視為未申報，不會因此停止收錄，並透過 list_my_plugins 和 submit_plugin 檢查模式的 notices 告知。',
+            '請從第一個版本起寫好 supportUrl。在之後的版本中新增 supportUrl，該版本將等待管理員確認。',
+            '已收錄的版本沒有任何申報時，list_my_plugins 會在 notices 中回傳 declarations_missing。這不會停止收錄。',
           ],
         },
         {
@@ -1300,6 +1417,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '惡意軟體查詢：在已知惡意軟體資料庫 MalwareBazaar 中查詢 GitHub 公布的每個檔案的 SHA-256。已收錄的檔案也會定期重新查詢。',
                 '與已收錄發行的差異：依規則檢查從已收錄發行到新發行的變更。符合規則的發行將等待管理員確認。',
                 '開發實務審查：由儲存庫檔案即可判定的項目（例如 Action 的固定與建置設定）依規則判定。只有需要閱讀文字的項目（例如 README 中對外掛傳送資料的說明）才由 LLM 搭配本服務計算的事實進行判定。不會完整閱讀原始碼：本服務只在原始碼中尋找網路 API 的使用，並為一個項目讀取少量測試檔案。LLM 只會收到 README 的前 32,768 個字元，因此請在 README 的前半部分說明外掛傳送的資料。關閉安全功能的說明和執行下載內容的指令，會在 README、發行說明和儲存庫中的其他文件中檢查，包括上架後對發行說明的編輯。上架後，每天還會檢查一次預設分支的 README；如果出現新的此類說明，在管理員確認之前，該外掛的任何版本都不會上架。審查標準基於一位 OBS 外掛開發者公開發表的疑慮與建議。有嚴重問題的發行將等待管理員確認。',
+                '授權：確認 GitHub 在發行標籤的提交中偵測到的授權，依照 SPDX License List 獲得 OSI 核准或 FSF 自由認定。此項判斷不使用 LLM。此條件也適用於在引入之前已收錄的發行。',
               ],
             },
             '審查標準在 GitHub 上公開：https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
@@ -1313,11 +1431,16 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '惡意軟體查詢只能檢出 MalwareBazaar 中已知的威脅。新型或針對性的惡意軟體可能無法檢出，因此即使未檢出任何問題，也請謹慎使用。',
             'SHA-256 代表記錄時 GitHub 提供的檔案。請將下載檔案的 SHA-256 與此處顯示的值進行比對。',
+            '授權檢查只看 GitHub 從 LICENSE 檔案偵測到的授權類型，不確認相依函式庫和隨附素材的授權是否與其相容。',
+            '付費功能、付費外部服務和隨附素材的限制由作者申報，本平台不核實。審查只能在 README 寫明的範圍內發現與申報的不一致。',
           ],
         },
         {
           heading: '免責聲明',
-          paragraphs: ['本服務按現狀提供，不作任何保證。安裝外掛的風險由使用者自行承擔。各外掛由其作者負責。'],
+          paragraphs: [
+            '本服務按現狀提供，不作任何保證。安裝外掛的風險由使用者自行承擔。各外掛由其作者負責。',
+            '授權和申報的顯示也不構成保證。授權是 GitHub 偵測的結果，申報由作者做出。請透過各外掛的授權全文和 README 自行確認使用條件。',
+          ],
         },
       ],
     },
@@ -1328,6 +1451,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '公開檢舉',
           paragraphs: [
             '錯誤資訊或收錄政策相關問題，請在 GitHub 儲存庫的 Issues 中提交：https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
+            '外掛頁面上作者申報的錯誤，例如付費功能、付費外部服務、隨附素材的限制和贊助頁面，也請在這裡檢舉。',
           ],
         },
         {
@@ -1445,6 +1569,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             '配信プラグイン倉庫くん(Plugin Soko-kun)은 OBS Studio용 서드파티 플러그인을 위한 독립적이고 개방된 레지스트리입니다. OBS Project 및 OBS Forums와 관계가 없는 비공식 서비스입니다.',
             '이 서비스는 배포 파일을 보관하지 않습니다. 공개된 GitHub 저장소의 정보를 기록하고, 작성자가 GitHub Releases에 공개한 파일로 안내합니다.',
             '이 플랫폼은 배포 파일을 보관하지 않으므로, 배포 파일은 GitHub에서 직접 다운로드해 주세요.',
+            '플러그인 배포 파일은 GitHub의 공개 릴리스에서 무료로 받을 수 있습니다. 소스를 공개하지 않고 유료 배포 파일만 배포하는 플러그인은 게재하지 않습니다.',
+            '플러그인 페이지의 라이선스와 OSI 승인 또는 FSF 자유 인정 여부는 이 플랫폼이 게재 중인 버전의 태그 시점에서 확인한 결과입니다. 유료 기능, 유료 외부 서비스, 동봉 소재의 제한, 후원 페이지는 작성자의 신고이며, 이 플랫폼은 신고 내용을 확인하지 않습니다.',
           ],
         },
         {
@@ -1456,6 +1582,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             '검색과 상세 조회는 GitHub 로그인 없이 사용할 수 있습니다. 저장소를 등록할 때는 MCP 클라이언트에서 GitHub로 로그인합니다(Claude Code에서는 /mcp, Codex에서는 codex mcp login plugin-soko-kun 실행). 이 플랫폼 자체가 GitHub 저장소에 대한 쓰기 권한을 얻는 일은 없습니다.',
             '예: "Windows에서 동작하는 피치 시프트 플러그인을 찾아 줘", "이 GitHub 저장소의 OBS 플러그인을 등록해 줘", "내 플러그인의 새 릴리스가 게재되었는지 확인해 줘"',
+            'search_plugins는 excludePaid와 excludeRestrictedAssets 인수를 받습니다. excludePaid를 true로 하면 유료 기능이나 유료 외부 서비스를 신고한 플러그인을 제외하고, excludeRestrictedAssets를 true로 하면 동봉 소재의 제한을 신고한 플러그인을 제외합니다. 두 인수 모두 신고가 없는 플러그인은 제외하지 않으므로, 결과에 유료 기능이나 소재의 제한이 있는 플러그인이 남을 수 있습니다.',
           ],
         },
         {
@@ -1477,7 +1604,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 '저장소가 GitHub에 공개되어 있고, 보관(archive)되어 있지 않을 것.',
-                'GitHub가 저장소의 라이선스를 감지할 수 있을 것. GitHub에 라이선스가 표시되지 않으면 LICENSE 파일을 추가해 주세요.',
+                '코드의 라이선스가 버전의 태그 시점에 OSI 승인 또는 FSF 자유 인정을 받았을 것. 이 플랫폼은 GitHub가 태그의 커밋에서 감지한 라이선스로 판정합니다. OBS Studio 플러그인은 libobs와 링크되므로 GPL-2.0-or-later 또는 이와 호환되는 라이선스를 선택해 주세요.',
                 '저장소 최상위의 CMakeLists.txt가 find_package(libobs) 등으로 libobs를 참조하고, C 또는 C++ 소스가 있을 것.',
                 'GitHub의 최신 릴리스에 플러그인 배포 파일이 첨부되어 있을 것. GitHub는 릴리스에 올린 파일에 SHA-256을 기록하며, 이 플랫폼은 그 값으로 검사합니다.',
                 '최신 릴리스가 불변 릴리스(immutable release)일 것. 공개하기 전에 저장소 설정에서 불변 릴리스를 켜 주세요.',
@@ -1486,6 +1613,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '릴리스가 자동 검사를 통과할 것. 검사 내용은 보안과 면책 페이지에 적혀 있습니다.',
               ],
             },
+            '이 플랫폼은 GitHub의 공개 릴리스에서 무료로 받을 수 있는 배포 파일만 게재합니다. 같은 배포 파일을 GitHub에서 무료로 공개하면서 외부에서 판매하거나 기부를 받는 플러그인과, 작성자에게 지불하면 일부 기능이 해제되는 플러그인은 게재할 수 있습니다.',
+            '소스를 공개하지 않고 유료 배포 파일만 배포하는 플러그인은 게재 대상이 아닙니다. 구매 전에 이 플랫폼이 내용을 검사할 수 없기 때문입니다.',
             '개발에 AI를 사용했는지 여부는 게재에 영향을 주지 않습니다. 모든 플러그인에 같은 조건을 적용하며, AI 사용의 신고도 요구하지 않습니다.',
             '이 플랫폼은 게재를 통해 안전성이나 품질을 인증하지 않으므로, 직접 확인한 뒤에 이용해 주세요.',
           ],
@@ -1513,7 +1642,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 '저장소가 GitHub에 공개되어 있고, 보관(archive)되어 있지 않을 것.',
-                'GitHub가 저장소의 라이선스를 감지할 수 있을 것. GitHub에 라이선스가 표시되지 않으면 LICENSE 파일을 추가해 주세요.',
+                '코드의 라이선스가 버전의 태그 시점에 OSI 승인 또는 FSF 자유 인정을 받았을 것. 이 플랫폼은 GitHub가 태그의 커밋에서 감지한 라이선스로 판정합니다. OBS Studio 플러그인은 libobs와 링크되므로 GPL-2.0-or-later 또는 이와 호환되는 라이선스를 선택해 주세요.',
                 '저장소 최상위의 CMakeLists.txt가 find_package(libobs) 등으로 libobs를 참조하고, C 또는 C++ 소스가 있을 것.',
                 'GitHub의 최신 릴리스에 플러그인 배포 파일이 첨부되어 있을 것. GitHub는 릴리스에 올린 파일에 SHA-256을 기록하며, 이 플랫폼은 그 값으로 검사합니다.',
                 '최신 릴리스가 불변 릴리스(immutable release)일 것. 공개하기 전에 저장소 설정에서 불변 릴리스를 켜 주세요.',
@@ -1521,6 +1650,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '배포 파일에 exe나 msi 설치 프로그램이 없을 것. Windows용 배포 파일은 zip으로 배포해 주세요.',
               ],
             },
+            '유료 판매와 후원은 다음과 같이 다룹니다.',
+            {
+              list: [
+                '외부 판매와 기부: 같은 배포 파일을 GitHub에서 무료로 공개하면 외부 스토어에서 판매하거나 기부를 받을 수 있습니다. 후원이나 구매 페이지는 .soko-kun/config.json의 supportUrl에 적어 주세요.',
+                '일부 기능의 유료 해제: 작성자에게 지불하면 해제되는 기능이 있는 플러그인도 .soko-kun/config.json의 paidFeatures로 신고하면 게재할 수 있습니다.',
+                '소스를 공개하지 않는 유료 배포: 소스를 공개하지 않고 유료 배포 파일만 배포하는 플러그인은 대상이 아닙니다. 구매 전에 내용을 검사할 수 없기 때문입니다.',
+              ],
+            },
+            '외부 링크는 첫 릴리스부터 적어 주세요. 게재 후의 릴리스에서 supportUrl이나, README의 구매처, 후원처, 소재 라이선스 페이지로 가는 링크를 추가하면 그 릴리스는 관리자의 확인을 기다립니다. 그동안에는 이전에 게재한 릴리스를 계속 게재합니다.',
           ],
         },
         {
@@ -1551,7 +1689,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
               list: [
                 'not_admin: 저장소의 관리 권한이 없습니다. 저장소 관리자에게 등록을 부탁해 주세요.',
                 'private_repository, archived_repository: 저장소를 공개하거나 보관을 해제해 주세요.',
-                'no_license: GitHub가 감지할 수 있는 LICENSE 파일을 추가해 주세요.',
+                'no_license: 최신 릴리스 태그의 커밋에서 GitHub가 라이선스 파일을 찾지 못했습니다. OSI 승인 또는 FSF 자유 인정을 받은 라이선스의 LICENSE 파일을 저장소 최상위에 두고 새 릴리스를 공개해 주세요. OBS Studio 플러그인은 libobs와 링크되므로 GPL-2.0-or-later 또는 이와 호환되는 라이선스를 사용해 주세요.',
+                'license_unrecognized: GitHub가 라이선스 파일을 식별하지 못했습니다. LICENSE에는 라이선스의 표준 본문만 두고, 저작권 표시, 제3자 고지, 소재의 라이선스는 NOTICE나 README로 옮긴 뒤 새 릴리스를 공개해 주세요.',
+                'license_not_open: 라이선스가 OSI 승인도 FSF 자유 인정도 받지 않았습니다. 이 플랫폼은 이러한 라이선스의 플러그인만 게재합니다. 라이선스를 바꾼 뒤 새 릴리스를 공개해 주세요.',
                 'not_obs_plugin: 최상위 CMakeLists.txt에서 libobs를 참조해 주세요.',
                 'no_release, no_verifiable_asset: 배포 파일을 첨부한 릴리스를 공개해 주세요.',
                 'duplicate: 저장소가 이미 등록되어 있습니다. 검색에서 플러그인 페이지를 열어 주세요.',
@@ -1587,17 +1727,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '.soko-kun/config.json',
           paragraphs: [
-            '작성자는 .soko-kun/config.json에서 표시 이름과 지원 OS를 선언할 수 있습니다. 이미지와 같은 .soko-kun 폴더에 파일을 넣어 주세요.',
-            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            '작성자는 .soko-kun/config.json에서 표시 이름과 지원 OS를 선언하고, 유료 기능, 유료 외부 서비스, 동봉 소재의 제한, 후원 페이지를 신고할 수 있습니다. 이미지와 같은 .soko-kun 폴더에 파일을 넣어 주세요.',
+            {
+              code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"],\n  "paidFeatures": false,\n  "paidServices": [],\n  "restrictedAssets": false,\n  "supportUrl": "https://github.com/sponsors/<account>"\n}',
+            },
             {
               list: [
                 'name: 표시 이름입니다. 1~60자로 적어 주세요. 적지 않으면 저장소 이름을 표시합니다.',
                 'os: windows, macos, linux를 배열로 적습니다. 적으면 이 플랫폼은 선언한 OS의 배포 파일과 파일 이름에서 OS를 추정할 수 없는 배포 파일을 게재하고, 다른 OS로 추정한 배포 파일은 게재하지 않습니다. 적지 않으면 배포 파일 이름에서 OS를 추정합니다.',
+                'paidFeatures: 작성자에게 지불하면 해제되는 기능이 있으면 true, 없으면 false로 적습니다.',
+                'paidServices: 이용자가 따로 계약해야 하는 유료 서비스의 이름을 배열로 적습니다. 이용자가 자신의 유료 API 키를 준비해야 하는 서비스도 적어 주세요. 1개에 60자 이내, 5개까지입니다. 없으면 []로 적습니다.',
+                'restrictedAssets: 모델, 소리, 글꼴, 이미지 같은 동봉 소재에 상업적 이용 금지 등의 제한이 있으면 true, 없으면 false로 적습니다. 소재마다 출처와 라이선스를 README나 NOTICE 파일에 적어 주세요.',
+                'supportUrl: 작성자의 후원이나 구매 페이지의 https URL입니다. booth.pm, gumroad.com, itch.io, patreon.com, ko-fi.com과 그 하위 도메인, 그리고 https://github.com/sponsors/<계정>만 받습니다.',
               ],
             },
-            '두 항목 모두 선택 사항입니다.',
+            '모든 항목은 선택 사항입니다. 네 가지 신고가 없으면 플러그인 페이지와 MCP 응답에 작성자의 신고가 없음을 표시합니다.',
+            '신고는 작성자가 하는 것이며, 이 플랫폼은 그 내용을 확인하지 않습니다. 이용약관의 "등록하는 작성자가 지켜야 할 것" 중 "허위 정보를 게재하지 않을 것"은 신고에도 적용됩니다. 리뷰는 README의 내용과 신고가 어긋나는 부분을 권장 항목으로 지적합니다.',
             '이 플랫폼은 새 릴리스 태그 시점의 파일을 읽으므로, 파일을 바꾼 뒤에는 새 릴리스를 공개해 주세요.',
-            '파일 내용이 조건에 맞지 않거나 선언한 OS의 배포 파일이 없는 릴리스는 게재하지 않습니다.',
+            '파일이 올바른 JSON이 아니거나, name이나 os가 조건에 맞지 않거나, 선언한 OS의 배포 파일이 없는 릴리스는 게재하지 않습니다. 네 가지 신고의 값이 잘못되었으면 그 항목을 신고 없음으로 다루며 게재는 멈추지 않습니다. 잘못된 값은 list_my_plugins와 submit_plugin 확인 모드의 notices로 알립니다.',
+            'supportUrl은 첫 릴리스부터 적어 주세요. 이후의 릴리스에서 supportUrl을 추가하면 그 릴리스는 관리자의 확인을 기다립니다.',
+            '게재 중인 릴리스에 신고가 하나도 없으면 list_my_plugins가 notices에 declarations_missing을 반환합니다. 게재는 멈추지 않습니다.',
           ],
         },
         {
@@ -1641,6 +1790,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 '악성 코드 조회: GitHub가 공개하는 각 파일의 SHA-256을 알려진 악성 코드 데이터베이스인 MalwareBazaar에서 조회합니다. 게재 중인 파일도 정기적으로 다시 조회합니다.',
                 '게재 중인 릴리스와의 차이: 게재 중인 릴리스에서 새 릴리스까지의 변경을 규칙으로 검사합니다. 규칙에 해당하는 릴리스는 관리자의 확인을 기다립니다.',
                 '개발 실천 리뷰: 액션 고정이나 빌드 설정처럼 저장소 파일로 결정되는 항목은 규칙으로 판정합니다. README에서 플러그인이 보내는 데이터를 설명하는 부분처럼 글을 읽어야 하는 항목만 이 서비스가 계산한 사실과 함께 LLM이 판정합니다. 소스 코드 전체를 읽지는 않습니다. 소스에서 네트워크 API 사용을 찾고, 한 항목을 위해 테스트 파일 몇 개를 읽습니다. LLM에는 README의 앞 32,768자만 전달되므로, 플러그인이 보내는 데이터에 대한 설명은 README 앞부분에 적어 주세요. 보안 기능을 끄게 하는 안내와 내려받은 것을 실행하게 하는 명령은 README, 릴리스 노트, 저장소의 다른 문서에서 검사하며, 게재 후 릴리스 노트를 수정한 내용도 검사합니다. 게재 후에도 기본 브랜치의 README를 하루에 한 번 검사하며, 새로운 안내가 추가되면 관리자가 확인할 때까지 플러그인의 어떤 버전도 게재하지 않습니다. 기준은 한 OBS 플러그인 개발자가 공개한 우려와 권장 사항을 바탕으로 합니다. 중대한 지적이 있는 릴리스는 관리자의 확인을 기다립니다.',
+                '라이선스: 릴리스 태그의 커밋 시점에 GitHub가 감지한 라이선스가 SPDX License List에서 OSI 승인 또는 FSF 자유 인정을 받았는지 확인합니다. 이 판정에는 LLM을 사용하지 않습니다. 이 조건은 도입 전에 게재한 릴리스에도 적용합니다.',
               ],
             },
             '리뷰 기준은 GitHub에 공개되어 있습니다: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
@@ -1654,12 +1804,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '악성 코드 조회는 MalwareBazaar에 이미 알려진 위협만 검출할 수 있습니다. 새로운 악성코드나 표적형 악성코드는 검출하지 못할 수 있으므로, 아무것도 검출되지 않아도 주의해서 이용해 주세요.',
             'SHA-256은 기록 시점에 GitHub가 배포하던 파일을 나타냅니다. 다운로드한 파일의 SHA-256을 여기 표시된 값과 비교해 주세요.',
+            '라이선스 판정은 GitHub가 LICENSE 파일에서 감지한 종류만 봅니다. 의존 라이브러리와 동봉 소재의 라이선스와의 호환성은 확인하지 않습니다.',
+            '유료 기능, 유료 외부 서비스, 동봉 소재의 제한은 작성자의 신고이며, 이 플랫폼은 확인하지 않습니다. 리뷰는 README에 적힌 범위 안에서만 신고와의 불일치를 찾을 수 있습니다.',
           ],
         },
         {
           heading: '면책',
           paragraphs: [
             '이 서비스는 있는 그대로 제공되며 어떠한 보증도 하지 않습니다. 플러그인 설치는 이용자 본인의 책임입니다. 각 플러그인의 책임은 그 작성자에게 있습니다.',
+            '라이선스와 신고의 표시도 보증이 아닙니다. 라이선스는 GitHub가 감지한 결과이고, 신고는 작성자가 한 것입니다. 이용 조건은 각 플러그인의 라이선스 본문과 README에서 확인해 주세요.',
           ],
         },
       ],
@@ -1671,6 +1824,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '공개 신고',
           paragraphs: [
             '잘못된 정보나 게재 정책에 관한 문제는 GitHub 저장소의 Issues로 접수합니다: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
+            '플러그인 페이지에 있는 작성자 신고의 오류도 여기에 신고해 주세요. 유료 기능, 유료 외부 서비스, 동봉 소재의 제한, 후원 페이지의 신고가 대상입니다.',
           ],
         },
         {
@@ -1801,6 +1955,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Plugin Soko-kun é um registro independente e aberto de plugins de terceiros para o OBS Studio. É um serviço não oficial, sem vínculo com o OBS Project ou o OBS Forums.',
             'O registro não hospeda arquivos. Ele registra informações de repositórios públicos do GitHub e aponta para os arquivos que os autores publicam no GitHub Releases.',
             'Esta plataforma não hospeda arquivos; por isso, baixe os arquivos diretamente do GitHub.',
+            'Os arquivos dos plugins podem ser baixados gratuitamente das versões públicas do GitHub. Plugins distribuídos apenas como arquivos pagos, sem código-fonte público, não são listados.',
+            'A licença na página de um plugin, e se ela é aprovada pela OSI ou certificada como livre pela FSF, é o que esta plataforma verificou na tag da versão listada. Recursos pagos, serviços externos pagos, restrições dos materiais incluídos e a página de apoio são declarados pelo autor. Esta plataforma não verifica as declarações.',
           ],
         },
         {
@@ -1812,6 +1968,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Buscar e ver detalhes funciona sem login no GitHub. Para enviar um repositório, entre com o GitHub pelo cliente MCP (no Claude Code, execute /mcp; no Codex, execute codex mcp login plugin-soko-kun). Esta plataforma em si nunca recebe acesso de escrita aos seus repositórios do GitHub.',
             'Exemplos: "Encontre um plugin de pitch shift que funcione no Windows", "Registre o plugin do OBS deste repositório do GitHub", "Verifique se a nova versão do meu plugin está listada".',
+            'search_plugins aceita excludePaid e excludeRestrictedAssets. Com excludePaid igual a true, ele deixa de fora os plugins que declaram recursos pagos ou serviços externos pagos. Com excludeRestrictedAssets igual a true, deixa de fora os plugins que declaram restrições nos materiais incluídos. Nenhum dos dois deixa de fora plugins sem declarações, então os resultados ainda podem incluir plugins com recursos pagos ou materiais restritos.',
           ],
         },
         {
@@ -1833,7 +1990,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 'O repositório é público no GitHub e não está arquivado.',
-                'O GitHub detecta uma licença no repositório. Se o GitHub não mostrar licença, adicione um arquivo LICENSE.',
+                'A licença do código, na tag da versão, é aprovada pela OSI ou certificada como livre pela FSF. Esta plataforma usa a licença que o GitHub detecta no commit da tag. Plugins do OBS Studio se vinculam à libobs; por isso, escolha GPL-2.0-or-later ou uma licença compatível com ela.',
                 'O CMakeLists.txt da raiz referencia a libobs, por exemplo com find_package(libobs), e o repositório tem código-fonte em C ou C++.',
                 'A versão mais recente no GitHub tem os arquivos do plugin anexados. O GitHub registra o SHA-256 dos arquivos enviados a uma versão, e esta plataforma usa esse valor nas verificações.',
                 'A versão mais recente é uma versão imutável (immutable release). Ative as versões imutáveis nas configurações do repositório antes de publicá-la.',
@@ -1842,6 +1999,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'A versão passa nas verificações automáticas. A página Segurança descreve as verificações.',
               ],
             },
+            'Esta plataforma lista apenas arquivos que podem ser baixados gratuitamente das versões públicas do GitHub. Podem ser listados os plugins que publicam os mesmos arquivos gratuitamente no GitHub e também os vendem ou recebem doações em outro lugar, e os plugins que liberam alguns recursos quando o usuário paga o autor.',
+            'Plugins distribuídos apenas como arquivos pagos, sem código-fonte público, não são listados, porque esta plataforma não consegue verificar o conteúdo antes da compra.',
             'O uso de IA no desenvolvimento não afeta a listagem. As mesmas condições valem para todos os plugins, e não é preciso declarar o uso de IA.',
             'Esta plataforma não certifica segurança nem qualidade ao listar um plugin; por isso, verifique os plugins antes de usá-los.',
           ],
@@ -1869,7 +2028,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 'O repositório é público no GitHub e não está arquivado.',
-                'O GitHub detecta uma licença no repositório. Se o GitHub não mostrar licença, adicione um arquivo LICENSE.',
+                'A licença do código, na tag da versão, é aprovada pela OSI ou certificada como livre pela FSF. Esta plataforma usa a licença que o GitHub detecta no commit da tag. Plugins do OBS Studio se vinculam à libobs; por isso, escolha GPL-2.0-or-later ou uma licença compatível com ela.',
                 'O CMakeLists.txt da raiz referencia a libobs, por exemplo com find_package(libobs), e o repositório tem código-fonte em C ou C++.',
                 'A versão mais recente no GitHub tem os arquivos do plugin anexados. O GitHub registra o SHA-256 dos arquivos enviados a uma versão, e esta plataforma usa esse valor nas verificações.',
                 'A versão mais recente é uma versão imutável (immutable release). Ative as versões imutáveis nas configurações do repositório antes de publicá-la.',
@@ -1877,6 +2036,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'A versão não tem instaladores exe ou msi. Distribua as builds para Windows como arquivos zip.',
               ],
             },
+            'Vendas e apoio são tratados assim:',
+            {
+              list: [
+                'Vender ou receber doações em outro lugar: se você publica os mesmos arquivos gratuitamente no GitHub, também pode vendê-los em uma loja externa ou receber doações. Coloque sua página de apoio ou de venda em supportUrl no .soko-kun/config.json.',
+                'Liberar alguns recursos com pagamento: um plugin com recursos que o usuário libera pagando o autor pode ser listado se você declarar paidFeatures no .soko-kun/config.json.',
+                'Arquivos pagos sem código-fonte público: plugins distribuídos apenas como arquivos pagos, sem código-fonte público, não são listados, porque o conteúdo não pode ser verificado antes da compra.',
+              ],
+            },
+            'Escreva os links externos desde a primeira versão. Se uma versão posterior adicionar supportUrl, ou links no README para uma loja, uma página de apoio ou uma página de licença de materiais, essa versão aguarda a confirmação de um administrador. Enquanto isso, a versão listada antes continua listada.',
           ],
         },
         {
@@ -1907,7 +2075,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
               list: [
                 'not_admin: Você não tem permissão de administrador no repositório. Peça a um administrador para enviar.',
                 'private_repository, archived_repository: Torne o repositório público ou desarquive-o.',
-                'no_license: Adicione um arquivo LICENSE que o GitHub consiga detectar.',
+                'no_license: O GitHub não encontra um arquivo de licença no commit da tag da versão mais recente. Coloque na raiz do repositório um arquivo LICENSE com uma licença aprovada pela OSI ou certificada como livre pela FSF e publique uma nova versão. Plugins do OBS Studio se vinculam à libobs; por isso, use GPL-2.0-or-later ou uma licença compatível com ela.',
+                'license_unrecognized: O GitHub não consegue identificar o arquivo de licença. Deixe apenas o texto padrão da licença em LICENSE. Mova avisos de direitos autorais, avisos de terceiros e licenças de materiais para NOTICE ou o README e publique uma nova versão.',
+                'license_not_open: A licença não é aprovada pela OSI nem certificada como livre pela FSF. Esta plataforma lista apenas plugins com essas licenças. Mude a licença e publique uma nova versão.',
                 'not_obs_plugin: Faça o CMakeLists.txt da raiz referenciar a libobs.',
                 'no_release, no_verifiable_asset: Publique uma versão com os arquivos do plugin anexados.',
                 'duplicate: O repositório já está registrado. Abra a página dele pela busca.',
@@ -1943,17 +2113,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '.soko-kun/config.json',
           paragraphs: [
-            'Os autores podem declarar o nome de exibição e os sistemas operacionais suportados em .soko-kun/config.json. Coloque o arquivo na mesma pasta .soko-kun das imagens.',
-            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            'Em .soko-kun/config.json, os autores podem declarar o nome de exibição e os sistemas operacionais suportados, além de recursos pagos, serviços externos pagos, restrições dos materiais incluídos e uma página de apoio. Coloque o arquivo na mesma pasta .soko-kun das imagens.',
+            {
+              code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"],\n  "paidFeatures": false,\n  "paidServices": [],\n  "restrictedAssets": false,\n  "supportUrl": "https://github.com/sponsors/<account>"\n}',
+            },
             {
               list: [
                 'name: O nome de exibição, de 1 a 60 caracteres. Sem ele, esta plataforma mostra o nome do repositório.',
                 'os: Um array com windows, macos e linux. Com ele, esta plataforma lista os arquivos dos sistemas declarados e os arquivos cujo sistema não pode ser deduzido pelo nome, e oculta os arquivos deduzidos como de outro sistema. Sem ele, esta plataforma deduz o sistema pelos nomes dos arquivos.',
+                'paidFeatures: true se alguns recursos forem liberados mediante pagamento ao autor; caso contrário, false.',
+                'paidServices: Um array com os nomes dos serviços pagos que o usuário precisa contratar à parte, incluindo serviços para os quais o usuário fornece a própria chave de API paga. Até 5 nomes, de até 60 caracteres cada. Use [] se não houver nenhum.',
+                'restrictedAssets: true se materiais incluídos, como modelos, sons, fontes ou imagens, proibirem o uso comercial ou tiverem outras restrições; caso contrário, false. Informe a origem e a licença de cada material incluído no README ou em um arquivo NOTICE.',
+                'supportUrl: A URL https da sua página de apoio ou de venda. Só são aceitos booth.pm, gumroad.com, itch.io, patreon.com, ko-fi.com e seus subdomínios, e https://github.com/sponsors/<conta>.',
               ],
             },
-            'Os dois campos são opcionais.',
+            'Todos os campos são opcionais. Sem as quatro declarações, a página do plugin e as respostas do MCP mostram que o autor não as declarou.',
+            'As declarações são feitas pelo autor, e esta plataforma não as verifica. A obrigação "Não publique informações falsas", nos termos de uso, também se aplica a elas. A revisão aponta uma recomendação quando o README e as declarações não coincidem.',
             'Esta plataforma lê o arquivo na tag de cada nova versão; por isso, publique uma nova versão depois de alterar o arquivo.',
-            'Esta plataforma não lista uma versão cujo arquivo seja inválido ou que não tenha arquivos para os sistemas declarados.',
+            'Esta plataforma não lista uma versão cujo arquivo não seja JSON válido, cujo name ou os seja inválido, ou que não tenha arquivos para os sistemas declarados. Um valor inválido nas quatro declarações é ignorado e tratado como não declarado, sem impedir a listagem. list_my_plugins e o modo de verificação do submit_plugin o informam em notices.',
+            'Escreva supportUrl desde a primeira versão. Adicioná-lo em uma versão posterior faz essa versão aguardar a confirmação de um administrador.',
+            'Quando a versão listada não declara nenhum dos quatro campos, list_my_plugins retorna declarations_missing em notices. Isso não impede a listagem.',
           ],
         },
         {
@@ -1997,6 +2176,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'Consulta de malware: O SHA-256 de cada arquivo, publicado pelo GitHub, é consultado no MalwareBazaar, um banco de dados de malware conhecido. Os arquivos listados são consultados de novo regularmente.',
                 'Mudanças desde a versão listada: As mudanças da versão listada até a nova versão são verificadas com regras. Uma versão que corresponde a uma regra aguarda a confirmação de um administrador.',
                 'Revisão das práticas de desenvolvimento: Itens que os arquivos do repositório decidem, como actions fixadas e opções de build, são verificados por regras. Apenas os itens que exigem ler texto, como a explicação no README sobre os dados que o plugin envia, são avaliados por um LLM, com fatos calculados pelo catálogo. A revisão não lê todo o código-fonte: o catálogo procura no código o uso de APIs de rede e lê alguns arquivos de teste para um critério. O LLM recebe apenas os primeiros 32.768 caracteres do README, então explique no início do README os dados que o plugin envia. Instruções que desativam um recurso de segurança ou executam um comando baixado são verificadas no README, nas notas da versão e nos outros documentos do repositório, incluindo edições das notas da versão após a listagem. Após a listagem, o README do branch padrão também é verificado uma vez por dia; se surgir uma nova instrução, nenhuma versão do plugin é listada até que um administrador a confirme. Os critérios se baseiam em preocupações e recomendações publicadas por um desenvolvedor de plugins do OBS. Uma versão com um apontamento grave aguarda a confirmação de um administrador.',
+                'Licença: A licença que o GitHub detecta no commit da tag da versão deve ser aprovada pela OSI ou certificada como livre pela FSF, segundo a SPDX License List. Nenhum LLM é usado nessa verificação. A condição também vale para versões listadas antes de ela existir.',
               ],
             },
             'Os critérios da revisão são públicos no GitHub: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
@@ -2010,12 +2190,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'A consulta de malware detecta apenas ameaças já conhecidas pelo MalwareBazaar. Malwares novos ou direcionados podem não ser detectados; por isso, use os plugins com cuidado mesmo quando nada for detectado.',
             'O SHA-256 identifica o arquivo que o GitHub servia no momento do registro. Compare o SHA-256 do arquivo baixado com o valor mostrado aqui.',
+            'A verificação de licença considera apenas o tipo de licença que o GitHub detecta no arquivo LICENSE. Ela não verifica se as licenças das dependências e dos materiais incluídos são compatíveis com ela.',
+            'Recursos pagos, serviços externos pagos e restrições dos materiais incluídos são declarados pelo autor. Esta plataforma não os verifica. A revisão só encontra divergências com as declarações no que o README informa.',
           ],
         },
         {
           heading: 'Isenção de responsabilidade',
           paragraphs: [
             'O serviço é fornecido como está, sem garantia de qualquer tipo. A instalação de plugins é por sua conta e risco. Os autores de cada plugin são responsáveis por seu software.',
+            'A licença e as declarações exibidas aqui também não são uma garantia. A licença é o que o GitHub detectou, e as declarações são feitas pelo autor. Confira as condições de uso no texto da licença e no README de cada plugin.',
           ],
         },
       ],
@@ -2027,6 +2210,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Denúncias públicas',
           paragraphs: [
             'Informe dados incorretos ou problemas de política como issue no repositório do GitHub: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
+            'Informe aqui também declarações incorretas na página de um plugin: recursos pagos, serviços externos pagos, restrições dos materiais incluídos e a página de apoio.',
           ],
         },
         {
@@ -2168,6 +2352,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             'Plugin Soko-kun es un registro independiente y abierto de plugins de terceros para OBS Studio. Es un servicio no oficial que no tiene relación con OBS Project ni con OBS Forums.',
             'El registro no aloja archivos. Registra información de repositorios públicos de GitHub y enlaza a los archivos que los autores publican en GitHub Releases.',
             'Esta plataforma no aloja archivos; por eso, descarga los archivos directamente de GitHub.',
+            'Los archivos de los plugins se pueden descargar gratis desde las versiones públicas de GitHub. No se incluyen plugins que se distribuyen solo como archivos de pago, sin código fuente público.',
+            'La licencia en la página de un plugin, y si está aprobada por la OSI o certificada como libre por la FSF, es lo que esta plataforma verificó en la etiqueta de la versión incluida. Las funciones de pago, los servicios externos de pago, las restricciones de los materiales incluidos y la página de apoyo los declara el autor. Esta plataforma no verifica las declaraciones.',
           ],
         },
         {
@@ -2179,6 +2365,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             { code: 'codex mcp add plugin-soko-kun --url {{ORIGIN}}/mcp' },
             'Buscar y ver detalles funciona sin iniciar sesión en GitHub. Para enviar un repositorio, inicia sesión con GitHub desde el cliente MCP (en Claude Code, ejecuta /mcp; en Codex, ejecuta codex mcp login plugin-soko-kun). Esta plataforma en sí nunca obtiene acceso de escritura a tus repositorios de GitHub.',
             'Ejemplos: "Busca un plugin de pitch shift que funcione en Windows", "Registra el plugin de OBS de este repositorio de GitHub", "Revisa si la nueva versión de mi plugin está en la lista".',
+            'search_plugins acepta excludePaid y excludeRestrictedAssets. Con excludePaid en true, deja fuera los plugins que declaran funciones de pago o servicios externos de pago. Con excludeRestrictedAssets en true, deja fuera los plugins que declaran restricciones en los materiales incluidos. Ninguno de los dos deja fuera los plugins sin declaraciones, así que los resultados aún pueden incluir plugins con funciones de pago o materiales restringidos.',
           ],
         },
         {
@@ -2200,7 +2387,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 'El repositorio es público en GitHub y no está archivado.',
-                'GitHub detecta una licencia en el repositorio. Si GitHub no muestra una licencia, agrega un archivo LICENSE.',
+                'La licencia del código, en la etiqueta de la versión, está aprobada por la OSI o certificada como libre por la FSF. Esta plataforma usa la licencia que GitHub detecta en el commit de la etiqueta. Los plugins de OBS Studio se enlazan con libobs; por eso, elige GPL-2.0-or-later o una licencia compatible con ella.',
                 'El CMakeLists.txt de la raíz hace referencia a libobs, por ejemplo con find_package(libobs), y el repositorio tiene código fuente en C o C++.',
                 'La versión más reciente en GitHub tiene los archivos del plugin adjuntos. GitHub registra el SHA-256 de los archivos que subes a una versión, y esta plataforma usa ese valor en las revisiones.',
                 'La versión más reciente es una versión inmutable (immutable release). Activa las versiones inmutables en la configuración del repositorio antes de publicarla.',
@@ -2209,6 +2396,8 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'La versión pasa las revisiones automáticas. La página Seguridad describe las revisiones.',
               ],
             },
+            'Esta plataforma solo incluye archivos que se pueden descargar gratis desde las versiones públicas de GitHub. Se pueden incluir los plugins que publican los mismos archivos gratis en GitHub y además los venden o reciben donaciones en otro lugar, y los plugins que desbloquean algunas funciones cuando el usuario le paga al autor.',
+            'No se incluyen plugins que se distribuyen solo como archivos de pago, sin código fuente público, porque esta plataforma no puede revisar su contenido antes de la compra.',
             'Haber usado IA en el desarrollo no afecta la lista. Las mismas condiciones aplican a todos los plugins y no es necesario declarar el uso de IA.',
             'Esta plataforma no certifica la seguridad ni la calidad al incluir un plugin; por eso, revisa los plugins antes de usarlos.',
           ],
@@ -2236,7 +2425,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
             {
               list: [
                 'El repositorio es público en GitHub y no está archivado.',
-                'GitHub detecta una licencia en el repositorio. Si GitHub no muestra una licencia, agrega un archivo LICENSE.',
+                'La licencia del código, en la etiqueta de la versión, está aprobada por la OSI o certificada como libre por la FSF. Esta plataforma usa la licencia que GitHub detecta en el commit de la etiqueta. Los plugins de OBS Studio se enlazan con libobs; por eso, elige GPL-2.0-or-later o una licencia compatible con ella.',
                 'El CMakeLists.txt de la raíz hace referencia a libobs, por ejemplo con find_package(libobs), y el repositorio tiene código fuente en C o C++.',
                 'La versión más reciente en GitHub tiene los archivos del plugin adjuntos. GitHub registra el SHA-256 de los archivos que subes a una versión, y esta plataforma usa ese valor en las revisiones.',
                 'La versión más reciente es una versión inmutable (immutable release). Activa las versiones inmutables en la configuración del repositorio antes de publicarla.',
@@ -2244,6 +2433,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'La versión no incluye instaladores exe ni msi. Distribuye las compilaciones para Windows como archivos zip.',
               ],
             },
+            'Las ventas y el apoyo se tratan así:',
+            {
+              list: [
+                'Vender o recibir donaciones en otro lugar: si publicas los mismos archivos gratis en GitHub, también puedes venderlos en una tienda externa o recibir donaciones. Pon tu página de apoyo o de venta en supportUrl de .soko-kun/config.json.',
+                'Desbloquear algunas funciones con un pago: un plugin con funciones que el usuario desbloquea pagándole al autor se puede incluir si declaras paidFeatures en .soko-kun/config.json.',
+                'Archivos de pago sin código fuente público: no se incluyen plugins que se distribuyen solo como archivos de pago, sin código fuente público, porque su contenido no se puede revisar antes de la compra.',
+              ],
+            },
+            'Escribe los enlaces externos desde la primera versión. Si una versión posterior agrega supportUrl, o enlaces en el README a una tienda, una página de apoyo o una página de licencia de materiales, esa versión espera a que un administrador la confirme. Mientras tanto, la versión incluida antes sigue incluida.',
           ],
         },
         {
@@ -2274,7 +2472,9 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
               list: [
                 'not_admin: No tienes permiso de administrador en el repositorio. Pide a un administrador que lo envíe.',
                 'private_repository, archived_repository: Haz público el repositorio o desarchívalo.',
-                'no_license: Agrega un archivo LICENSE que GitHub pueda detectar.',
+                'no_license: GitHub no encuentra un archivo de licencia en el commit de la etiqueta de la versión más reciente. Coloca en la raíz del repositorio un archivo LICENSE con una licencia aprobada por la OSI o certificada como libre por la FSF y publica una nueva versión. Los plugins de OBS Studio se enlazan con libobs; por eso, usa GPL-2.0-or-later o una licencia compatible con ella.',
+                'license_unrecognized: GitHub no puede identificar el archivo de licencia. Deja solo el texto estándar de la licencia en LICENSE. Mueve los avisos de derechos de autor, los avisos de terceros y las licencias de materiales a NOTICE o al README y publica una nueva versión.',
+                'license_not_open: La licencia no está aprobada por la OSI ni certificada como libre por la FSF. Esta plataforma solo incluye plugins con esas licencias. Cambia la licencia y publica una nueva versión.',
                 'not_obs_plugin: Haz que el CMakeLists.txt de la raíz haga referencia a libobs.',
                 'no_release, no_verifiable_asset: Publica una versión con los archivos del plugin adjuntos.',
                 'duplicate: El repositorio ya está registrado. Abre su página desde la búsqueda.',
@@ -2310,17 +2510,26 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
         {
           heading: '.soko-kun/config.json',
           paragraphs: [
-            'Los autores pueden declarar el nombre visible y los sistemas operativos compatibles en .soko-kun/config.json. Coloca el archivo en la misma carpeta .soko-kun que las imágenes.',
-            { code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"]\n}' },
+            'En .soko-kun/config.json, los autores pueden declarar el nombre visible y los sistemas operativos compatibles, y también las funciones de pago, los servicios externos de pago, las restricciones de los materiales incluidos y una página de apoyo. Coloca el archivo en la misma carpeta .soko-kun que las imágenes.',
+            {
+              code: '{\n  "name": "Simple Mosaic",\n  "os": ["windows", "macos"],\n  "paidFeatures": false,\n  "paidServices": [],\n  "restrictedAssets": false,\n  "supportUrl": "https://github.com/sponsors/<account>"\n}',
+            },
             {
               list: [
                 'name: El nombre visible, de 1 a 60 caracteres. Si no lo indicas, esta plataforma muestra el nombre del repositorio.',
                 'os: Un arreglo con windows, macos y linux. Si lo indicas, esta plataforma incluye los archivos de los sistemas declarados y los archivos cuyo sistema no se puede deducir del nombre, y oculta los archivos que deduce que son de otro sistema. Si no lo indicas, esta plataforma deduce el sistema a partir de los nombres de los archivos.',
+                'paidFeatures: true si algunas funciones se desbloquean pagándole al autor; si no, false.',
+                'paidServices: Un arreglo con los nombres de los servicios de pago que el usuario debe contratar aparte, incluidos los servicios para los que el usuario aporta su propia clave de API de pago. Hasta 5 nombres de hasta 60 caracteres cada uno. Escribe [] si no hay ninguno.',
+                'restrictedAssets: true si los materiales incluidos, como modelos, sonidos, fuentes o imágenes, prohíben el uso comercial o tienen otras restricciones; si no, false. Indica el origen y la licencia de cada material incluido en el README o en un archivo NOTICE.',
+                'supportUrl: La URL https de tu página de apoyo o de venta. Solo se aceptan booth.pm, gumroad.com, itch.io, patreon.com, ko-fi.com y sus subdominios, y https://github.com/sponsors/<cuenta>.',
               ],
             },
-            'Ambos campos son opcionales.',
+            'Todos los campos son opcionales. Sin las cuatro declaraciones, la página del plugin y las respuestas del MCP muestran que el autor no las declaró.',
+            'Las declaraciones las hace el autor, y esta plataforma no las verifica. La obligación "No publiques información falsa" de los términos de uso también se aplica a ellas. La revisión señala una recomendación cuando el README y las declaraciones no coinciden.',
             'Esta plataforma lee el archivo en la etiqueta de cada nueva versión; por eso, publica una nueva versión después de cambiar el archivo.',
-            'Esta plataforma no incluye una versión cuyo archivo no es válido o que no tiene archivos para los sistemas declarados.',
+            'Esta plataforma no incluye una versión cuyo archivo no es JSON válido, cuyo name u os no es válido, o que no tiene archivos para los sistemas declarados. Un valor no válido en las cuatro declaraciones se ignora y se trata como no declarado, sin detener la inclusión. list_my_plugins y el modo de comprobación de submit_plugin lo informan en notices.',
+            'Escribe supportUrl desde la primera versión. Si lo agregas en una versión posterior, esa versión espera a que un administrador la confirme.',
+            'Cuando la versión incluida no declara ninguno de los cuatro campos, list_my_plugins devuelve declarations_missing en notices. Esto no detiene la inclusión.',
           ],
         },
         {
@@ -2364,6 +2573,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
                 'Consulta de malware: El SHA-256 de cada archivo, publicado por GitHub, se consulta en MalwareBazaar, una base de datos de malware conocido. Los archivos incluidos se vuelven a consultar con regularidad.',
                 'Cambios desde la versión incluida: Los cambios desde la versión incluida hasta la nueva versión se revisan con reglas. Una versión que coincide con una regla espera la confirmación de un administrador.',
                 'Revisión de prácticas de desarrollo: Los elementos que deciden los archivos del repositorio, como las actions fijadas y las opciones de compilación, se comprueban con reglas. Solo los elementos que requieren leer texto, como la explicación del README sobre los datos que envía el plugin, los evalúa un LLM, con hechos calculados por el catálogo. La revisión no lee todo el código fuente: el catálogo busca en el código el uso de APIs de red y lee algunos archivos de prueba para un criterio. El LLM recibe solo los primeros 32.768 caracteres del README, así que explica al principio del README los datos que envía el plugin. Las instrucciones que desactivan una función de seguridad o ejecutan un comando descargado se comprueban en el README, las notas de la versión y los otros documentos del repositorio, incluidas las ediciones de las notas de la versión después de publicarse. Después de publicarse, el README de la rama predeterminada también se comprueba una vez al día; si aparece una nueva instrucción, no se publica ninguna versión del plugin hasta que un administrador la confirme. Los criterios se basan en preocupaciones y recomendaciones que publicó un desarrollador de plugins de OBS. Una versión con una observación grave espera la confirmación de un administrador.',
+                'Licencia: La licencia que GitHub detecta en el commit de la etiqueta de la versión debe estar aprobada por la OSI o certificada como libre por la FSF, según la SPDX License List. Esta revisión no usa ningún LLM. La condición también se aplica a las versiones incluidas antes de que existiera.',
               ],
             },
             'Los criterios de la revisión son públicos en GitHub: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md',
@@ -2377,12 +2587,15 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'La consulta de malware solo detecta amenazas ya conocidas por MalwareBazaar. El malware nuevo o dirigido podría no detectarse; por eso, usa los plugins con cuidado aunque no haya detecciones.',
             'El SHA-256 identifica el archivo que GitHub entregaba al momento del registro. Compara el SHA-256 del archivo descargado con el valor que se muestra aquí.',
+            'La revisión de la licencia solo mira el tipo de licencia que GitHub detecta en el archivo LICENSE. No comprueba si las licencias de las dependencias y de los materiales incluidos son compatibles con ella.',
+            'Las funciones de pago, los servicios externos de pago y las restricciones de los materiales incluidos los declara el autor. Esta plataforma no los verifica. La revisión solo puede encontrar diferencias con las declaraciones en lo que indica el README.',
           ],
         },
         {
           heading: 'Descargo de responsabilidad',
           paragraphs: [
             'El servicio se ofrece tal cual, sin garantía de ningún tipo. Instalas plugins bajo tu propio riesgo. Los autores de cada plugin son responsables de su software.',
+            'La licencia y las declaraciones que se muestran aquí tampoco son una garantía. La licencia es lo que GitHub detectó, y las declaraciones las hace el autor. Revisa las condiciones de uso en el texto de la licencia y en el README de cada plugin.',
           ],
         },
       ],
@@ -2394,6 +2607,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Reportes públicos',
           paragraphs: [
             'Reporta información incorrecta o problemas de política como issue en el repositorio de GitHub: https://github.com/AllegroMoltoV/plugin-soko-kun/issues',
+            'Reporta aquí también las declaraciones incorrectas en la página de un plugin: funciones de pago, servicios externos de pago, restricciones de los materiales incluidos y la página de apoyo.',
           ],
         },
         {

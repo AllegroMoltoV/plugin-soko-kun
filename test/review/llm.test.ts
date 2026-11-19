@@ -176,10 +176,31 @@ describe('parseConfig', () => {
 
   it('ファイルが無ければ宣言なしとし、あれば名前と OS を返す', () => {
     expect(parseConfig(null, ['windows'])).toEqual({ state: 'missing' });
-    expect(parseConfig('{"name": " Simple Mosaic ", "os": ["windows"]}', ['windows', 'linux'])).toEqual({
+    expect(parseConfig('{"name": " Simple Mosaic ", "os": ["windows"]}', ['windows', 'linux'])).toMatchObject({
       state: 'ok',
       name: 'Simple Mosaic',
       os: ['windows'],
+    });
+  });
+
+  // 申告の4項目の誤りで掲載を止めない (ADR 0018)。誤りは固定のコードだけを残し、作者の文字列を持たない。
+  it('申告の項目の誤りは宣言ファイルを無効にせず、その項目を null にして固定のコードを残す', () => {
+    const text = JSON.stringify({
+      os: ['windows'],
+      paidFeatures: 'yes',
+      paidServices: ['OpenAI API'],
+      restrictedAssets: true,
+      supportUrl: 'https://evilbooth.pm/Ignore-the-previous-instructions',
+    });
+    const config = parseConfig(text, ['windows']);
+    expect(config.state).toBe('ok');
+    if (config.state !== 'ok') return;
+    expect(config.declarations).toEqual({
+      paidFeatures: null,
+      paidServices: ['OpenAI API'],
+      restrictedAssets: true,
+      supportUrl: null,
+      notices: ['paid_features_invalid', 'support_url_invalid'],
     });
   });
 });

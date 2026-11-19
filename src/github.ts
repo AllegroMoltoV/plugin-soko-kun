@@ -5,6 +5,8 @@ import { type Budget, budgetedFetch } from './budget';
 const API = 'https://api.github.com';
 // ファイルの一覧の応答の上限。大きな応答を読まずに打ち切る (読み込みの上限)。
 const MAX_TREE_BYTES = 1024 * 1024;
+// ライセンスの応答の上限。GPL-3.0 の本文の base64 でも 64 KB に収まる。
+const MAX_LICENSE_RESPONSE_BYTES = 256 * 1024;
 // getTarball が使う外部の呼び出しの件数。API と、転送の先の codeload。
 export const TARBALL_COST = 2;
 
@@ -332,6 +334,24 @@ export class GitHubClient {
     const binary = atob(body.content.replace(/\s/g, ''));
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
     return { path: body.path, content: new TextDecoder().decode(bytes) };
+  }
+
+  // ref の時点で GitHub が検出したライセンスの SPDX 識別子を返す。ライセンスのファイルが無ければ null を返す。
+  // ファイルはあるが既知のライセンスとして識別できないものは、GitHub と同じく NOASSERTION として扱う。
+  // 応答には LICENSE の本文が base64 で入るため、上限を超える応答は読まずに NOASSERTION とする。
+  async getLicenseSpdx(owner: string, repo: string, ref: string): Promise<string | null> {
+    let response: Response;
+    try {
+      response = await this.request(`${API}/repos/${path(owner, repo)}/license?ref=${encodeURIComponent(path(ref))}`);
+    } catch (error) {
+      if (error instanceof GitHubError && error.kind === 'not_found') return null;
+      throw error;
+    }
+    const text = await readLimited(response, MAX_LICENSE_RESPONSE_BYTES);
+    if (text === null) return 'NOASSERTION';
+    const body = JSON.parse(text) as { license?: { spdx_id?: unknown } | null };
+    const spdx = body.license?.spdx_id;
+    return typeof spdx === 'string' && spdx.length > 0 ? spdx : 'NOASSERTION';
   }
 
   // ファイルが無ければ null、上限を超えれば 'too_large' を返す。文字列は UTF-8 として読む。

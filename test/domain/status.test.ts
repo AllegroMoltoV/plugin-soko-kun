@@ -16,6 +16,7 @@ const legacy: ReleaseChecks = {
   immutable: false,
   diffState: 'skipped',
   configState: 'missing',
+  licenseState: 'passed',
   reviewState: 'done',
   reviewAttempts: 0,
   reviewSerious: 0,
@@ -27,6 +28,7 @@ const passing: ReleaseChecks = {
   immutable: true,
   diffState: 'passed',
   configState: 'ok',
+  licenseState: 'passed',
   reviewState: 'done',
   reviewAttempts: 1,
   reviewSerious: 0,
@@ -182,5 +184,24 @@ describe('releaseBlockers (新しい版の条件)', () => {
     expect(releaseBlockers(withChecks({ configState: 'no_declared_assets' }), clean)).toEqual([
       'config_no_declared_assets',
     ]);
+  });
+
+  // ライセンスの条件は、旧い版 (legacy) にも当て、管理者の承認でも解けない (ADR 0018)。
+  it('タグの時点のライセンスが OSI/FSF に無い版は、旧い版も管理者の承認があっても掲載しない', () => {
+    expect(releaseBlockers(withChecks({ licenseState: 'license_not_open', adminApproved: true }), clean)).toEqual([
+      'license_not_open',
+    ]);
+    const legacyWith = (licenseState: ReleaseChecks['licenseState']) => ({
+      ...older,
+      checks: { ...legacy, licenseState },
+    });
+    expect(releaseBlockers(legacyWith('no_license'), clean)).toEqual(['no_license']);
+    expect(releaseBlockers(legacyWith('pending'), clean)).toEqual(['license_pending']);
+    const result = computeStatus(
+      active,
+      [{ ...older, checks: { ...legacy, licenseState: 'license_unrecognized' } }],
+      lookupFrom({ 'sha256:old': 'not_found' }),
+    );
+    expect(result.status).toBe('pending');
   });
 });

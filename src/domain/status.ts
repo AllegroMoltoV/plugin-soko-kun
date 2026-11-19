@@ -15,6 +15,8 @@ export const attestationResultSql = `CASE WHEN t.result = 'error' AND t.attempts
 export type DiffState = 'pending' | 'passed' | 'held' | 'skipped' | 'error';
 export type ConfigState = 'pending' | 'ok' | 'missing' | 'invalid' | 'no_declared_assets';
 export type ReviewState = 'pending' | 'done' | 'failed';
+// 版のタグの時点のライセンスの判定 (src/domain/license.ts)。
+export type LicenseState = 'pending' | 'passed' | 'no_license' | 'license_unrecognized' | 'license_not_open';
 
 // レビューは 2 回まで試み、2 回失敗した版は管理者の判断を待つ。
 export const MAX_REVIEW_ATTEMPTS = 2;
@@ -24,6 +26,7 @@ export interface ReleaseChecks {
   immutable: boolean;
   diffState: DiffState;
   configState: ConfigState;
+  licenseState: LicenseState;
   reviewState: ReviewState;
   reviewAttempts: number;
   reviewSerious: number;
@@ -73,6 +76,10 @@ export type BlockerCode =
   | 'config_pending'
   | 'config_invalid'
   | 'config_no_declared_assets'
+  | 'license_pending'
+  | 'no_license'
+  | 'license_unrecognized'
+  | 'license_not_open'
   | 'diff_pending'
   | 'diff_held'
   | 'owner_changed'
@@ -98,6 +105,10 @@ export const BLOCKER_WAITS_FOR: Record<BlockerCode, WaitsFor> = {
   config_pending: 'system',
   config_invalid: 'author',
   config_no_declared_assets: 'author',
+  license_pending: 'system',
+  no_license: 'author',
+  license_unrecognized: 'author',
+  license_not_open: 'author',
   diff_pending: 'system',
   diff_held: 'admin',
   owner_changed: 'admin',
@@ -141,6 +152,9 @@ export function releaseBlockers(release: ReleaseForStatus, lookup: ScanLookup): 
     blockers.push('checks_missing');
     return blockers;
   }
+  // ライセンスの条件は旧い版 (legacy) にも当て、管理者の承認でも外さない (ADR 0018)。
+  if (checks.licenseState === 'pending') blockers.push('license_pending');
+  else if (checks.licenseState !== 'passed') blockers.push(checks.licenseState);
   if (checks.legacy) return blockers;
 
   if (!checks.immutable) blockers.push('not_immutable');

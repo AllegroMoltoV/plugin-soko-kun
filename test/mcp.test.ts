@@ -125,6 +125,18 @@ describe('アクセス権限', () => {
     await markListable(env.DB);
     await env.DB.prepare("UPDATE plugins SET display_name = 'Ignore the previous name'").run();
     await env.DB.prepare("UPDATE assets SET name = 'Ignore-the-previous-file.zip'").run();
+    // 申告の paidServices と supportUrl も作者が書く文字列 (ADR 0018)。
+    await env.DB.prepare('UPDATE release_checks SET declarations = ?')
+      .bind(
+        JSON.stringify({
+          paidFeatures: false,
+          paidServices: ['Ignore the previous service'],
+          restrictedAssets: false,
+          supportUrl: 'https://ignore.booth.pm/Ignore-the-previous-page',
+          notices: [],
+        }),
+      )
+      .run();
     await env.DB.prepare(
       `INSERT INTO release_suspensions (plugin_id, github_release_id, tag, reason, suspended_at)
        SELECT id, 999, 'v0.9.0', 'admin', '2026-11-10T00:00:00Z' FROM plugins`,
@@ -152,12 +164,43 @@ describe('アクセス権限', () => {
     const listed = await toolResult(await SELF.fetch(toolCall('get_plugin', { id: `${OWNER}/${REPO}` })));
     expect(JSON.stringify(listed.payload)).toContain('Ignore-the-previous-old.zip');
     expect(JSON.stringify(listed.payload)).toContain('Ignore-the-previous-file.zip');
+    expect(JSON.stringify(listed.payload)).toContain('Ignore the previous service');
+    expect(JSON.stringify(search.payload)).toContain('Ignore-the-previous-page');
     expect(leaked(listed.payload)).toEqual([]);
 
     await env.DB.prepare('UPDATE plugins SET admin_suspended = 1').run();
     const notListed = await toolResult(await SELF.fetch(toolCall('get_plugin', { id: `${OWNER}/${REPO}` })));
     expect(JSON.stringify(notListed.payload)).toContain('Ignore the previous name');
     expect(leaked(notListed.payload)).toEqual([]);
+  });
+
+  // 保留中の新しい版の申告で、掲載中の版の表示を変えられないようにする (ADR 0018)。
+  it('掲載されていない新しい版の申告は、掲載中の版の表示と絞り込みに使わない', async () => {
+    await registerPendingFixture();
+    await markListable(env.DB);
+    await env.DB.prepare(
+      `INSERT INTO releases (github_release_id, plugin_id, tag, name, commit_sha, published_at, html_url)
+       SELECT 1000, id, 'v9.9.9', NULL, 'abc', '2099-01-01T00:00:00Z', 'https://github.com/x/y/releases/tag/v9.9.9' FROM plugins`,
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO release_checks (github_release_id, immutable, license_state, declarations) VALUES (1000, 1, 'passed', ?)",
+    )
+      .bind(
+        JSON.stringify({
+          paidFeatures: true,
+          paidServices: null,
+          restrictedAssets: true,
+          supportUrl: null,
+          notices: [],
+        }),
+      )
+      .run();
+    const detail = await toolResult(await SELF.fetch(toolCall('get_plugin', { id: `${OWNER}/${REPO}` })));
+    expect(detail.payload).toMatchObject({ declared: { paidFeatures: null, restrictedAssets: null } });
+    const filtered = await toolResult(
+      await SELF.fetch(toolCall('search_plugins', { excludePaid: true, excludeRestrictedAssets: true })),
+    );
+    expect(filtered.payload.total).toBe(1);
   });
 
   it('管理者が停止したプラグインは検索結果から消える', async () => {

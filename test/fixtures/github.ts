@@ -87,6 +87,12 @@ export function githubHandlers(fixture: RepoFixture = {}, calls: string[] = []) 
       track('commit');
       return HttpResponse.json({ sha: '3f2a9c1000000000000000000000000000000000' });
     }),
+    // タグのコミットの時点のライセンス。fixture.license が null ならライセンスのファイルが無い。
+    http.get(`${base}/license`, () =>
+      fixture.license === null
+        ? new HttpResponse(null, { status: 404 })
+        : HttpResponse.json({ license: { spdx_id: fixture.license ?? 'GPL-2.0' } }),
+    ),
     http.get(`${base}/attestations/:digest`, () => {
       track('attestation');
       if (fixture.attestation === false) return new HttpResponse(null, { status: 404 });
@@ -108,6 +114,7 @@ export function releaseCheckHandlers() {
   const missing = () => new HttpResponse(null, { status: 404 });
   return [
     http.get(`${base}/contents/.soko-kun/config.json`, missing),
+    http.get(`${base}/license`, () => HttpResponse.json({ license: { spdx_id: 'GPL-2.0' } })),
     http.get(`${base}/git/trees/:ref`, () => HttpResponse.json({ tree: [], truncated: false })),
     http.get(`${base}/contents/:file`, missing),
     // タグのコミットの位置は、既定のブランチにあるものとして返す。差分の比較は 404。

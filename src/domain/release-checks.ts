@@ -19,6 +19,8 @@ import {
   testSources,
 } from '../review/rules';
 import { getPluginViewByInternalId } from './catalog';
+import { parseDeclarations, readDeclarations, type StoredDeclarations } from './declarations';
+import { licenseAtCommit } from './license';
 import { OS_VALUES } from './metadata';
 import { readReleaseNotesHits } from './release-notes';
 import { MAX_REVIEW_ATTEMPTS } from './status';
@@ -33,7 +35,8 @@ const MAX_TEST_SOURCES = 3;
 // ruleset の一覧 1 と詳細 MAX_RULESET_DETAILS、テストのソース MAX_TEST_SOURCES の合計。
 export const REVIEW_FILES_COST = 17 + MAX_RULESET_DETAILS + MAX_TEST_SOURCES;
 // 1 件の検査の外部呼び出しの上限。宣言ファイル 1、差分 1、タグのコミットの位置 1、レビューのファイルの収集、LLM 1 の合計。
-export const RELEASE_CHECK_COST = 4 + REVIEW_FILES_COST;
+// 4 件に、版のタグの時点のライセンスの取得の 1 件を足す。
+export const RELEASE_CHECK_COST = 5 + REVIEW_FILES_COST;
 const MAX_DIFF_CHARS = 24_000;
 const MAX_FILE_BYTES = 32 * 1024;
 // README は no-security-bypass と no-terminal-paste が全文を照合するため、大きな上限で読む。LLM には先頭だけを渡す
@@ -55,6 +58,7 @@ interface PendingRow {
   commit_sha: string;
   diff_state: string;
   config_state: string;
+  declarations: string | null;
   review_state: string;
   review_attempts: number;
   network_state: string;
@@ -71,7 +75,7 @@ export type ConfigResult =
   | { state: 'missing' }
   | { state: 'invalid' }
   | { state: 'no_declared_assets' }
-  | { state: 'ok'; name: string | null; os: string[] | null };
+  | { state: 'ok'; name: string | null; os: string[] | null; declarations: StoredDeclarations };
 
 // .soko-kun/config.json の判定。assetOs は、その版の配布物の OS (ソースの配布物は null)。
 export function parseConfig(text: string | 'too_large' | null, assetOs: Array<string | null>): ConfigResult {
@@ -103,6 +107,8 @@ export function parseConfig(text: string | 'too_large' | null, assetOs: Array<st
     state: 'ok',
     name: typeof name === 'string' ? name.trim() : null,
     os: Array.isArray(os) ? [...new Set(os as string[])].sort() : null,
+    // 申告の4項目の誤りは掲載を止めず、その項目を null にして注意に回す (ADR 0018)。
+    declarations: parseDeclarations(body as Record<string, unknown>),
   };
 }
 
@@ -113,7 +119,7 @@ export async function runReleaseChecks(env: Env, budget: Budget): Promise<number
   const networkDeadline = new Date(now.getTime() - NETWORK_WAIT_MS).toISOString();
   budget.takeD1Query();
   const row = await env.DB.prepare(
-    `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, r.tag, r.commit_sha, c.diff_state, c.config_state, c.review_state,
+    `SELECT c.github_release_id, r.plugin_id, p.owner, p.repo, r.tag, r.commit_sha, c.diff_state, c.config_state, c.declarations, c.review_state,
        c.review_attempts, c.network_state, c.network_hits, c.notes_hits, c.doc_hits, ${NETWORK_READY} AS network_ready
      FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id JOIN plugins p ON p.id = r.plugin_id
      WHERE c.legacy = 0 AND p.removed = 0 AND c.review_attempts < ? AND (c.diff_state = 'pending'
@@ -160,6 +166,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
     );
 
   // 宣言ファイル
+  let declarations: StoredDeclarations | null = readDeclarations(row.declarations);
   if (row.config_state === 'pending') {
     budget.takeD1Query();
     const assets = await env.DB.prepare('SELECT os FROM assets WHERE release_id = ?')
@@ -178,6 +185,12 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
       assets.results.map((asset) => asset.os),
     );
     update('config_state = ?', config.state);
+    // 版のタグの時点のライセンスを、宣言ファイルと同じ段で判定する。新しい版の行は最初の検査で必ずこの段を通る。
+    const license = await licenseAtCommit(github, row.owner, row.repo, row.commit_sha);
+    update('license_state = ?, license_spdx = ?', license.state, license.spdx);
+    // 申告は版ごとに保存し、掲載中の版の値を表示する。同じ起動のレビューにもこの値を渡す。
+    declarations = config.state === 'ok' ? config.declarations : null;
+    update('declarations = ?', declarations ? JSON.stringify(declarations) : null);
     if (config.state === 'ok') {
       statements.push(
         env.DB.prepare('UPDATE plugins SET display_name = ?, declared_os = ? WHERE id = ?').bind(
@@ -229,6 +242,7 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
     // リリースノートは同期の時点で照合してある。照合していない版 (この仕組みより前の版) は未設定のままにする。
     input.releaseNotesHits = readReleaseNotesHits(row.notes_hits);
     input.docScan = docScanForReview(row.network_state, row.doc_hits);
+    input.declarations = declarations;
     const outcome = await reviewRepository(env, budget, `${row.owner}/${row.repo}`, input, diff);
     if (outcome.kind === 'done') {
       const findings = outcome.findings;

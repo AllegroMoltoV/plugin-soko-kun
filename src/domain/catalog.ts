@@ -1,6 +1,7 @@
 // 検索と詳細表示のためのデータ読み出し。掲載状態はここで算出し、掲載中のものだけを一覧に出す。
 import type { Env } from '../env';
 import { detectLang, type TranslationLang } from '../translate';
+import { type Declarations, hasRestrictedAssets, isPaid, readDeclarations } from './declarations';
 import type { Category, Os } from './metadata';
 import {
   type AttestationResult,
@@ -10,6 +11,7 @@ import {
   type ConfigState,
   computeStatus,
   type DiffState,
+  type LicenseState,
   type PluginStatus,
   type ReleaseChecks,
   type ReleaseForStatus,
@@ -83,7 +85,12 @@ export interface PluginView {
   // 概要の原文の言語と、言語ごとの機械翻訳。翻訳も外部データとして扱う。
   summaryLang: TranslationLang | null;
   translations: Partial<Record<TranslationLang, string>>;
+  // 掲載中の版のタグの時点のライセンス。掲載中の版が無ければ登録のときの値。
   license: string;
+  // 掲載中の版のライセンスが、OSI の承認か FSF の自由の認定を持つ。倉庫くんが確かめた事実。
+  licenseOpen: boolean;
+  // 掲載中の版の宣言ファイルの申告。作者によるもので、運営者は確かめない。申告の無い版は null。
+  declarations: Declarations | null;
   category: Category;
   os: Os[];
   status: PluginStatus;
@@ -146,6 +153,9 @@ interface CheckRow {
   immutable: number;
   diff_state: DiffState;
   config_state: ConfigState;
+  license_state: LicenseState;
+  license_spdx: string | null;
+  declarations: string | null;
   review_state: ReviewState;
   review_attempts: number;
   review_serious: number;
@@ -315,12 +325,15 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
   }
 
   const checksByRelease = new Map<number, ReleaseChecks>();
+  const checkRowsByRelease = new Map<number, CheckRow>();
   for (const row of (checks?.results ?? []) as CheckRow[]) {
+    checkRowsByRelease.set(row.github_release_id, row);
     checksByRelease.set(row.github_release_id, {
       legacy: row.legacy === 1,
       immutable: row.immutable === 1,
       diffState: row.diff_state,
       configState: row.config_state,
+      licenseState: row.license_state,
       reviewState: row.review_state,
       reviewAttempts: row.review_attempts,
       reviewSerious: row.review_serious,
@@ -421,6 +434,16 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
       }
     }
     const listed = pluginReleases.find((release) => release.github_release_id === status.listedReleaseId);
+    const listedCheck = listed ? checkRowsByRelease.get(listed.github_release_id) : undefined;
+    const stored = readDeclarations(listedCheck?.declarations ?? null);
+    const listedDeclarations: Declarations | null = stored
+      ? {
+          paidFeatures: stored.paidFeatures,
+          paidServices: stored.paidServices,
+          restrictedAssets: stored.restrictedAssets,
+          supportUrl: stored.supportUrl,
+        }
+      : null;
     // 作者が OS を宣言していれば、宣言した OS の配布物だけを載せる。OS を推定できないソースの配布物は残す。
     const declaredOs = parseDeclaredOs(plugin.declared_os);
     const listedAssets = (listed ? (assetsByRelease.get(listed.github_release_id) ?? []) : []).filter(
@@ -438,7 +461,9 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
       summary: plugin.summary,
       summaryLang: plugin.summary ? detectLang(plugin.summary) : null,
       translations: translationsByPlugin.get(plugin.id) ?? {},
-      license: plugin.license_spdx,
+      license: listedCheck?.license_spdx ?? plugin.license_spdx,
+      licenseOpen: listedCheck?.license_state === 'passed',
+      declarations: listedDeclarations,
       category: plugin.category,
       os: [...new Set(listedAssets.map((asset) => asset.os).filter((os): os is Os => os !== null))].sort(),
       status: status.status,
@@ -496,6 +521,8 @@ export interface SearchQuery {
   keyword?: string;
   os?: Os;
   category?: Category;
+  excludePaid?: boolean;
+  excludeRestrictedAssets?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -510,6 +537,9 @@ export async function searchPlugins(env: Env, query: SearchQuery): Promise<{ tot
   const matched = listed
     .filter((view) => !query.os || view.os.includes(query.os))
     .filter((view) => !query.category || view.category === query.category)
+    // 申告による絞り込み。申告なし (null) のものは除かない (ADR 0018)。
+    .filter((view) => !query.excludePaid || !isPaid(view.declarations))
+    .filter((view) => !query.excludeRestrictedAssets || !hasRestrictedAssets(view.declarations))
     .filter((view) => {
       if (tokens.length === 0) return true;
       // 概要は原文に加えて機械翻訳も照合し、どの言語のキーワードでも見つかるようにする。

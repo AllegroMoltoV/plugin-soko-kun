@@ -1,6 +1,7 @@
 // 審査の基準と推奨のうち、ファイルを見れば機械的に決まる項目の判定 (docs/design/review-criteria.md)。
 // 同じ入力には同じ結果を返す純粋な関数にする。LLM には、ここで計算した事実を渡し、文章の意図を読む項目だけを判定させる。
 
+import type { Declarations } from '../domain/declarations';
 import type { RulesetSnapshot } from '../github';
 import { LLM_CRITERIA } from './criteria';
 import { MAX_HIT_FILE } from './diff-rules';
@@ -28,6 +29,8 @@ export interface RepositorySnapshot {
   docScan?: (DocScan & { note?: string }) | 'missing' | { missing: string };
   // 通信の API の検出の結果。null か未設定なら、検出していない (確認のモード、期限切れ、検出の失敗)。
   network?: NetworkScan | null;
+  // 宣言ファイルの申告。null なら宣言ファイルが無いか読めなかった。未設定なら渡していない。
+  declarations?: Declarations | null;
   // 有効な ruleset。未設定か readable が false なら、読めなかった。
   rulesets?: ({ readable: true } & RulesetSnapshot) | { readable: false };
 }
@@ -533,6 +536,18 @@ function clean(text: string): string {
 
 const NETWORK_WORDS = /\bAPI\b|api key|openai|upload|send|transmit|送信|外部/i;
 
+const NOTICE_FILE = /^(NOTICE|NOTICE\.(md|txt)|THIRD_PARTY_LICENSES(\.(md|txt))?|data\/licenses\/.+)$/i;
+
+// 申告の値。作者が書く paidServices の名前は短くして渡す。
+function declarationsFact(declarations: Declarations | null | undefined): string {
+  if (declarations === undefined) return 'Declarations in .soko-kun/config.json: not provided';
+  if (declarations === null) return 'Declarations in .soko-kun/config.json: none (no config.json, or it is not valid)';
+  const value = (v: unknown) => (v === null ? 'not declared' : JSON.stringify(v));
+  const services =
+    declarations.paidServices === null ? 'not declared' : JSON.stringify(declarations.paidServices.map(clean));
+  return `Declarations in .soko-kun/config.json: paidFeatures=${value(declarations.paidFeatures)}, paidServices=${services}, restrictedAssets=${value(declarations.restrictedAssets)}`;
+}
+
 // 本サービスがファイルの一覧と中身から計算した事実。LLM が自分で探す手間と思い込みを減らすため。
 export function computeFacts(snapshot: RepositorySnapshot, ruled: Finding[]): string {
   const lines: string[] = [];
@@ -566,6 +581,10 @@ export function computeFacts(snapshot: RepositorySnapshot, ruled: Finding[]): st
     lines.push('README: not present');
   }
   lines.push(networkFact(snapshot.network));
+  lines.push(declarationsFact(snapshot.declarations));
+  // 素材の出所とライセンスを書くファイル。中身は読まず、ファイルの一覧にあるかだけを渡す。
+  const notices = snapshot.paths.filter((path) => NOTICE_FILE.test(path)).slice(0, 10);
+  lines.push(`Notice files: ${notices.length > 0 ? notices.map(clean).join(', ') : 'none'}`);
   lines.push(`Results of the rule-based items: ${ruled.map((entry) => `${entry.id}=${entry.result}`).join(', ')}`);
   return lines.join('\n');
 }
