@@ -4,6 +4,14 @@ Criteria document: https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/do
 
 Plugin Soko-kun (配信プラグイン倉庫くん, https://soko-kun.allegromoltov.jp) is a registry of OBS Studio plugins that AI agents use through MCP. The author registers the repository once. After that, Plugin Soko-kun picks up each new GitHub release by itself, checks it, and lists it if it passes. The current conditions are on the submit page: https://soko-kun.allegromoltov.jp/submit?lang=en
 
+## What listing means for the author
+
+Before planning a plugin for Plugin Soko-kun, tell the author the following and confirm that it matches their intent. These rights come from the license, so the author cannot take them back for a published version, even by withdrawing the plugin later.
+
+> When your plugin is listed on this platform, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license. Income from sales is limited to selling or support outside this platform on that basis. If you want to earn only by selling the files, or to restrict commercial use, your plugin is not eligible for listing. If bundled assets restrict commercial use, declare restrictedAssets in .soko-kun/config.json. Without the declaration, the plugin is shown as OK for commercial use.
+
+If the author wants to sell the files only, or to restrict commercial use, stop and do not plan a listing on Plugin Soko-kun.
+
 ## Connect and sign in
 
 ```sh

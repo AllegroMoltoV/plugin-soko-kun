@@ -13,6 +13,14 @@ https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-cr
 
 The document is in Japanese and organizes criteria into sections by kind: listing conditions (`掲載の条件`), takeover signals (`乗っ取りの兆候`), review criteria (`審査の基準`), and recommendations (`推奨`). This skill names a criterion by its ID, such as `attestation`, and does not restate it. Read the criterion in that document when you need its exact wording, because the document can change after this skill was written.
 
+## Tell the author this first
+
+Before planning a plugin for Plugin Soko-kun, tell the author the following and confirm that it matches their intent. These rights come from the license, so the author cannot take them back for a published version, even by withdrawing the plugin later.
+
+> When your plugin is listed on this platform, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license. Income from sales is limited to selling or support outside this platform on that basis. If you want to earn only by selling the files, or to restrict commercial use, your plugin is not eligible for listing. If bundled assets restrict commercial use, declare restrictedAssets in .soko-kun/config.json. Without the declaration, the plugin is shown as OK for commercial use.
+
+If the author wants to sell the files only, or to restrict commercial use, stop and do not plan a listing on Plugin Soko-kun.
+
 ## Rules that apply to every stage
 
 ### Ask the author before writing to anything outside the working tree
