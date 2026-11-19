@@ -243,6 +243,18 @@ describe('Web', () => {
     }
   });
 
+  // 作者が登録するかを決める前提の文 (ADR 0018)。作者が意図しない商用利用に後から気づくことを防ぐため、最初の節より前に出す。
+  it('登録と掲載方針のページの 7 言語で、作者向けの最重要の文を最初の節より前に出す', async () => {
+    for (const lang of LANGS) {
+      for (const path of ['/submit', '/policy']) {
+        const html = await (await SELF.fetch(`${ORIGIN}${path}?lang=${lang}`)).text();
+        const box = html.indexOf('class="author-important"');
+        expect(box, `${path} ${lang}`).toBeGreaterThan(-1);
+        expect(box, `${path} ${lang}`).toBeLessThan(html.indexOf('<section'));
+      }
+    }
+  });
+
   // 連絡先を表示したページで言語を切り替えると、言語の一覧のリンクは GET の /contact を指す。
   it('GET の /contact は 404 にせず、アドレスを含まない連絡先のページを返す', async () => {
     const response = await SELF.fetch(`${ORIGIN}/contact?lang=ja`);

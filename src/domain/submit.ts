@@ -37,6 +37,10 @@ import {
 import { releaseNotesStatement } from './release-notes';
 import type { LicenseState } from './status';
 
+// 作者向けの最重要の文 (ADR 0018、依頼者 2026-11-19)。作者が登録するかを決める前提のため、submit_plugin の説明と確认のモードの結果の先頭に置く。音のプラグイン倉庫くんと同じ文にそろえる。
+export const AUTHOR_IMPORTANT =
+  'When your plugin is listed on this platform, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license. Income from sales is limited to selling or support outside this platform on that basis. If you want to earn only by selling the files, or to restrict commercial use, your plugin is not eligible for listing.';
+
 export const SUBMITS_PER_DAY = 10;
 
 // submit_plugin が返す理由のコード。作者向けの案内 (/submit) の 7 言語の一覧にすべて載せる (test/web.test.ts)。
@@ -534,6 +538,8 @@ export type CheckResult =
   | {
       ok: boolean;
       mode: 'check';
+      // 作者に必ず伝える文。conditions の前に置く。
+      important: string;
       conditions: Condition[];
       config: ConfigCheck;
       review: { status: 'done' | 'failed' | 'unavailable'; message?: string; resumesAt?: string } & ReviewSummary;
@@ -608,6 +614,7 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
     return {
       ok: evaluated.conditions.every((item) => item.result === 'passed'),
       mode: 'check',
+      important: AUTHOR_IMPORTANT,
       conditions: evaluated.conditions,
       // 申告の値はレビューに渡すためのもので、応答には含めない。
       config: (({ declarations: _declarations, ...rest }) => rest)(config),

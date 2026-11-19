@@ -211,6 +211,12 @@ table.info th { width: 8.5rem; background: var(--surface); font-weight: normal; 
 /* 作者の申告は、倉庫くんが確かめた事実と見分けられるよう、破線の枠にする。 */
 table.info.declared th, table.info.declared td { border-style: dashed; }
 .pill.declared { border-style: dashed; }
+.declared-text { margin: 0; }
+td > p { margin: 0 0 2px; }
+/* 作者向けの最重要の文。登録の判断の前提のため、ページの先頭で枠と太い左の線で目立たせる。 */
+.author-important { border: 2px solid var(--ink); border-left-width: 6px; background: var(--surface); padding: 8px 10px; margin: 8px 0 12px; }
+.author-important p { margin: 0; }
+.author-important .label { font-weight: bold; margin-bottom: 4px; }
 .files { list-style: none; padding: 0; margin: 0; }
 .files > li { border: 1px solid var(--line); background: var(--surface-2); padding: 6px 8px; margin-bottom: 6px; }
 .files .name { font-weight: bold; }

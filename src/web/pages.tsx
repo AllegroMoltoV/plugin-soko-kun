@@ -126,6 +126,21 @@ const Pricing: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => {
               {view.licenseOpen ? ` (${t.licenseOpen})` : null}
             </td>
           </tr>
+          {/* 商用利用は、確かめたコードのライセンスと、作者の申告の同梱素材とを分けて書く。どちらかだけでは商用利用の可否を言い切れないため。 */}
+          <tr>
+            <th scope="row">{t.commercialUse}</th>
+            <td>
+              {view.licenseOpen ? <p>{t.commercialCode}</p> : null}
+              <p class="declared-text">
+                {declared?.restrictedAssets === true
+                  ? t.commercialAssetsRestricted
+                  : declared?.restrictedAssets === false
+                    ? t.commercialAssetsNone
+                    : t.commercialAssetsUndeclared}
+                {(services?.length ?? 0) > 0 ? ` ${t.commercialServices}` : null}
+              </p>
+            </td>
+          </tr>
         </tbody>
       </table>
       <h3>{t.pricingDeclared}</h3>
@@ -731,7 +746,9 @@ export const StaticPage: FC<{
   anchorMcp: boolean;
   origin: string;
   authoritative: Lang;
-}> = ({ content, t, lang, path, anchorMcp, origin, authoritative }) => (
+  // 作者向けの最重要の文を、ページの先頭の枠に出す (/submit と /policy)。
+  authorImportant?: boolean;
+}> = ({ content, t, lang, path, anchorMcp, origin, authoritative, authorImportant }) => (
   <>
     <h1>{content.title}</h1>
     {lang !== authoritative ? (
@@ -739,6 +756,12 @@ export const StaticPage: FC<{
         {authoritative === 'ja' ? t.translationNoteJa : t.translationNote}{' '}
         <a href={withLang(path, authoritative)}>{authoritative === 'ja' ? t.japaneseVersion : t.englishVersion}</a>
       </p>
+    ) : null}
+    {authorImportant ? (
+      <div class="author-important" role="note">
+        <p class="label">{t.authorImportantLabel}</p>
+        <p>{t.authorImportant}</p>
+      </div>
     ) : null}
     {content.sections.map((section, index) => (
       <section id={section.id ?? (anchorMcp && index === 1 ? 'mcp' : undefined)}>

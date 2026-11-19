@@ -393,6 +393,7 @@ for (const key of PAGE_KEYS) {
           anchorMcp={key === 'about'}
           origin={c.env.ORIGIN}
           authoritative={AUTHORITATIVE[key]}
+          authorImportant={key === 'submit' || key === 'policy'}
         />
       </Layout>,
     );
