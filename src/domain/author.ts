@@ -386,6 +386,8 @@ const SYSTEM_WAIT_MINUTES: Partial<Record<BlockerCode, number>> = {
   checks_missing: 30,
   attestation_pending: 60,
   config_pending: 30,
+  // ライセンスは宣言ファイルと同じ段で判定する。
+  license_pending: 30,
   diff_pending: 30,
   review_pending: NETWORK_WAIT_MS / 60_000 + 30,
 };
