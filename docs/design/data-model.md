@@ -47,8 +47,8 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `created_at` | TEXT | NOT NULL | 登録日時 |
 | `updated_at` | TEXT | NOT NULL | 行の更新日時。同期のたびに進む。画面の「更新日」には使わない |
 | `last_synced_at` | TEXT | NOT NULL | 最後に同期した日時。同期の順序に使う |
-| `display_name` | TEXT | | `.soko-kun/config.json` の `name`。外部データ。NULL のときはリポジトリ名を表示する |
-| `declared_os` | TEXT | | `.soko-kun/config.json` の `os` を JSON の配列で保存した値。NULL のときは宣言が無い |
+| `display_name` | TEXT | | マイグレーション `0016` より前に保存した `.soko-kun/config.json` の `name`。以後は書かず、表示にも使わない。表示名は `release_checks.display_name` から取る |
+| `declared_os` | TEXT | | マイグレーション `0016` より前に保存した `.soko-kun/config.json` の `os`。以後は書かず、表示にも使わない。対応 OS は `release_checks.declared_os` から取る |
 | `release_workflow` | TEXT | | 初めて証明を検証できた版の、署名したワークフローのパス (例: `.github/workflows/push.yaml`) |
 | `owner_changed_at` | TEXT | | 同期で所有者の変更を検出した日時。値がある間は、まだ掲載していない新しい版を管理者の確認待ちにする。管理者が版を承認すると NULL に戻す ([ADR 0015](../decisions/0015-repository-rename-and-transfer.md)) |
 | `readme_state` | TEXT | | 掲載の後の既定のブランチの README の照合の基準。案内の型に当たった行の本文の SHA-256 (16 進) の JSON の配列か、README が上限を超えたことを示す `too_large`。NULL は未照合。本文は保存しない |
@@ -155,6 +155,8 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `license_state` | TEXT | NOT NULL、既定値 `pending` | 版のタグのコミットの時点のライセンスの判定。`pending`・`passed`・`no_license`・`license_unrecognized`・`license_not_open` のいずれか。マイグレーション `0015` の時点で保存済みの行には、版ごとに取得した値を書いた |
 | `license_spdx` | TEXT | | GitHub がタグのコミットで検出した SPDX 識別子。ライセンスのファイルが無ければ NULL。詳細ページと MCP に表示するライセンスは、掲載中の版のこの値 |
 | `declarations` | TEXT | | 宣言ファイルの申告の JSON (`{paidFeatures, paidServices, restrictedAssets, supportUrl, notices}`)。申告の無い項目は null。`notices` は誤った項目の固定のコードの配列。宣言ファイルの無い版、`config_state` が `ok` 以外の版、マイグレーション `0015` の時点で保存済みの版は NULL。表示には掲載中の版の値を使う。値は作者の申告で、外部データ |
+| `display_name` | TEXT | | その版の `.soko-kun/config.json` の `name`。外部データ。表示には掲載中の版の値を使い、掲載中の版が無い間はいちばん新しい版の値を使う。NULL のときはリポジトリ名を表示する。マイグレーション `0016` で、既存の行には `plugins.display_name` の値を写した |
+| `declared_os` | TEXT | | その版の `.soko-kun/config.json` の `os` を JSON の配列で保存した値。NULL のときは宣言が無い。表示名と同じく、掲載中の版の値を使う |
 | `review_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`done`・`failed` のいずれか |
 | `review_attempts` | INTEGER | NOT NULL、既定値 0 | レビューを試みた回数。AI Gateway の支出の上限、Workers AI の無料枠の不足、混雑は数えない |
 | `review_wait_until` | TEXT | | AI Gateway の支出の上限か Workers AI の無料枠の不足で断られたとき、次にレビューを試す日時 (1 時間後)。それまでレビューを行わない |
