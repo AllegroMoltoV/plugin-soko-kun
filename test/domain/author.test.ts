@@ -2,6 +2,7 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { listMyPlugins, nextCheck, resumeOf, versionState } from '../../src/domain/author';
+import { BLOCKER_WAITS_FOR, type BlockerCode } from '../../src/domain/status';
 import { submitPlugin } from '../../src/domain/submit';
 import { markListable } from '../fixtures/checks';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from '../fixtures/github';
@@ -185,6 +186,16 @@ describe('resumeOf', () => {
   it('支出の上限で review だけを待つときは、次に確かめる時刻をその時刻にする', () => {
     const now = at('2026-11-15T00:28:00Z');
     expect(nextCheck(['review_pending'], '2026-11-15T03:00:00.000Z', published, now)).toBe('2026-11-15T03:00:00.000Z');
+  });
+
+  // 理由のコードを足したときに上限の目安を書き忘れると、作者のエージェントに完了の目安が届かない (2026-11-19 license_pending)。
+  it('本サービスの処理を待つ理由には、どれも再開の目安がある', () => {
+    const systemCodes = (Object.keys(BLOCKER_WAITS_FOR) as BlockerCode[]).filter(
+      (code) => BLOCKER_WAITS_FOR[code] === 'system',
+    );
+    expect(systemCodes.filter((code) => resumeOf(code, null, published, at('2026-11-15T00:05:00Z')) === null)).toEqual(
+      [],
+    );
   });
 
   it('支出の上限などで待つときは、その時刻を返す', () => {
