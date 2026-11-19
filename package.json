@@ -31,11 +31,11 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.6",
-    "@cloudflare/vitest-plugin": "^1.6.0",
+    "@biomejs/biome": "^2.6.7",
+    "@cloudflare/vitest-plugin": "^1.8.1",
     "@cloudflare/workers-types": "^5.20261109.1",
     "@msw/cloudflare": "^0.2.0",
-    "msw": "^3.0.4",
+    "msw": "^3.0.5",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0",
     "wrangler": "^4.158.0"
