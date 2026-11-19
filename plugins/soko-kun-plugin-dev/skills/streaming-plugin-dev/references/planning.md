@@ -34,23 +34,7 @@ Have the plan challenged once by a reviewer without the conversation's context, 
 - Let the user enter secrets such as API keys in a masked field, and store them encrypted with the operating system's protection, such as DPAPI on Windows. During development, keep a test key in a temporary file outside the repository and delete it after testing. Check for leaks by counting occurrences of the key in logs and files without printing the key.
 - Enforce safety limits in code, not in prompts. For example: run a moderation check before sending content to an AI service, do not send when the check cannot run, and let the plugin delete only what it created itself.
 - For features that cost money while running, add an automatic stop after a set time, so that a plugin left running overnight does not keep charging the user.
-- Choose a license compatible with libobs, which is GPL-2.0-or-later, and with every dependency (`license-compatibility`). Plugin Soko-kun lists a version only if the license that GitHub detects at the commit of its release tag is approved by the OSI or certified as free by the FSF (`open-source-license`). GPL-2.0-or-later meets this.
-
-## Paid features and the listing
-
-Decide with the author how the plugin makes money, if at all, before writing code. Every listed version must be free to download from a public GitHub release, and its source must be public.
-
-- Free on GitHub, also sold or supported elsewhere: allowed. The same files are on GitHub for free, and the author sells them in an external store or accepts donations. Put the store or support page in `supportUrl` in `.soko-kun/config.json`.
-- Some features unlocked by paying the author: allowed. Declare `paidFeatures: true` in `.soko-kun/config.json`.
-- Paid files only, without public source: not listed. Plugin Soko-kun cannot check the contents before purchase.
-
-Also decide:
-
-- Whether users must subscribe to a paid external service, such as an AI API with their own key. Declare the services in `paidServices`, or `[]` for none.
-- Whether bundled assets, such as models, sounds, fonts, or images, restrict commercial use. Declare `restrictedAssets`, and plan to write the origin and license of each bundled asset in the README or a NOTICE file.
-- Which external links the README needs: a store, a support page, or an asset license page. Write them, and `supportUrl`, in the first release. Adding an external link in a later release holds that release for an administrator (`diff-external-link`).
-
-These declarations are made by the author, and Plugin Soko-kun shows them without verifying them. Its terms forbid listing false information, which covers the declarations. The review compares the README with the declarations (`pricing-declaration`). See [soko-kun.md](soko-kun.md) for the format.
+- Choose a license compatible with libobs, which is GPL-2.0-or-later, and with every dependency (`license-compatibility`).
 
 ## Feedback from the author
 

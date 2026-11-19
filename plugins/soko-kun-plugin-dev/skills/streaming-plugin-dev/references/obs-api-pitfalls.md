@@ -49,8 +49,6 @@ These problems appeared in published plugins. Most of them do not show up as err
 - Put the license text of every bundled dependency in `data/licenses/`, and list the dependencies and their licenses in the README (`license-notices`).
 - GitHub's automatic source archives do not include dependencies fetched at build time. If the license requires you to provide their source, publish a source archive that includes them.
 - For third-party models or binaries in the release files, write the upstream URL, version, hash, and license in the README or a document (`third-party-provenance`).
-- For every bundled asset, such as a model, sound, font, or image, write its origin and license in the README or a NOTICE file. If any of them restricts commercial use or has other restrictions, declare `"restrictedAssets": true` in `.soko-kun/config.json`. The review reports `pricing-declaration` when `restrictedAssets` is true but neither the README nor a notice file (`NOTICE`, `NOTICE.md`, `THIRD_PARTY_LICENSES`, or `data/licenses/`) describes the assets.
-- If the code adds a payment, a license key, or a paid external service, such as an AI API that needs the user's own key, declare `paidFeatures` or `paidServices` in `.soko-kun/config.json` to match (see [soko-kun.md](soko-kun.md)).
 
 ## Warnings
 
