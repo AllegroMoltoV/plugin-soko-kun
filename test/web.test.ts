@@ -52,6 +52,15 @@ describe('Web', () => {
     expect(html).toContain('入手は無料');
   });
 
+  // 無料のものに「入手は無料」と書くと留保に見える (依頼者 2026-11-19)。有料の申告が無ければ「無料」にする。
+  it('有料の申告の無いプラグインには「入手は無料」ではなく「無料」を付ける', async () => {
+    await register();
+    await markListable(env.DB);
+    const html = await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text();
+    expect(html).toContain('class="pill">無料<');
+    expect(html).not.toContain('入手は無料');
+  });
+
   it('スクリプトを許可しない CSP を付ける', async () => {
     const response = await SELF.fetch(`${ORIGIN}/?lang=en`);
     const csp = response.headers.get('Content-Security-Policy') ?? '';
