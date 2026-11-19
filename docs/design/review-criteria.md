@@ -33,8 +33,11 @@
 | `attestation` | リリースのすべての配布物に、build provenance の証明がある | 証明の署名を検証し、ソースのリポジトリがこのリポジトリ、ソースの参照が `refs/tags/<タグ>`、ソースのコミットがタグのコミット、署名したワークフローが記録したリリースのワークフローに一致する | スライド 16 枚目、Qiita のコメント、obs-backgroundremoval Issue 775 |
 | `immutable-release` | リリースが不変 (immutable) である | GitHub のリリースの API の `immutable` が true | obs-backgroundremoval Issue 775 |
 | `distribution-format` | 配布物に exe や msi のインストーラーが無い。Windows 向けは zip で配る | 配布物のファイル名の拡張子 | Qiita のコメント、obs-backgroundremoval Issue 832 |
+| `open-source-license` | コードのライセンスが、版のタグの時点で OSI の承認か FSF の自由の認定を持つ | GitHub がタグのコミットで検出した SPDX 識別子が、固定した版の SPDX License List で `isOsiApproved` か `isFsfLibre` を持つ。ライセンスのファイルが無ければ `no_license`、種類を識別できなければ `license_unrecognized`、集合に入らなければ `license_not_open` を返す | OBS Forums の Forum Resource and IP Policy、姉妹版の音のプラグイン倉庫くんの掲載の条件 |
 
 署名したワークフローは、初めて証明を検証できた版のものを記録します。以後の版で違うワークフローが署名していれば、証明の検証を失敗とします。
+
+`open-source-license` は、ほかの掲載の条件と違い、この基準を入れる前に掲載した版 (legacy) にも当て、管理者の承認でも外しません。判定の手順は [検査と同期](scanning.md) の「ライセンスの判定」に記載します。この条件を採った判断は [ADR 0018](../decisions/0018-free-and-open-listing.md) に記載します。
 
 ## 乗っ取りの兆候
 
@@ -102,6 +105,7 @@ LLM には、各項目の観点がリポジトリに当てはまれば満たす�
 | `plugin-name` | プラグインの名前とリポジトリ名に OBS を含めない | ルール (将来) | obs-backgroundremoval Issue 644、OBS Forums の Forum Resource and IP Policy |
 | `manifest-consistency` | `buildspec.json` と `data/manifest.json` の名前・版・ID・URL をそろえる | ルール (将来) | live-backgroundremoval-lite の指示 |
 | `crash-report-privacy` | クラッシュレポートの公開前に、個人情報が含まれないことを確かめさせる。Issue のテンプレートが無ければルールで満たさないとし、あれば LLM が中身を読む | LLM | obs-backgroundremoval の Issue テンプレート |
+| `pricing-declaration` | `.soko-kun/config.json` の申告の `paidFeatures`・`paidServices`・`restrictedAssets` を、README の記述と合わせる。README が課金・ライセンスキー・購読・有料の外部サービスに触れているのに `paidFeatures` と `paidServices` がそれを示さないとき、または `restrictedAssets` が真なのに README に素材の出所とライセンスの記述が無く、事実の行にも告知のファイル (`NOTICE`・`NOTICE.md`・`THIRD_PARTY_LICENSES`・`data/licenses/`) が無いときに満たさない。申告の値と告知のファイルの有無は事実の行として渡し、ファイルの中身は読まない | LLM | 2026-11-19 の依頼者の判断 ([ADR 0018](../decisions/0018-free-and-open-listing.md)) |
 | `resource-raii` | OBS の C API の資源を RAII で解放する | 判定しない | スライド 4 枚目と 10 枚目 |
 | `diagnostic-logging` | 失敗の原因を特定できるログを出す | 判定しない | スライド 11 枚目 |
 | `cpu-compatibility` | AVX2 などの命令を無条件に必須にしない。読んだ CMake のファイルに `/arch:AVX2`・`/arch:AVX512`・`-mavx2`・`-mavx512`・`-march=native` が無ければ満たす | ルール | Qiita の記事「たった３ヶ月で OBS のプラグインを開発し 1.5 万ダウンロードを達成できました！」 |

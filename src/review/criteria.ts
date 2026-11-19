@@ -44,6 +44,13 @@ export const CRITERIA: Criterion[] = [
     fix: 'Distribute the Windows build as a zip archive instead of an exe or msi installer, then publish a new release.',
   },
   {
+    id: 'open-source-license',
+    kind: 'condition',
+    judgedBy: 'rule',
+    title: 'The license at the release tag is approved by the OSI or certified as free by the FSF',
+    fix: 'Put a LICENSE file with a license approved by the OSI or certified as free by the FSF at the root of the repository, then publish a new release. OBS Studio plugins link with libobs, so use GPL-2.0-or-later or a license compatible with it.',
+  },
+  {
     id: 'diff-workflow-changed',
     kind: 'takeover',
     judgedBy: 'rule',
@@ -257,6 +264,15 @@ export const CRITERIA: Criterion[] = [
     viewpoint:
       'The issue templates for crash reports or logs ask users to check that no personal information is included. The facts list the issue templates.',
     fix: 'Add a checkbox to the crash report template that asks users to remove personal information.',
+  },
+  {
+    id: 'pricing-declaration',
+    kind: 'recommendation',
+    judgedBy: 'llm',
+    title: 'The declarations about paid features, paid services, and restricted assets agree with the README',
+    viewpoint:
+      'Compare the README with the declarations in the facts. Report not_met when the README mentions payment, a license key, a subscription, or a paid external service (for example, the user needs their own paid API key) but paidFeatures or paidServices does not declare it, or when the declarations say there is none. Also report not_met when restrictedAssets is true but the README does not state the origin and license of the bundled assets and the facts list no notice file. Report met when they agree, and unclear when the README is missing.',
+    fix: 'Declare paidFeatures, paidServices, and restrictedAssets in .soko-kun/config.json to match the README, and state the origin and license of each bundled asset in the README or a NOTICE file.',
   },
   {
     id: 'resource-raii',

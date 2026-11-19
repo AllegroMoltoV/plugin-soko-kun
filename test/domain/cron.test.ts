@@ -287,6 +287,10 @@ describe('runCron の新しい版の検査と同期の優先', () => {
         `${base}/rulesets`,
         redirected(() => HttpResponse.json([])),
       ),
+      http.get(
+        `${base}/license`,
+        redirected(() => HttpResponse.json({ license: { spdx_id: 'GPL-2.0' } })),
+      ),
     );
     const report = await runCron(env);
     expect(report.releaseChecksSkipped).toBe('budget');
@@ -300,9 +304,10 @@ describe('runCron の新しい版の検査と同期の優先', () => {
     await seedPlugins();
     const fail = () => new HttpResponse(null, { status: 500 });
     const base = 'https://api.github.com/repos/:owner/:repo';
-    // 同期の画像の取得 (.soko-kun の一覧) は失敗させず、検査が読む宣言ファイルと差分とファイルの一覧だけを失敗させる。
+    // 同期の画像の取得 (.soko-kun の一覧) は失敗させず、検査が読む宣言ファイルとライセンスと差分とファイルの一覧だけを失敗させる。
     const failing = [
       http.get(`${base}/contents/.soko-kun/config.json`, fail),
+      http.get(`${base}/license`, fail),
       http.get(`${base}/compare/:range`, fail),
       http.get(`${base}/git/trees/:ref`, fail),
       http.get(`${base}/rulesets`, fail),
@@ -639,6 +644,33 @@ describe('新しい版の検査の通信の検出の待ち', () => {
     await runReleaseChecks(env, new Budget());
     // テストの環境には Workers AI が無いため、レビューは失敗として 1 回に数える。レビューに進んだことの確認に使う。
     expect(await attempts()).toBe(1);
+  });
+
+  // 公開から 6 時間を過ぎた版では、宣言ファイルの判定とレビューが同じ起動で動く。保存前の申告をレビューに渡す (ADR 0018)。
+  it('宣言ファイルの判定とレビューが同じ起動で動くとき、その起動で解析した申告をレビューに渡す', async () => {
+    await registerFixture();
+    await env.DB.prepare("UPDATE release_checks SET diff_state = 'skipped'").run();
+    const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    await env.DB.prepare(`UPDATE releases SET published_at = '${old}'`).run();
+    const config = JSON.stringify({ paidFeatures: true, paidServices: ['OpenAI API'] });
+    network.use(
+      http.get('https://api.github.com/repos/:owner/:repo/contents/.soko-kun/config.json', () =>
+        HttpResponse.text(config),
+      ),
+      ...releaseCheckHandlers(),
+    );
+    const prompts: string[] = [];
+    const withAi = {
+      ...env,
+      AI: {
+        run: async (_model: string, input: unknown) => {
+          prompts.push(JSON.stringify(input));
+          throw new Error('AiError: 3046: Request timeout');
+        },
+      },
+    } as unknown as typeof env;
+    await runReleaseChecks(withAi, new Budget());
+    expect(prompts.join('\n')).toContain('paidFeatures=true');
   });
 });
 

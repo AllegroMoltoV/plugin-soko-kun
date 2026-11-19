@@ -1,6 +1,6 @@
 # データモデル
 
-D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0014_admin_notifications.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
+D1 のテーブルと、掲載状態の算出規則の仕様です。スキーマの正は `migrations/` 配下の SQL ファイルで、本文書は `migrations/0001_init.sql` から `0015_license_and_declarations.sql` までに対応します。算出規則の実装は `src/domain/status.ts` にあります。
 
 ## テーブルの一覧
 
@@ -146,12 +146,15 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | 列 | 型 | 制約 | 内容 |
 | --- | --- | --- | --- |
 | `github_release_id` | INTEGER | 主キー、`releases.github_release_id` を参照、親の削除で連鎖削除 | リリース ID |
-| `legacy` | INTEGER | NOT NULL、既定値 0 | 1 のとき、マイグレーション `0008` の時点で保存済みのリリース。追加の条件を当てない |
+| `legacy` | INTEGER | NOT NULL、既定値 0 | 1 のとき、マイグレーション `0008` の時点で保存済みのリリース。ライセンスの条件のほかは、追加の条件を当てない |
 | `immutable` | INTEGER | NOT NULL、既定値 0 | 1 のとき、GitHub のリリースの API の `immutable` が true |
 | `base_release_id` | INTEGER | | 差分の起点にした掲載中のリリース。初めて登録した版では NULL |
 | `diff_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`passed`・`held`・`skipped`・`error` のいずれか。`skipped` は起点が無いとき |
 | `diff_hits` | TEXT | | 当たった乗っ取りの兆候の ID とファイルの JSON。ファイルは差分の見出しから取ったパスで、200 文字までに切り詰める |
 | `config_state` | TEXT | NOT NULL、既定値 `pending` | `.soko-kun/config.json` の判定。`pending`・`ok`・`missing`・`invalid`・`no_declared_assets` のいずれか |
+| `license_state` | TEXT | NOT NULL、既定値 `pending` | 版のタグのコミットの時点のライセンスの判定。`pending`・`passed`・`no_license`・`license_unrecognized`・`license_not_open` のいずれか。マイグレーション `0015` の時点で保存済みの行には、版ごとに取得した値を書いた |
+| `license_spdx` | TEXT | | GitHub がタグのコミットで検出した SPDX 識別子。ライセンスのファイルが無ければ NULL。詳細ページと MCP に表示するライセンスは、掲載中の版のこの値 |
+| `declarations` | TEXT | | 宣言ファイルの申告の JSON (`{paidFeatures, paidServices, restrictedAssets, supportUrl, notices}`)。申告の無い項目は null。`notices` は誤った項目の固定のコードの配列。宣言ファイルの無い版、`config_state` が `ok` 以外の版、マイグレーション `0015` の時点で保存済みの版は NULL。表示には掲載中の版の値を使う。値は作者の申告で、外部データ |
 | `review_state` | TEXT | NOT NULL、既定値 `pending` | `pending`・`done`・`failed` のいずれか |
 | `review_attempts` | INTEGER | NOT NULL、既定値 0 | レビューを試みた回数。AI Gateway の支出の上限、Workers AI の無料枠の不足、混雑は数えない |
 | `review_wait_until` | TEXT | | AI Gateway の支出の上限か Workers AI の無料枠の不足で断られたとき、次にレビューを試す日時 (1 時間後)。それまでレビューを行わない |
@@ -260,6 +263,7 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 - すべての配布物について、MalwareBazaar の結果が確定である。
 - `release_suspensions` に記録されていない。
 - `plugins` の `readme_held` が 0 である。版の承認では解けず、`legacy` が 1 のリリースにも適用する。
+- `release_checks` の行があり、`license_state` が `passed` である。版の承認では解けず、`legacy` が 1 のリリースにも適用する ([ADR 0018](../decisions/0018-free-and-open-listing.md))。
 
 `release_checks` の `legacy` が 0 のリリースは、さらに次をすべて満たす必要があります。
 

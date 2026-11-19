@@ -207,6 +207,10 @@ details.shot[open] summary { display: none; }
 table.info { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
 table.info th, table.info td { border: 1px solid var(--line); padding: 3px 6px; text-align: left; vertical-align: top; }
 table.info th { width: 8.5rem; background: var(--surface); font-weight: normal; }
+.pricing h3 { font-size: 12px; margin: 8px 0 3px; }
+/* 作者の申告は、倉庫くんが確かめた事実と見分けられるよう、破線の枠にする。 */
+table.info.declared th, table.info.declared td { border-style: dashed; }
+.pill.declared { border-style: dashed; }
 .files { list-style: none; padding: 0; margin: 0; }
 .files > li { border: 1px solid var(--line); background: var(--surface-2); padding: 6px 8px; margin-bottom: 6px; }
 .files .name { font-weight: bold; }

@@ -14,6 +14,8 @@ import { CRITERIA_BY_ID, referenceOf } from '../review/criteria';
 import type { Finding } from '../review/llm';
 import { type ReviewSummary, reviewView } from './author';
 import { resetAttestationStatement, resetScanStatements } from './cron';
+import { CONFIG_FIX, NOTICE_TEXT, type StoredDeclarations } from './declarations';
+import { judgeLicense, LICENSE_FIX, licenseAtCommit } from './license';
 import {
   type Category,
   cmakeReferencesLibobs,
@@ -33,6 +35,7 @@ import {
   reviewRepository,
 } from './release-checks';
 import { releaseNotesStatement } from './release-notes';
+import type { LicenseState } from './status';
 
 export const SUBMITS_PER_DAY = 10;
 
@@ -44,11 +47,13 @@ export const SUBMIT_ERROR_CODES = [
   'not_admin',
   'private_repository',
   'archived_repository',
-  'no_license',
   'not_obs_plugin',
   'no_release',
   'no_verifiable_asset',
   'unsupported_tag',
+  'no_license',
+  'license_unrecognized',
+  'license_not_open',
   'not_immutable',
   'installer_not_allowed',
   'no_attestation',
@@ -120,11 +125,13 @@ export type ConditionCode =
   | 'not_admin'
   | 'private_repository'
   | 'archived_repository'
-  | 'no_license'
   | 'not_obs_plugin'
   | 'no_release'
   | 'no_verifiable_asset'
   | 'unsupported_tag'
+  | 'no_license'
+  | 'license_unrecognized'
+  | 'license_not_open'
   | 'not_immutable'
   | 'installer_not_allowed'
   | 'no_attestation';
@@ -142,6 +149,9 @@ interface Evaluated {
   release: GitHubRelease | null;
   assets: GitHubAsset[];
   etag: string | null;
+  // タグのコミットと、その時点のライセンスの判定。リリースがあり、タグの形を満たしたときだけ値を持つ。
+  commitSha?: string;
+  license?: { state: Exclude<LicenseState, 'pending'>; spdx: string | null };
 }
 
 // 1 回の登録で証明の有無を確かめる配布物の上限。外部呼び出しの予算に収めるため。
@@ -156,8 +166,17 @@ const MESSAGES: Record<ConditionCode, { message: string; fix: string }> = {
   private_repository: { message: 'The repository is private.', fix: 'Make the repository public, then submit again.' },
   archived_repository: { message: 'The repository is archived.', fix: 'Unarchive the repository, then submit again.' },
   no_license: {
-    message: 'GitHub does not detect a license for the repository.',
-    fix: 'Add a LICENSE file that GitHub can detect.',
+    message: 'GitHub finds no license file at the commit of the latest release tag.',
+    fix: LICENSE_FIX,
+  },
+  license_unrecognized: {
+    message: 'GitHub cannot identify the license file at the commit of the latest release tag.',
+    fix: 'Keep only the standard license text in LICENSE. Move copyright notes, third-party notices, and asset licenses to NOTICE or the README. Then publish a new release.',
+  },
+  license_not_open: {
+    message:
+      'The license is not approved by the OSI and not certified as free by the FSF. This platform lists only plugins under such licenses.',
+    fix: LICENSE_FIX,
   },
   not_obs_plugin: {
     message: 'The repository does not look like an OBS Studio plugin.',
@@ -191,6 +210,19 @@ const MESSAGES: Record<ConditionCode, { message: string; fix: string }> = {
 
 function criterionFix(id: string): string {
   return CRITERIA_BY_ID.get(id)?.fix ?? '';
+}
+
+// ライセンスの判定の結果を条件にする。合格は no_license の passed として返す。
+function licenseCondition(state: Exclude<LicenseState, 'pending'>): Condition {
+  return state === 'passed' ? { code: 'no_license', result: 'passed' } : condition(state, false);
+}
+
+// 確認のモードでリリースが無いときは、既定のブランチのライセンスで判定し、そのことを明記する。
+function licenseBeforeRelease(spdx: string | null): Condition {
+  const result = licenseCondition(judgeLicense(spdx));
+  const note =
+    'There is no release yet, so the license on the default branch was checked. The license at the release tag is checked after you publish.';
+  return { ...result, message: result.message ? `${result.message} ${note}` : note };
 }
 
 function condition(code: ConditionCode, passed: boolean): Condition {
@@ -245,9 +277,6 @@ async function evaluateConditions(
   if (done()) return evaluated;
   conditions.push(condition('archived_repository', !repo.archived));
   if (done()) return evaluated;
-  const license = repo.license?.spdx_id;
-  conditions.push(condition('no_license', Boolean(license) && license !== 'NOASSERTION'));
-  if (done()) return evaluated;
 
   const owner = repo.owner.login;
   const name = repo.name;
@@ -265,7 +294,10 @@ async function evaluateConditions(
   if (!published || !release) {
     // 確認のモードでは、リリースを要る残りの条件を未判定として直し方とともに返す。
     // 不変のリリースは公開の後に直せないため、作者が公開の前に条件を知れるようにする。
-    if (!stopOnFailure) conditions.push(...RELEASE_CONDITIONS.map(beforeRelease));
+    if (!stopOnFailure) {
+      conditions.push(licenseBeforeRelease(repo.license?.spdx_id ?? null));
+      conditions.push(...RELEASE_CONDITIONS.map(beforeRelease));
+    }
     return evaluated;
   }
   evaluated.release = release;
@@ -275,6 +307,12 @@ async function evaluateConditions(
   conditions.push(condition('no_verifiable_asset', assets.length > 0 && assets.length <= MAX_SUBMIT_ASSETS));
   if (done()) return evaluated;
   conditions.push(condition('unsupported_tag', TAG.test(release.tag_name)));
+  if (done()) return evaluated;
+  // ライセンスは、版の検査と同じく、タグのコミットの時点で判定する (ADR 0018)。
+  evaluated.commitSha = await asApp.getCommitSha(owner, name, release.tag_name);
+  const license = await licenseAtCommit(asApp, owner, name, evaluated.commitSha);
+  evaluated.license = license;
+  conditions.push(licenseCondition(license.state));
   if (done()) return evaluated;
   conditions.push(condition('not_immutable', release.immutable === true));
   if (done()) return evaluated;
@@ -367,8 +405,8 @@ async function validateAndStore(
 
     const owner = repo.owner.login;
     const name = repo.name;
-    const license = repo.license?.spdx_id as string;
-    const commitSha = await asApp.getCommitSha(owner, name, release.tag_name);
+    const commitSha = evaluated.commitSha ?? (await asApp.getCommitSha(owner, name, release.tag_name));
+    const license = evaluated.license?.spdx ?? (repo.license?.spdx_id as string);
     const summary = repo.description?.trim() || summarizeReadme((await asApp.getReadme(owner, name)) ?? '');
 
     const pluginId = `${owner}/${name}`.toLowerCase();
@@ -395,10 +433,10 @@ async function validateAndStore(
       env.DB.prepare(
         'INSERT INTO releases (github_release_id, plugin_id, tag, name, commit_sha, published_at, html_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ).bind(release.id, pluginId, release.tag_name, release.name, commitSha, release.published_at, release.html_url),
-      env.DB.prepare('INSERT INTO release_checks (github_release_id, immutable) VALUES (?, ?)').bind(
-        release.id,
-        release.immutable === true ? 1 : 0,
-      ),
+      // 登録の時点で判定したライセンスを書く。条件を満たさない版は登録の前に止めているため、ここでは passed になる。
+      env.DB.prepare(
+        'INSERT INTO release_checks (github_release_id, immutable, license_state, license_spdx) VALUES (?, ?, ?, ?)',
+      ).bind(release.id, release.immutable === true ? 1 : 0, evaluated.license?.state ?? 'pending', license),
       // 登録の時点の版のリリースノートも照合する。結果は新しい版の検査のレビューで使う。
       await releaseNotesStatement(env.DB, release.id, release.body),
     ];
@@ -442,10 +480,11 @@ export interface ConfigCheck {
   result: 'ok' | 'missing' | 'invalid' | 'no_declared_assets' | 'unchecked';
   message?: string;
   fix?: string;
+  // 申告の項目の誤り。掲載は止めない。固定のコードと文言だけを返す。
+  notices?: Array<{ code: string; message: string }>;
+  // レビューに渡す申告の値。応答には含めない。
+  declarations?: StoredDeclarations | null;
 }
-
-const CONFIG_FIX =
-  'Write {"name": "<display name, 1-60 characters>", "os": ["windows" | "macos" | "linux"]}. Both fields are optional. Commit it before you tag the release, because the catalog reads the file at the release tag.';
 
 // 既定のブランチの宣言ファイルの形を確かめる。宣言した OS の配布物の有無は、最新のリリースがあるときだけ確かめる。
 async function checkConfig(
@@ -466,7 +505,14 @@ async function checkConfig(
   }
   const assetOs = assets.length > 0 ? assets.map((asset) => inferOs(asset.name)) : [...OS_VALUES];
   const parsed = parseConfig(text, assetOs);
-  if (parsed.state === 'ok') return { result: 'ok' };
+  if (parsed.state === 'ok') {
+    const notices = parsed.declarations.notices.map((code) => ({ code, message: NOTICE_TEXT[code] }));
+    return {
+      result: 'ok',
+      ...(notices.length > 0 ? { notices, fix: CONFIG_FIX } : {}),
+      declarations: parsed.declarations,
+    };
+  }
   if (parsed.state === 'missing') {
     return {
       result: 'missing',
@@ -546,6 +592,8 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
             missing:
               'Checked by rules: the documents other than the README could not be checked in the check mode because this request ran out of its budget of GitHub API calls (the latest release has many files). The check after a release checks them.',
           };
+      // 宣言ファイルで解析した申告を、本審査と同じくレビューに渡す。
+      collected.declarations = config.result === 'unchecked' ? undefined : (config.declarations ?? null);
       const outcome = await reviewRepository(env, budget, `${repo.owner.login}/${repo.name}`, collected, null);
       if (outcome.kind === 'done') review = { findings: outcome.findings, unreadFiles: collected.unreadFiles };
       else unavailable = outcome.kind;
@@ -561,7 +609,8 @@ export async function checkPlugin(env: Env, submitter: Submitter, repositoryUrl:
       ok: evaluated.conditions.every((item) => item.result === 'passed'),
       mode: 'check',
       conditions: evaluated.conditions,
-      config,
+      // 申告の値はレビューに渡すためのもので、応答には含めない。
+      config: (({ declarations: _declarations, ...rest }) => rest)(config),
       review: {
         status: review ? 'done' : unavailable === 'quota' || unavailable === 'busy' ? 'unavailable' : 'failed',
         ...(unavailable === 'quota'

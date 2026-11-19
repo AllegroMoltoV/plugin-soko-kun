@@ -351,9 +351,10 @@ describe('ci-scenario-tests', () => {
 });
 
 describe('LLM に渡す情報', () => {
-  it('LLM が判定するのは、文章の意図を読む 2 項目だけ', () => {
+  it('LLM が判定するのは、文章の意図を読む 3 項目だけ', () => {
     expect(llmCriteriaFor(snapshot({}, ['.github/ISSUE_TEMPLATE/bug.yml'])).sort()).toEqual([
       'crash-report-privacy',
+      'pricing-declaration',
       'user-data-handling',
     ]);
   });
