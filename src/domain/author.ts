@@ -222,6 +222,7 @@ interface CheckRow {
   config_state: ConfigState;
   license_state: LicenseState;
   declarations: string | null;
+  display_name: string | null;
   review_state: ReviewState;
   review_attempts: number;
   review_wait_until: string | null;
@@ -279,6 +280,13 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
     (row) => row.github_release_id === listedId,
   )?.published_at;
 
+  // 作者向けの名前。掲載したことの無いプラグインは公開の表示がリポジトリ名になるため、作者には、いちばん新しい版の宣言の名前を返す。
+  // 公開の表示 (view.name) は、検査を通っていない版の名前を出さない (zkd)。
+  const newestRelease = ((releases?.results ?? []) as ReleaseRow[])[0];
+  const authorName =
+    view.status === 'pending' && newestRelease
+      ? (checkById.get(newestRelease.github_release_id)?.display_name ?? view.name)
+      : view.name;
   const versions = ((releases?.results ?? []) as ReleaseRow[])
     .filter((row) => includeOlder || !listedPublished || row.published_at >= listedPublished)
     .map((row) => {
@@ -343,7 +351,7 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
     publicStatus: view.status === 'listed' ? 'listed' : view.status === 'pending' ? 'not_listed' : view.status,
     listedVersion: view.status === 'listed' ? (view.listedRelease?.tag ?? null) : null,
     versions,
-    untrusted: { name: view.name },
+    untrusted: { name: authorName },
   };
 }
 

@@ -168,6 +168,11 @@ describe('アクセス権限', () => {
     expect(JSON.stringify(search.payload)).toContain('Ignore-the-previous-page');
     expect(leaked(listed.payload)).toEqual([]);
 
+    // 本番では、掲載した版には掲載の期間が記録される (recordListings)。停止の後は、最後に掲載していた版の表示名を出す。
+    await env.DB.prepare(
+      `INSERT INTO listing_periods (plugin_id, github_release_id, digest, tag, asset_name, started_at, ended_at)
+       SELECT plugin_id, github_release_id, 'sha256:listed', tag, 'listed.zip', '2026-11-12T00:00:00Z', '2026-11-13T00:00:00Z' FROM releases`,
+    ).run();
     await env.DB.prepare('UPDATE plugins SET admin_suspended = 1').run();
     const notListed = await toolResult(await SELF.fetch(toolCall('get_plugin', { id: `${OWNER}/${REPO}` })));
     expect(JSON.stringify(notListed.payload)).toContain('Ignore the previous name');
@@ -189,6 +194,28 @@ describe('アクセス権限', () => {
     const detail = await toolResult(await SELF.fetch(toolCall('get_plugin', { id: `${OWNER}/${REPO}` })));
     expect(JSON.stringify(detail.payload)).toContain('Listed Name');
     expect(JSON.stringify(detail.payload)).not.toContain('Pending Name');
+  });
+
+  // 停止したプラグインの公開のページに、検査を通っていない新しい版の名前を出さない (zkd)。乗っ取りの兆候で止めた版の名前が出るため。
+  it('停止したプラグインは、最後に掲載していた版の表示名を出し、新しい版の表示名を出さない', async () => {
+    await registerPendingFixture();
+    await markListable(env.DB);
+    await env.DB.prepare("UPDATE release_checks SET display_name = 'Listed Name'").run();
+    await env.DB.prepare(
+      `INSERT INTO listing_periods (plugin_id, github_release_id, digest, tag, asset_name, started_at, ended_at)
+       SELECT plugin_id, github_release_id, 'sha256:listed', tag, 'listed.zip', '2026-11-12T00:00:00Z', '2026-11-13T00:00:00Z' FROM releases`,
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO releases (github_release_id, plugin_id, tag, name, commit_sha, published_at, html_url)
+       SELECT 1002, id, 'v9.9.9', NULL, 'abc', '2099-01-01T00:00:00Z', 'https://github.com/x/y/releases/tag/v9.9.9' FROM plugins`,
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO release_checks (github_release_id, immutable, license_state, config_state, display_name, diff_state) VALUES (1002, 1, 'passed', 'ok', 'Takeover Name', 'held')",
+    ).run();
+    await env.DB.prepare('UPDATE plugins SET admin_suspended = 1').run();
+    const detail = await toolResult(await SELF.fetch(toolCall('get_plugin', { id: `${OWNER}/${REPO}` })));
+    expect(JSON.stringify(detail.payload)).toContain('Listed Name');
+    expect(JSON.stringify(detail.payload)).not.toContain('Takeover Name');
   });
 
   // 保留中の新しい版の申告で、掲載中の版の表示を変えられないようにする (ADR 0018)。
