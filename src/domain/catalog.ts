@@ -156,6 +156,8 @@ interface CheckRow {
   license_state: LicenseState;
   license_spdx: string | null;
   declarations: string | null;
+  display_name: string | null;
+  declared_os: string | null;
   review_state: ReviewState;
   review_attempts: number;
   review_serious: number;
@@ -445,7 +447,10 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
         }
       : null;
     // 作者が OS を宣言していれば、宣言した OS の配布物だけを載せる。OS を推定できないソースの配布物は残す。
-    const declaredOs = parseDeclaredOs(plugin.declared_os);
+    // 表示名と対応 OS は、掲載中の版の宣言ファイルの値を使う。掲載中の版が無い間 (初回の検査中など) は、いちばん新しい版の値を使う (8fh)。
+    const newest = [...pluginReleases].sort((a, b) => b.published_at.localeCompare(a.published_at))[0];
+    const shownCheck = listedCheck ?? (newest ? checkRowsByRelease.get(newest.github_release_id) : undefined);
+    const declaredOs = parseDeclaredOs(shownCheck?.declared_os ?? null);
     const listedAssets = (listed ? (assetsByRelease.get(listed.github_release_id) ?? []) : []).filter(
       (asset) => !declaredOs || asset.os === null || declaredOs.includes(asset.os),
     );
@@ -455,7 +460,7 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
       internalId: plugin.id,
       ownerChanged: plugin.owner_changed_at !== null,
       readmeHeld: plugin.readme_held === 1,
-      name: plugin.display_name ?? plugin.repo,
+      name: shownCheck?.display_name ?? plugin.repo,
       owner: plugin.owner,
       repo: plugin.repo,
       summary: plugin.summary,

@@ -191,15 +191,13 @@ async function checkOne(env: Env, budget: Budget, github: GitHubClient, row: Pen
     // 申告は版ごとに保存し、掲載中の版の値を表示する。同じ起動のレビューにもこの値を渡す。
     declarations = config.state === 'ok' ? config.declarations : null;
     update('declarations = ?', declarations ? JSON.stringify(declarations) : null);
-    if (config.state === 'ok') {
-      statements.push(
-        env.DB.prepare('UPDATE plugins SET display_name = ?, declared_os = ? WHERE id = ?').bind(
-          config.name,
-          config.os ? JSON.stringify(config.os) : null,
-          row.plugin_id,
-        ),
-      );
-    }
+    // 表示名と対応 OS も版ごとに保存し、掲載中の版の値を表示する。plugins の列に書くと、
+    // 確認待ちや条件を満たさない新しい版の値が、掲載中の版の表示に出るため (8fh)。
+    update(
+      'display_name = ?, declared_os = ?',
+      config.state === 'ok' ? config.name : null,
+      config.state === 'ok' && config.os ? JSON.stringify(config.os) : null,
+    );
   }
 
   // 差分の起点は、その時点の掲載対象のリリース。掲載中の版が無ければ、差分の検査を当てない。
