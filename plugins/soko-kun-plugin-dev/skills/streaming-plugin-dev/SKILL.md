@@ -65,6 +65,7 @@ Done when:
 - The requirements file lists the background, decisions (final, provisional, undecided), checked facts with sources, open questions with a recommended answer for each, the OBS and non-OBS phases, and completion criteria that include the listing on Plugin Soko-kun
 - The author has answered the open questions
 - The name is checked against GitHub and Plugin Soko-kun for duplicates
+- The license is approved by the OSI or certified as free by the FSF (`open-source-license`), and the paid model, paid external services, bundled assets, and support page are decided. Paid files without public source cannot be listed (see [references/planning.md](references/planning.md))
 
 ### 2. Scaffold
 
@@ -86,6 +87,7 @@ Done when:
 - Unit tests run in CI, and the CI log shows that they ran
 - The code builds without warnings on all three operating systems, because CI treats warnings as errors
 - If the plugin sends anything over the network, the README states where it goes, what it contains, and who pays for it (`user-data-handling`)
+- The README states the origin and license of each bundled asset, and `.soko-kun/config.json` declares `paidFeatures`, `paidServices`, and `restrictedAssets` to match the README (`pricing-declaration`)
 
 ### 4. Verify in OBS Studio
 
@@ -117,6 +119,8 @@ Done when:
 - `gh api repos/<owner>/<repo>/releases/latest --jq .immutable` prints `true`
 - `gh attestation verify <file> --repo <owner>/<repo>` passes for every downloaded release file
 - The release has no `.exe` or `.msi` file (`distribution-format`)
+- `gh api "repos/<owner>/<repo>/license?ref=<tag>" --jq .license.spdx_id` prints a license approved by the OSI or certified as free by the FSF, such as `GPL-2.0`
+- External links, such as `supportUrl` and store or support pages in the README, are in this release if the plugin will ever have them
 - The zip from the release works in a portable OBS
 
 ### 7. List on Plugin Soko-kun
@@ -126,7 +130,7 @@ Run `submit_plugin` in `check` mode, fix what it reports, register the plugin wi
 Done when:
 
 - `get_plugin` returns the plugin with `listed` status
-- `list_my_plugins` shows no blocker that waits for the author (`waitsFor: "author"`), and the author has seen the review findings
+- `list_my_plugins` shows no blocker that waits for the author (`waitsFor: "author"`), and the author has seen the review findings and the `notices`
 
 ## Templates
 
