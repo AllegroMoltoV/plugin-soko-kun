@@ -14,15 +14,17 @@ Searching and reading details work without signing in. `submit_plugin` and `list
 
 ## Conditions to meet
 
-The listing conditions in the criteria document are `attestation`, `immutable-release`, and `distribution-format`. In addition, `submit_plugin` refuses a repository that does not meet these:
+The listing conditions in the criteria document are `attestation`, `immutable-release`, `distribution-format`, and `open-source-license`. In addition, `submit_plugin` refuses a repository that does not meet these:
 
 - The repository is public on GitHub and not archived
-- GitHub detects a license for it
+- The license that GitHub detects at the commit of the latest release tag is approved by the OSI or certified as free by the FSF, according to the SPDX License List. Use GPL-2.0-or-later or a license compatible with it, because OBS Studio plugins link with libobs. The same check runs on every new version, and a version that fails it is not listed
 - The root `CMakeLists.txt` references libobs, for example with `find_package(libobs)`, and the repository has C or C++ sources
 - The latest release has the plugin files attached
 - Release tags use only letters, digits, `.`, `-`, and `_`, up to 100 characters
 
-Before the first release, check what does not depend on a release: `gh api repos/<owner>/<repo>` for visibility, archive state, and license, and `get_plugin` for an existing listing. `get_plugin` returns `not_found` both for an unregistered plugin and for a registered plugin whose first release has not passed the checks yet; `list_my_plugins` shows the latter to the author.
+Files must be free to download from public GitHub releases. A plugin may also be sold or accept donations elsewhere, and may unlock some features with payment if it declares `paidFeatures`. A plugin distributed only as paid files without public source is not listed, because its contents cannot be checked before purchase.
+
+Before the first release, check what does not depend on a release: `gh api repos/<owner>/<repo>` for visibility and archive state, `gh api "repos/<owner>/<repo>/license?ref=<commit>" --jq .license.spdx_id` for the license at the commit you will tag, and `get_plugin` for an existing listing. The license file should hold only the standard license text: when GitHub cannot identify it, `spdx_id` is `NOASSERTION` and the version is refused with `license_unrecognized`. Move copyright notes, third-party notices, and asset licenses to NOTICE or the README. `get_plugin` returns `not_found` both for an unregistered plugin and for a registered plugin whose first release has not passed the checks yet; `list_my_plugins` shows the latter to the author.
 
 ## Logo, description image, and `.soko-kun/config.json`
 
@@ -38,19 +40,37 @@ SVG is not accepted. Plugin Soko-kun reads these files at the tag of the latest 
 
 For the logo, draw about three shape-only SVG candidates, make a page that shows each at large and small sizes on light and dark backgrounds, let the author choose, and export the chosen one to PNG. Let the author record the GIF. If it exceeds the limit, reduce it only as much as needed, and check with the author that the scenes they want to show are still in it; trimming once cut out the scene that showed the plugin's main effect.
 
-`config.json` declares the display name and the operating systems to list:
+`config.json` declares the display name and the operating systems to list, and the author's declarations about paid features, paid external services, bundled assets, and the support page:
 
 ```json
 {
   "name": "Example Filter",
-  "os": ["windows"]
+  "os": ["windows"],
+  "paidFeatures": false,
+  "paidServices": ["OpenAI API"],
+  "restrictedAssets": false,
+  "supportUrl": "https://github.com/sponsors/<account>"
 }
 ```
 
 - `name`: 1 to 60 characters. Without it, the repository name is shown.
 - `os`: any of `windows`, `macos`, and `linux`. With it, only the files for those systems are listed. Without it, the systems are guessed from the file names.
+- `paidFeatures`: `true` if some features are unlocked by paying the author, otherwise `false`.
+- `paidServices`: the names of paid services that users must subscribe to separately, including services for which users bring their own paid API key. Up to 5 names of up to 60 characters each. `[]` declares that there are none.
+- `restrictedAssets`: `true` if bundled assets such as models, sounds, fonts, or images prohibit commercial use or have other restrictions, otherwise `false`.
+- `supportUrl`: an https URL of the author's support or store page. Only `booth.pm`, `gumroad.com`, `itch.io`, `patreon.com`, `ko-fi.com` and their subdomains, and `https://github.com/sponsors/<account>` are accepted.
 
-Both fields are optional. A release whose `config.json` is invalid, or that has no files for a declared system, is not listed.
+All fields are optional. A release whose `config.json` is not valid JSON, whose `name` or `os` is invalid, or that has no files for a declared system, is not listed. An invalid value of `paidFeatures`, `paidServices`, `restrictedAssets`, or `supportUrl` does not stop the listing: that field is treated as not declared, and `list_my_plugins` and check mode report it in `notices`. A field that is missing is shown as not declared by the author.
+
+The four declarations are shown on the plugin page and in `search_plugins` and `get_plugin`, marked as the author's declarations. Plugin Soko-kun does not verify them, and its terms forbid listing false information, which covers them. `search_plugins` can leave out plugins that declare paid features or paid services (`excludePaid`) or restricted assets (`excludeRestrictedAssets`); plugins without declarations stay in the results. The review compares the README with the declarations (`pricing-declaration`).
+
+Add these sections to the README when they apply:
+
+- Paid features: what is paid, and where to pay
+- External services: each paid service the plugin uses, what the user subscribes to, and who pays
+- Bundled assets: the origin and license of each model, sound, font, or image, and any restriction on commercial use
+
+Write `supportUrl` and every external link in the README, such as a store, a support page, or an asset license page, in the first release that will be listed. Adding one in a later release holds that release for an administrator (`diff-external-link`, see [release.md](release.md)).
 
 ## Check before releasing: `submit_plugin` in check mode
 
@@ -64,7 +84,7 @@ Do not write README instructions that remove the macOS quarantine attribute (`xa
 
 With the author's approval, call `submit_plugin` with the repository URL and a `category` that the author chose: `audio-filter`, `video-filter`, `source`, `transition`, `dock-ui`, `output`, or `other`. Registering is needed once per repository. It can be called up to 10 times in 24 hours.
 
-If it is refused, it returns a reason code and how to fix it. Common codes: `not_admin`, `private_repository`, `archived_repository`, `no_license`, `not_obs_plugin`, `no_release`, `no_verifiable_asset`, `not_immutable`, `installer_not_allowed`, `no_attestation`, `unsupported_tag`, `duplicate`. The fixes are on the submit page. Fix the cause and submit again.
+If it is refused, it returns a reason code and how to fix it. Common codes: `not_admin`, `private_repository`, `archived_repository`, `no_license`, `license_unrecognized`, `license_not_open`, `not_obs_plugin`, `no_release`, `no_verifiable_asset`, `not_immutable`, `installer_not_allowed`, `no_attestation`, `unsupported_tag`, `duplicate`. The fixes are on the submit page. Fix the cause and submit again.
 
 The plugin starts as waiting for checks. Checks run every 15 minutes, and a result can take about 30 minutes or more. The plugin does not appear in search until a release passes.
 
@@ -79,6 +99,10 @@ Plugin Soko-kun picks up new releases without a new submission. Call `list_my_pl
 | `held` | Waiting for an administrator | Tell the author the blockers and their `fix`. For `review_serious`, the author can fix the serious findings and publish a new release. To explain an intended change, open an issue at https://github.com/AllegroMoltoV/plugin-soko-kun/issues |
 | `rejected` | A listing condition failed | Fix the blockers and publish a new release |
 | `suspended` | Stopped by an administrator, or malware detected | Read the blockers and contact the administrator |
+
+The license blockers `no_license`, `license_unrecognized`, and `license_not_open` wait for the author and apply to every version, including versions listed before the license condition existed. `license_pending` means the license at the tag has not been checked yet.
+
+Each version also has `notices`, which do not stop the listing. They report a declaration in `.soko-kun/config.json` that was ignored because its value was invalid, and `declarations_missing` when the listed version declares none of `paidFeatures`, `paidServices`, `restrictedAssets`, and `supportUrl`. Tell the author about them. To fix one, change `.soko-kun/config.json` and publish a new release; adding `supportUrl` to a listed plugin holds that release for an administrator.
 
 Each blocker has `waitsFor`. Suggest fixes to the author only for blockers with `waitsFor: "author"`. Blockers with `"admin"` wait for an administrator and have no fixed deadline. Blockers with `"system"` carry a `resumesAt` time, the latest expected time; checks often finish much earlier.
 
