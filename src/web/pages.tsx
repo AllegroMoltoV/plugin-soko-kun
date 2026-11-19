@@ -100,6 +100,31 @@ export const Linkified: FC<{ text: string }> = ({ text }) => {
   );
 };
 
+// 料金と利用の条件のタグ (依頼者 2026-11-19)。入手は掲載の条件で必ず無料のため、全件に「無料」を付ける。
+// 商用利用は既定で「商用利用可」とし、作者が同梱素材の制限を申告したときだけ「素材に商用利用の制限あり」に替える。
+// 2つを同時に出すと、どちらが正しいか読み手が決められないため。有料の機能・サービスは申告が真のときだけ出す。
+const PricingTags: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => (
+  <>
+    <li>
+      <span class="pill">{t.tagFree}</span>
+    </li>
+    {hasRestrictedAssets(view.declarations) ? (
+      <li>
+        <span class="pill">{t.tagRestricted}</span>
+      </li>
+    ) : view.licenseOpen ? (
+      <li>
+        <span class="pill">{t.tagCommercial}</span>
+      </li>
+    ) : null}
+    {isPaid(view.declarations) ? (
+      <li>
+        <span class="pill">{t.tagPaid}</span>
+      </li>
+    ) : null}
+  </>
+);
+
 // 料金と利用の条件。倉庫くんが確かめた事実と、作者の申告を、見出しで分けて出す (ADR 0018)。
 // 申告の値と支援のリンクは作者が書くため、表示はエスケープし、リンクは宣言ファイルの判定で許可した宛先だけにする。
 const Pricing: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => {
@@ -124,6 +149,21 @@ const Pricing: FC<{ view: PluginView; t: Dict }> = ({ view, t }) => {
                 <span translate="no">{view.license}</span>
               </a>
               {view.licenseOpen ? ` (${t.licenseOpen})` : null}
+            </td>
+          </tr>
+          {/* 商用利用は、確かめたコードのライセンスと、作者の申告の同梱素材とを分けて書く。どちらかだけでは商用利用の可否を言い切れないため。 */}
+          <tr>
+            <th scope="row">{t.commercialUse}</th>
+            <td>
+              {view.licenseOpen ? <p>{t.commercialCode}</p> : null}
+              <p class="declared-text">
+                {declared?.restrictedAssets === true
+                  ? t.commercialAssetsRestricted
+                  : declared?.restrictedAssets === false
+                    ? t.commercialAssetsNone
+                    : t.commercialAssetsUndeclared}
+                {(services?.length ?? 0) > 0 ? ` ${t.commercialServices}` : null}
+              </p>
             </td>
           </tr>
         </tbody>
@@ -204,17 +244,7 @@ export const PluginCards: FC<{ items: PluginView[]; t: Dict; lang: Lang }> = ({ 
                 <span class="pill">{t.os[os]}</span>
               </li>
             ))}
-            {/* 作者の申告のタグは、申告が真のときだけ出す。申告なしは保証ではないため、何も出さない。 */}
-            {isPaid(view.declarations) ? (
-              <li>
-                <span class="pill declared">{t.tagPaid}</span>
-              </li>
-            ) : null}
-            {hasRestrictedAssets(view.declarations) ? (
-              <li>
-                <span class="pill declared">{t.tagRestricted}</span>
-              </li>
-            ) : null}
+            <PricingTags view={view} t={t} />
           </ul>
           <Summary view={view} t={t} lang={lang} showOriginal={false} />
           <p class="meta">
@@ -554,7 +584,9 @@ export const PluginDetail: FC<{ view: PluginView; t: Dict; lang: Lang; showOrigi
           <li>
             <StatusBadge view={view} t={t} />
           </li>
-        ) : null}
+        ) : (
+          <PricingTags view={view} t={t} />
+        )}
       </ul>
     </>
   );
@@ -731,7 +763,9 @@ export const StaticPage: FC<{
   anchorMcp: boolean;
   origin: string;
   authoritative: Lang;
-}> = ({ content, t, lang, path, anchorMcp, origin, authoritative }) => (
+  // 作者向けの最重要の文を、ページの先頭の枠に出す (/submit と /policy)。
+  authorImportant?: boolean;
+}> = ({ content, t, lang, path, anchorMcp, origin, authoritative, authorImportant }) => (
   <>
     <h1>{content.title}</h1>
     {lang !== authoritative ? (
@@ -739,6 +773,12 @@ export const StaticPage: FC<{
         {authoritative === 'ja' ? t.translationNoteJa : t.translationNote}{' '}
         <a href={withLang(path, authoritative)}>{authoritative === 'ja' ? t.japaneseVersion : t.englishVersion}</a>
       </p>
+    ) : null}
+    {authorImportant ? (
+      <div class="author-important" role="note">
+        <p class="label">{t.authorImportantLabel}</p>
+        <p>{t.authorImportant}</p>
+      </div>
     ) : null}
     {content.sections.map((section, index) => (
       <section id={section.id ?? (anchorMcp && index === 1 ? 'mcp' : undefined)}>
