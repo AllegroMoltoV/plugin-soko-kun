@@ -13,10 +13,14 @@ mkdir -p "${work}/src" "${work}/bin"
 printf 'curl_easy_init(); // \x93x\x94\n' > "${work}/src/legacy.cpp"
 # NUL を含むファイルは、-I でバイナリとして読まない。現在の動作を確かめるもので、望ましい挙動として固定する意図ではない。
 printf '\x00\x01curl_easy_init\x00' > "${work}/bin/blob.dat"
+# ファイル名に : を含むファイル。grep の出力を最初の : で分けると、行番号の欄を作者が決められる。
+# a:null:b.cpp は行番号が null になって受け口に捨てられ、a:x:b.cpp は jq の --argjson が失敗して検出が止まる。
+printf 'curl_easy_init();\n' > "${work}/src/a:null:b.cpp"
+printf 'curl_easy_init();\n' > "${work}/src/a:x:b.cpp"
 
 result="$(bash "${script}" "${work}")"
 actual="$(jq -c '[.hits[] | {file, line, api}]' <<< "${result}")"
-expected='[{"file":"src/legacy.cpp","line":1,"api":"libcurl"}]'
+expected='[{"file":"src/a:null:b.cpp","line":1,"api":"libcurl"},{"file":"src/a:x:b.cpp","line":1,"api":"libcurl"},{"file":"src/legacy.cpp","line":1,"api":"libcurl"}]'
 if [ "${actual}" != "${expected}" ]; then
   echo "scan-network.sh: expected ${expected}, got ${actual}" >&2
   echo "locale: LANG=${LANG:-unset} LC_ALL=${LC_ALL:-unset}" >&2
