@@ -10,7 +10,7 @@
 //   npm run admin -- approve-release <owner/repo> <tag> [--remote]
 //   npm run admin -- approve-readme <owner/repo> [--remote]
 //   npm run admin -- suspend-release <owner/repo> <tag> "<告知の文>" [--remote]
-//   npm run admin -- retry-attestations <owner/repo> <tag> [--remote]
+//   npm run admin -- retry-attestations <owner/repo> <tag> [--include-failed] [--remote]
 // --remote を付けないときはローカルの D1 を更新する。<owner/repo> は現在の名前と登録したときの名前のどちらでもよい。
 // 手順と表示の意味は docs/operations/suspend.md と docs/operations/incident-response.md に記載している。
 import { spawnSync } from 'node:child_process';
@@ -28,14 +28,15 @@ function fail(message) {
 
 const args = process.argv.slice(2);
 const remote = args.includes('--remote');
-const [command, rawId, reason, extra] = args.filter((a) => a !== '--remote');
+const includeFailed = args.includes('--include-failed');
+const [command, rawId, reason, extra] = args.filter((a) => a !== '--remote' && a !== '--include-failed');
 const USAGE =
   'usage: admin <suspend|resume|show|set-category|hide-images|show-images> <owner/repo> [reason|category] [--remote]\n' +
   '       admin pending [--remote]\n' +
   '       admin approve-release <owner/repo> <tag> [--remote]\n' +
   '       admin approve-readme <owner/repo> [--remote]\n' +
   '       admin suspend-release <owner/repo> <tag> "<note>" [--remote]\n' +
-  '       admin retry-attestations <owner/repo> <tag> [--remote]';
+  '       admin retry-attestations <owner/repo> <tag> [--include-failed] [--remote]';
 if (!command || (command !== 'pending' && !rawId)) fail(USAGE);
 
 const id = (rawId ?? '').toLowerCase();
@@ -119,10 +120,16 @@ if (command === 'suspend') {
          SELECT tag, reason, note, suspended_at FROM release_suspensions WHERE github_release_id = ${releaseOf(reason)};`;
 } else if (command === 'retry-attestations') {
   // 試行を使い切った証明の検証 (error で 5 回、src/domain/status.ts の MAX_ATTESTATION_ATTEMPTS) を、検証待ちに戻す。
-  // 原因 (配布物の取得の失敗など) を確かめてから使う。次の verify.yaml の起動で検証し直す。
+  // 原因 (配布物の取得の失敗、GitHub や Sigstore の障害など) を確かめてから使う。次の verify.yaml の起動で検証し直す。
+  // --include-failed を付けると、証明が無い・照合に失敗した (no_attestation、verification_failed) として作者の待ちになった検証も戻す。
+  // 一時的な障害を本物の失敗と取り違えたときに戻せるようにするため。検証し直すだけなので、正しい証明の無い配布物は同じ結果に戻る。
+  // ハッシュやリポジトリ ID の不一致は配布物とリポジトリの事実なので戻さない。
   if (!reason || !TAG.test(reason)) fail('a release tag is required');
+  const retried = includeFailed
+    ? `(result = 'error' OR (result = 'failed' AND reason IN ('no_attestation', 'verification_failed')))`
+    : `result = 'error'`;
   sql = `UPDATE attestation_checks SET result = 'pending', attempts = 0
-           WHERE result = 'error' AND github_asset_id IN (SELECT github_asset_id FROM assets WHERE release_id = ${releaseOf(reason)});
+           WHERE ${retried} AND github_asset_id IN (SELECT github_asset_id FROM assets WHERE release_id = ${releaseOf(reason)});
          SELECT a.name, t.result, t.attempts, t.reason FROM attestation_checks t JOIN assets a ON a.github_asset_id = t.github_asset_id
            WHERE a.release_id = ${releaseOf(reason)};`;
 } else {

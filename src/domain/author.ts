@@ -130,7 +130,7 @@ const BLOCKER_TEXT: Record<BlockerCode, { message: string; fix: string; criterio
   },
   attestation_retries_exhausted: {
     message:
-      'The build provenance attestations could not be verified after several attempts, for example because a file could not be downloaded. An administrator checks them and retries. The review has no fixed schedule.',
+      'The build provenance attestations could not be verified after several attempts, for example because a file could not be downloaded or GitHub or Sigstore was temporarily unavailable. An administrator checks them and retries. The review has no fixed schedule.',
     fix: 'No action is needed. If the release files were removed or replaced, publish a new release.',
   },
   config_pending: { message: 'The .soko-kun/config.json check has not run yet.', fix: 'No action is needed.' },
