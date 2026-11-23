@@ -382,6 +382,10 @@ export const SideCommon: FC<{
       <p>
         <a href={withLang('/about#mcp', lang)}>{t.sideAgentLink}</a>
       </p>
+      <p>{t.sideAgentBuild}</p>
+      <p>
+        <a href="/llms.txt">{t.sideAgentLlms}</a>
+      </p>
     </SideSection>
     <SideSection title={t.sideListingTitle} collapsible={collapsible}>
       <ul>

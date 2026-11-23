@@ -164,6 +164,7 @@ app.get('/llms.txt', (c) => {
 - The OBS Forums resource policy (updated July 29, 2026) does not accept resources written entirely or largely with AI coding tools. This registry lists plugins under the same conditions whether or not AI was used.
 - When a plugin is listed, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license (approved by the OSI or certified as free by the FSF). Paid-only distributions without public source are not listed.
 - Video walkthrough: https://youtu.be/fHonQmddp7A
+- Article: https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589
 
 ## MCP
 

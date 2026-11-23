@@ -19,7 +19,7 @@ claude plugin install soko-kun-plugin-dev@plugin-soko-kun
 
 The OBS Forums [resource policy](https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/) (updated July 29, 2026) does not accept resources written entirely or largely with AI coding tools. Plugin Soko-kun lists plugins under the same conditions whether or not AI was used. When a plugin is listed, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license.
 
-Video: [Build & publish an OBS Studio plugin with AI](https://youtu.be/fHonQmddp7A)
+Video: [Build & publish an OBS Studio plugin with AI](https://youtu.be/fHonQmddp7A) / Article: [Build & Publish OBS Plugins with AI — Plugin Soko-kun](https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589)
 
 ### Background
 
@@ -94,7 +94,7 @@ claude plugin install soko-kun-plugin-dev@plugin-soko-kun
 
 OBS Forums の[掲載の規約](https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/) (2026 年 7 月 29 日更新) は、全部または大部分を AI のコーディングツールで書いたものを掲載しません。配信プラグイン倉庫くんは、AI の使用の有無にかかわらず同じ条件で掲載します。掲載すると、プラグインのファイルは誰でも GitHub から無料で入手でき、コードはライセンスの条件にしたがって誰でも商用利用・再配布できます。
 
-動画: [AI で OBS Studio のプラグインを作って公開する](https://youtu.be/fHonQmddp7A)
+動画: [AI で OBS Studio のプラグインを作って公開する](https://youtu.be/fHonQmddp7A) / 記事 (英語): [Build & Publish OBS Plugins with AI — Plugin Soko-kun](https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589)
 
 ### 背景
 
@@ -154,6 +154,7 @@ Claude Code のセッションの中では、`/plugin marketplace add AllegroMol
 
 ## 更新履歴
 
+- 0.3.8 (2026-11-23): Medium の紹介記事へのリンクを、README と登録のページと /llms.txt に足しました。トップページの横の欄「AI エージェントから使う」に、OBS のプラグインを作って公開したいときはサイトの URL を AI エージェントに読ませればよいことと、/llms.txt へのリンクを足しました。
 - 0.3.7 (2026-11-23): AI で OBS のプラグインを作る人が倉庫くんを見つけやすくしました。README の冒頭と登録のページに、Claude Code のスキルの導入、OBS Forums の規約が AI で書いたものを掲載しないのに対し倉庫くんは AI の使用の有無にかかわらず同じ条件で掲載すること、紹介の動画を足しました。サイトの説明文に Claude Code で作って掲載できることを足し、AI エージェント向けの案内 /llms.txt を置きました。
 - 0.3.6 (2026-11-19): 停止したプラグインと掲載を終えたプラグインのページで、最後に掲載していた版の表示名と対応 OS を出すようにしました。0.3.5 では、検査を通っていない新しい版 (乗っ取りの兆候で止めた版など) の名前が出ていました。掲載したことの無いプラグインはリポジトリ名を出し、作者向けの list_my_plugins にだけ、新しい版の名前を返します。
 - 0.3.5 (2026-11-19): 表示名と対応 OS を版ごとに保存し、掲載中の版の値を表示するようにしました。これまでは、確認待ちや条件を満たさない新しい版の宣言ファイルの値が、掲載中の版の表示に出ていました。
