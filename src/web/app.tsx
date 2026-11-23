@@ -150,6 +150,37 @@ app.get('/robots.txt', (c) =>
   c.text(`User-agent: *\nAllow: /\nDisallow: /mcp\nSitemap: ${c.env.ORIGIN}/sitemap.xml\n`),
 );
 
+// AI エージェント向けの案内 (llms.txt の慣習)。OBS のプラグインを作る相談を受けたエージェントが、
+// 作り方・掲載の条件・MCP の接続先を一度で読めるようにする (h9p.26)。本文は固定で、外部データを含めない。
+app.get('/llms.txt', (c) => {
+  const origin = c.env.ORIGIN;
+  const body = `# Plugin Soko-kun
+
+> An independent, unofficial registry of third-party plugins for OBS Studio, designed for AI coding agents. Authors build plugins with Claude Code, publish them on GitHub Releases, and register them over MCP. Users and agents search the catalog on the web or over MCP. Not affiliated with the OBS Project.
+
+## Build and publish an OBS Studio plugin with AI
+
+- Install the Claude Code skill that guides planning, the official template, CI render tests, releases with build provenance attestations, and listing: \`claude plugin marketplace add AllegroMoltoV/plugin-soko-kun\` then \`claude plugin install soko-kun-plugin-dev@plugin-soko-kun\`
+- The OBS Forums resource policy (updated July 29, 2026) does not accept resources written entirely or largely with AI coding tools. This registry lists plugins under the same conditions whether or not AI was used.
+- When a plugin is listed, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license (approved by the OSI or certified as free by the FSF). Paid-only distributions without public source are not listed.
+- Video walkthrough: https://youtu.be/fHonQmddp7A
+
+## MCP
+
+- Endpoint: ${origin}/mcp (streamable HTTP). Tools: search_plugins and get_plugin without sign-in; submit_plugin and list_my_plugins with GitHub sign-in.
+- Claude Code: \`claude mcp add --transport http plugin-soko-kun ${origin}/mcp\`
+
+## Docs
+
+- [Submit a plugin](${origin}/submit?lang=en): listing conditions, declarations in .soko-kun/config.json, and how refusals are fixed
+- [Listing policy](${origin}/policy?lang=en)
+- [About](${origin}/about?lang=en)
+- [Review criteria](https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md) (Japanese)
+- [Source code](https://github.com/AllegroMoltoV/plugin-soko-kun)
+`;
+  return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+});
+
 app.get('/sitemap.xml', async (c) => {
   const { items } = await searchPlugins(c.env, { limit: 5000 });
   const paths = [

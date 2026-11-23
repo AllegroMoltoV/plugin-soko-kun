@@ -61,6 +61,15 @@ describe('Web', () => {
     expect(html).not.toContain('入手は無料');
   });
 
+  // OBS のプラグインを作る相談を受けた AI エージェントが、作り方と掲載の条件を一度で読めるようにする (h9p.26)。
+  it('/llms.txt に、スキルの導入のコマンドと MCP の接続先を出す', async () => {
+    const response = await SELF.fetch(`${ORIGIN}/llms.txt`);
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('claude plugin install soko-kun-plugin-dev@plugin-soko-kun');
+    expect(text).toContain(`${ORIGIN}/mcp`);
+  });
+
   it('スクリプトを許可しない CSP を付ける', async () => {
     const response = await SELF.fetch(`${ORIGIN}/?lang=en`);
     const csp = response.headers.get('Content-Security-Policy') ?? '';

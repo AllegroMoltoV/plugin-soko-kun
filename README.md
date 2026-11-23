@@ -8,6 +8,19 @@ Plugin Soko-kun is an independent, open registry of third-party plugins for OBS 
 
 This project is an unofficial service that is not affiliated with the OBS Project or OBS Forums.
 
+### Build and publish an OBS plugin with AI
+
+If you build an OBS Studio plugin with Claude Code, install the skill that guides you from planning to listing on this registry:
+
+```sh
+claude plugin marketplace add AllegroMoltoV/plugin-soko-kun
+claude plugin install soko-kun-plugin-dev@plugin-soko-kun
+```
+
+The OBS Forums [resource policy](https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/) (updated July 29, 2026) does not accept resources written entirely or largely with AI coding tools. Plugin Soko-kun lists plugins under the same conditions whether or not AI was used. When a plugin is listed, anyone can download its files from GitHub for free, and anyone can use and redistribute its code commercially under the conditions of its license.
+
+Video: [Build & publish an OBS Studio plugin with AI](https://youtu.be/fHonQmddp7A)
+
 ### Background
 
 OBS Studio plugins are spread across GitHub repositories and forum threads, and it is hard for users and AI agents to find them and to tell whether a download is the file the author published. Plugin Soko-kun lists plugins that their authors register from GitHub and links to the files the authors published on GitHub Releases. Before a version is listed, the service checks that the release is immutable, that every file has a build provenance attestation from the repository's own release workflow, and that no file is a known malware sample in MalwareBazaar. It also checks the change from the listed version and reviews the repository's development practices against published [review criteria](docs/design/review-criteria.md) (in Japanese). Passing the checks does not guarantee that a plugin is safe.
@@ -70,6 +83,19 @@ Anthropic Claude Code was used for almost the entire development of this service
 
 本プロジェクトは OBS Project および OBS Forums と無関係の非公式サービスです。
 
+### AI で OBS のプラグインを作って公開する
+
+Claude Code で OBS Studio のプラグインを作るときは、企画から倉庫くんへの掲載までを案内するスキルを入れてください。
+
+```sh
+claude plugin marketplace add AllegroMoltoV/plugin-soko-kun
+claude plugin install soko-kun-plugin-dev@plugin-soko-kun
+```
+
+OBS Forums の[掲載の規約](https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/) (2026 年 7 月 29 日更新) は、全部または大部分を AI のコーディングツールで書いたものを掲載しません。配信プラグイン倉庫くんは、AI の使用の有無にかかわらず同じ条件で掲載します。掲載すると、プラグインのファイルは誰でも GitHub から無料で入手でき、コードはライセンスの条件にしたがって誰でも商用利用・再配布できます。
+
+動画: [AI で OBS Studio のプラグインを作って公開する](https://youtu.be/fHonQmddp7A)
+
 ### 背景
 
 OBS Studio のプラグインは GitHub のリポジトリやフォーラムの投稿に散らばっています。そのため、利用者と AI エージェントには、プラグインを見つけることも、ダウンロードするファイルが作者の公開したものであると確かめることも難しい状況です。配信プラグイン倉庫くんは、作者が GitHub から登録したプラグインを掲載し、作者が GitHub Releases で公開したファイルへ案内します。版を掲載する前に、リリースが不変であること、すべてのファイルにそのリポジトリのリリースのワークフローが作った証明 (build provenance attestation) があること、既知のマルウェアのデータベースである MalwareBazaar に該当が無いことを確かめます。あわせて、掲載中の版からの変更を検査し、公開している[審査の基準](docs/design/review-criteria.md)にしたがってリポジトリの開発の実践をレビューします。検査を通っても、安全は保証されません。
@@ -128,6 +154,7 @@ Claude Code のセッションの中では、`/plugin marketplace add AllegroMol
 
 ## 更新履歴
 
+- 0.3.7 (2026-11-23): AI で OBS のプラグインを作る人が倉庫くんを見つけやすくしました。README の冒頭と登録のページに、Claude Code のスキルの導入、OBS Forums の規約が AI で書いたものを掲載しないのに対し倉庫くんは AI の使用の有無にかかわらず同じ条件で掲載すること、紹介の動画を足しました。サイトの説明文に Claude Code で作って掲載できることを足し、AI エージェント向けの案内 /llms.txt を置きました。
 - 0.3.6 (2026-11-19): 停止したプラグインと掲載を終えたプラグインのページで、最後に掲載していた版の表示名と対応 OS を出すようにしました。0.3.5 では、検査を通っていない新しい版 (乗っ取りの兆候で止めた版など) の名前が出ていました。掲載したことの無いプラグインはリポジトリ名を出し、作者向けの list_my_plugins にだけ、新しい版の名前を返します。
 - 0.3.5 (2026-11-19): 表示名と対応 OS を版ごとに保存し、掲載中の版の値を表示するようにしました。これまでは、確認待ちや条件を満たさない新しい版の宣言ファイルの値が、掲載中の版の表示に出ていました。
 - 0.3.4 (2026-11-19): 無料のタグを付け分けました。有料の機能か外部の有料サービスを申告したものは「入手は無料」、それ以外は「無料」です。すべてを「入手は無料」にすると、無料のプラグインに留保の含みが付くためです。作者向けの最重要の文に、有料の機能や外部の有料サービスは申告が要り、申告が無いと無料と表示されることを足しました。
