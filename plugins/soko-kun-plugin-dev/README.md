@@ -1,0 +1,58 @@
+# Soko-kun Plugin Dev
+
+A Claude Code plugin with one skill, `streaming-plugin-dev`, for building an OBS Studio plugin and listing it on [Plugin Soko-kun](https://soko-kun.allegromoltov.jp/?lang=en), a free, unofficial catalog of OBS Studio plugins.
+
+## What the skill does
+
+The skill guides Claude Code through each stage of building an OBS Studio plugin, from the first requirements to a listing on Plugin Soko-kun. It collects what the author learned from building ten published OBS Studio plugins with Claude Code.
+
+- Planning: requirements, the plugin type (filter, source, dock, transition, or output), and the name
+- Scaffolding from the official [obs-plugintemplate](https://github.com/obsproject/obs-plugintemplate)
+- Common pitfalls in the OBS API
+- Verification in a local OBS and headless render tests in GitHub Actions on Windows, Linux, and macOS
+- Releases with build provenance attestations and immutable releases
+- Submitting the plugin to Plugin Soko-kun and fixing what its checks report
+
+The skill follows the [listing conditions and review criteria](https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md) of Plugin Soko-kun. Before planning, it tells the author that a listed plugin is free to download and that anyone can use its code commercially under the conditions of its license.
+
+The skill asks the author for approval before each operation that writes outside the working tree, such as creating a repository, pushing, changing a ruleset, publishing a release, or registering the plugin.
+
+## Install
+
+```sh
+claude plugin marketplace add AllegroMoltoV/plugin-soko-kun
+claude plugin install soko-kun-plugin-dev@plugin-soko-kun
+```
+
+You can also ask Claude Code to read https://soko-kun.allegromoltov.jp and build and publish an OBS Studio plugin. The site explains how to install this plugin.
+
+## Network access
+
+The plugin contains instructions and template files. The plugin itself runs nothing when installed. The template files (a GitHub Actions workflow, CMake files, and C++ tests) run only after Claude Code copies them into your plugin repository.
+
+When Claude Code follows the skill on your computer, it may access these services:
+
+| Service | Purpose |
+| --- | --- |
+| GitHub (github.com and its subdomains, githubusercontent.com) through `git` and `gh` | Creating the plugin repository, pushing, running GitHub Actions, publishing releases, downloading release files, verifying attestations, and reading the official template and the review criteria |
+| The obsproject repositories on GitHub (obs-plugintemplate, obs-studio, obs-deps) | Downloading the template, the OBS Studio source, and its prebuilt dependencies for local builds, as the official template does |
+| Plugin Soko-kun MCP server (https://soko-kun.allegromoltov.jp/mcp) | Checking the repository against the listing conditions and submitting the plugin, after the author signs in with GitHub |
+| Sigstore public-good instance (sigstore.dev) through `gh attestation verify` | Verifying the build provenance attestations of the released files |
+| PyPI (pypi.org, files.pythonhosted.org) | Installing gersemi 0.21.0 for the template's format check |
+| obsproject.com | Reading the OBS Forums Resource and IP Policy, which the skill cites for naming |
+| 127.0.0.1 only | Connecting to obs-websocket and the Chrome DevTools Protocol of a local OBS Studio to verify the plugin |
+
+When GitHub Actions runs the workflows in your plugin repository (the skill's test workflow, and the official template's build and release workflows that the skill changes), it may access these services:
+
+| Service | Purpose |
+| --- | --- |
+| GitHub and the obsproject repositories on GitHub | Checking out the code and downloading the OBS Studio source and its dependencies |
+| Homebrew | Installing build and format-check tools on the macOS and Ubuntu runners, as the official template does |
+| Ubuntu package archives and the obsproject/obs-studio PPA on Launchpad | Installing the packages for the builds and the headless render tests on Ubuntu |
+| Sigstore public-good instance (sigstore.dev) | Signing the build provenance attestations of the release files |
+
+The plugin collects no personal data and sends nothing to the author of this plugin.
+
+## License
+
+MIT. See the [LICENSE](https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/LICENSE) of the repository.
