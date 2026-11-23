@@ -43,8 +43,12 @@ expressions=()
 for entry in "${patterns[@]}"; do
   expressions+=(-e "${entry#*|}")
 done
+# 探すディレクトリへ移り、候補をそこからの相対パスで扱う。絶対パスで grep に渡すと、git がリポジトリの中で書き出せた
+# 長いパスのファイルでも、前に付く作業ディレクトリの分でパスの上限 (PATH_MAX、4096 バイト) を超え、grep が開けない。
+# GNU grep の -r は、ファイルを指定しないと現在のディレクトリを探し、名前に ./ を付けない。
+cd "${dir}"
 status=0
-LC_ALL=C grep -rlIEZ --exclude-dir=.git "${expressions[@]}" "${dir}" > "${work}/candidates" || status=$?
+LC_ALL=C grep -rlIEZ --exclude-dir=.git "${expressions[@]}" > "${work}/candidates" || status=$?
 [ "${status}" -le 1 ] || fail "grep failed while listing candidates (exit ${status})"
 candidates=()
 # 候補は NUL 区切りのまま sort -z で並べる。結果の順序と max_hits での打ち切りの順を、ファイル名の順にそろえるため。
@@ -75,7 +79,7 @@ for entry in "${patterns[@]}"; do
     fi
     number="${rest%%:*}"
     text="${rest#*:}"
-    hits=$(jq -c --arg file "${file#"${dir}"/}" --argjson line "${number}" --arg api "${name}" --arg text "${text:0:160}" \
+    hits=$(jq -c --arg file "${file}" --argjson line "${number}" --arg api "${name}" --arg text "${text:0:160}" \
       '. + [{file: $file, line: $line, api: $api, text: $text}]' <<< "${hits}")
     count=$((count + 1))
   done < "${work}/matches"

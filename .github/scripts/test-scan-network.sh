@@ -47,4 +47,25 @@ if [ "${actual}" != "${expected}" ] || [ "$(jq '.hits | length' <<< "${result}")
   exit 1
 fi
 
+# 探すディレクトリからの相対では書き出せるが、絶対パスでは上限 (PATH_MAX、4096 バイト) を超えるファイル。絶対パスで grep に
+# 渡すと開けず、その版の通信の検出が消える。絶対パスでは作れないため、1 段ずつ移りながら作る。
+long="${work}/long"
+mkdir -p "${long}"
+(
+  cd "${long}"
+  for _ in $(seq 1 16); do
+    name="$(printf 'p%.0s' $(seq 1 250))"
+    mkdir "${name}"
+    cd "${name}"
+  done
+  printf 'curl_easy_init();\n' > deep.cpp
+)
+result="$(bash "${script}" "${long}")"
+actual="$(jq -c '[.hits[] | {line, api, deep: (.file | endswith("/deep.cpp"))}]' <<< "${result}")"
+expected='[{"line":1,"api":"libcurl","deep":true}]'
+if [ "${actual}" != "${expected}" ]; then
+  echo "scan-network.sh (PATH_MAX): expected ${expected}, got ${actual}" >&2
+  exit 1
+fi
+
 echo "scan-network.sh: ok (LANG=${LANG:-unset} LC_ALL=${LC_ALL:-unset})"
