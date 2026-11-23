@@ -24,6 +24,7 @@ import {
   type ReviewState,
   releaseBlockers,
   type ScanResult,
+  type ScanState,
   type WaitsFor,
 } from './status';
 
@@ -108,6 +109,11 @@ const BLOCKER_TEXT: Record<BlockerCode, { message: string; fix: string; criterio
     fix: 'Attach the plugin files to the release.',
   },
   scan_pending: { message: 'The files are waiting for the malware database lookup.', fix: 'No action is needed.' },
+  scan_retries_exhausted: {
+    message:
+      'The malware database lookup failed several times in a row. An administrator checks the cause and retries. The review has no fixed schedule.',
+    fix: 'No action is needed.',
+  },
   release_suspended: {
     message: 'An administrator suspended this version.',
     fix: 'Contact the administrator through an issue if you think this is a mistake.',
@@ -254,7 +260,8 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
       'SELECT c.* FROM release_checks c JOIN releases r ON r.github_release_id = c.github_release_id WHERE r.plugin_id = ?',
     ).bind(internalId),
     env.DB.prepare(
-      `SELECT a.release_id, a.github_asset_id, a.name, a.digest, a.os, ${attestationResultSql} AS attestation, s.result AS scan
+      `SELECT a.release_id, a.github_asset_id, a.name, a.digest, a.os, ${attestationResultSql} AS attestation, s.result AS scan,
+         s.attempts AS scan_attempts
        FROM assets a JOIN releases r ON r.github_release_id = a.release_id
        LEFT JOIN attestation_checks t ON t.github_asset_id = a.github_asset_id
        LEFT JOIN scans s ON s.digest = a.digest AND s.scanner = 'malwarebazaar'
@@ -270,11 +277,14 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
     os: string | null;
     attestation: AttestationResult | null;
     scan: ScanResult | null;
+    scan_attempts: number | null;
   }>;
   const suspendedIds = new Set(
     ((suspended?.results ?? []) as Array<{ github_release_id: number }>).map((row) => row.github_release_id),
   );
-  const scanOf = new Map(assetRows.map((row) => [row.digest, row.scan ?? 'pending']));
+  const scanOf = new Map<string, ScanState>(
+    assetRows.map((row) => [row.digest, { result: row.scan ?? 'pending', attempts: row.scan_attempts ?? 0 }]),
+  );
   const listedId = view.status === 'listed' ? view.listedRelease?.githubReleaseId : undefined;
   const listedPublished = ((releases?.results ?? []) as ReleaseRow[]).find(
     (row) => row.github_release_id === listedId,
@@ -306,7 +316,7 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
         ownerChanged: view.ownerChanged,
         readmeHeld: view.readmeHeld,
       };
-      const blockers = releaseBlockers(forStatus, (digest) => scanOf.get(digest) as ScanResult | undefined);
+      const blockers = releaseBlockers(forStatus, (digest) => scanOf.get(digest));
       const state = versionState(row.github_release_id === listedId, suspendedIds.has(row.github_release_id), blockers);
       const diffHits = parseJson<DiffHit[]>(check?.diff_hits ?? null, []);
       const review = parseJson<{ findings: Finding[]; unreadFiles: string[] } | null>(check?.review_json ?? null, null);
@@ -329,7 +339,7 @@ export async function authorReport(env: Env, internalId: string, includeOlder: b
               immutableRelease: { result: check?.immutable ? 'passed' : 'failed' },
               attestation: { result: attestationSummary(releaseAssets.map((asset) => asset.attestation)) },
               distributionFormat: { result: blockers.includes('installer_not_allowed') ? 'failed' : 'passed' },
-              malwarebazaar: { result: blockers.includes('scan_pending') ? 'pending' : 'passed' },
+              malwarebazaar: { result: malwarebazaarSummary(blockers) },
               diffRules: { result: check?.diff_state ?? 'pending', hits: diffHits.map(hitView) },
               config: { result: check?.config_state ?? 'pending' },
               license: { result: check?.license_state ?? 'pending' },
@@ -377,6 +387,13 @@ function toChecks(row: CheckRow): ReleaseChecks {
     adminApproved: row.admin_approved_at !== null,
     notesHeld: row.notes_held === 1,
   };
+}
+
+// 試行切れを先に返す。照会を待つ配布物が残っていても、管理者がやり直すまで版は掲載されないため。
+function malwarebazaarSummary(blockers: BlockerCode[]): string {
+  if (blockers.includes('scan_retries_exhausted')) return 'retries_exhausted';
+  if (blockers.includes('scan_pending')) return 'pending';
+  return 'passed';
 }
 
 function attestationSummary(results: Array<AttestationResult | null>): string {

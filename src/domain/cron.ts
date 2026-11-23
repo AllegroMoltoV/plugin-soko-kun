@@ -7,7 +7,7 @@ import { GitHubClient, GitHubError, type GitHubRelease } from '../github';
 import { checkImage, expectedType, IMAGE_LIMITS, type ImageKind } from '../images';
 import { runPreviews } from '../previews';
 import { NETWORK_PENDING } from '../review/network';
-import { ScannerRateLimitedError, scanWithMalwareBazaar } from '../scanners';
+import { ScannerRateLimitedError, type ScanOutcome, scanWithMalwareBazaar } from '../scanners';
 import { runTranslations } from '../translate';
 import { type AdminNotify, NOTIFY_QUERIES, NOTIFY_RESERVE, notifyAdmin } from './admin-notify';
 import { loadAllViews } from './catalog';
@@ -16,12 +16,11 @@ import { type ReadmeFetch, readmeWatchStatement } from './readme-watch';
 import { MAX_README_BYTES, runReleaseChecks } from './release-checks';
 import { releaseNotesStatement } from './release-notes';
 import { REWRITE_ASSET_URLS, REWRITE_RELEASE_URLS } from './release-urls';
-import type { Scanner } from './status';
+import { MAX_SCAN_ATTEMPTS, type Scanner } from './status';
 
 // 版の検査がタグの時点のライセンスの取得 (1 件) を足したため、1 回の起動の上限 45 (ADR 0017) に収まるよう 10 から 9 にした。
 // 15 分ごとに 9 件で、1 日に 864 件を照会できる。
 export const MALWAREBAZAAR_PER_RUN = 9;
-const MAX_ATTEMPTS = 5;
 const TAG = /^[A-Za-z0-9._-]{1,100}$/;
 
 export interface CronReport {
@@ -68,22 +67,32 @@ async function runScans(env: Env, budget: Budget, report: CronReport): Promise<v
          AND digest IN (SELECT digest FROM listing_periods WHERE ended_at IS NULL)))
      ORDER BY result = 'not_found', scanned_at IS NOT NULL, scanned_at LIMIT ?`,
   )
-    .bind(MAX_ATTEMPTS, rescanBefore, MALWAREBAZAAR_PER_RUN)
+    .bind(MAX_SCAN_ATTEMPTS, rescanBefore, MALWAREBAZAAR_PER_RUN)
     .all<PendingScan>();
   const updates: D1PreparedStatement[] = [];
+  // attempts は続けて失敗した回数。結果が確定したら 0 に戻し、error のときだけ 1 増やす。
+  // 直前の結果が error でなければ、残っている attempts を引き継がず 1 から数える (右辺の result は更新前の値)。
+  const record = (row: PendingScan, outcome: ScanOutcome) =>
+    updates.push(
+      env.DB.prepare(
+        `UPDATE scans SET result = ?, detail = ?, attempts = CASE WHEN ? = 'error'
+             THEN (CASE WHEN result = 'error' THEN attempts ELSE 0 END) + 1 ELSE 0 END,
+           scanned_at = ? WHERE digest = ? AND scanner = ?`,
+      ).bind(outcome.result, outcome.detail, outcome.result, now(), row.digest, row.scanner),
+    );
   for (const row of results) {
     if (!budget.canFetch()) break;
     try {
-      const outcome = await scanWithMalwareBazaar(budget, key, row.digest);
-      updates.push(
-        env.DB.prepare(
-          'UPDATE scans SET result = ?, detail = ?, attempts = attempts + 1, scanned_at = ? WHERE digest = ? AND scanner = ?',
-        ).bind(outcome.result, outcome.detail, now(), row.digest, row.scanner),
-      );
+      record(row, await scanWithMalwareBazaar(budget, key, row.digest));
       report.scanned += 1;
     } catch (error) {
+      // 429 は運営側の資源の不足として試行に数えず、その起動の照会を止める。予算の超過は runCron が打ち切りとして記録する。
       if (error instanceof ScannerRateLimitedError) break;
-      throw error;
+      if (error instanceof BudgetExceededError) throw error;
+      // 通信の失敗・JSON でない応答・別のホストへのリダイレクトは、その配布物の error として数え、次の配布物と後段へ進む。
+      const text = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      record(row, { result: 'error', detail: text.slice(0, 200) });
+      report.scanned += 1;
     }
   }
   if (updates.length > 0) {
