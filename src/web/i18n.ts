@@ -195,7 +195,7 @@ export interface Dict {
 const en: Dict = {
   tagline: 'A warehouse of free-to-download plugins for OBS Studio',
   siteDescription:
-    'A registry of OBS Studio plugins that lets you search from the web or from AI agents such as Claude Code and Codex. Each file is checked against a database of known malware samples.',
+    'A registry of OBS Studio plugins. Build a plugin with Claude Code and list it here, and find plugins from the web or AI agents. Files are checked against known malware.',
   notice:
     'This platform is an unofficial service not affiliated with the OBS Project. It does not guarantee the safety of any plugin, so use plugins carefully and at your own risk.',
   noticeShort: 'This platform is unofficial and does not guarantee the safety of any plugin, so use plugins carefully.',
@@ -363,7 +363,7 @@ const en: Dict = {
 const ja: Dict = {
   tagline: '無料で入手できる OBS Studio 向けプラグインの倉庫',
   siteDescription:
-    'OBS Studio のプラグインを、Web と Claude Code や Codex などの AI エージェントから探せるレジストリです。配布物は既知のマルウェアのデータベースと照合しています。',
+    'OBS Studio のプラグインのレジストリです。Claude Code で作ったプラグインを掲載でき、Web や AI エージェントから探せます。配布物は既知のマルウェアのデータベースと照合しています。',
   notice:
     'このプラットフォームは OBS Project と無関係の非公式のサービスです。各プラグインの安全性を保証しないので、個人の責任にもとづき注意して利用してください。',
   noticeShort: 'このプラットフォームは非公式で、各プラグインの安全性を保証しないので、注意して利用してください。',
@@ -532,7 +532,7 @@ const zhHans: Dict = {
   ...en,
   tagline: '可免费获取的 OBS Studio 插件仓库',
   siteDescription:
-    '一个可以通过网页以及 Claude Code、Codex 等 AI 代理查找 OBS Studio 插件的收录平台。发布文件会与已知恶意软件数据库进行比对。',
+    'OBS Studio 插件的登记平台。可以上架用 Claude Code 制作的插件，并从网页或 AI 代理查找插件。文件会与已知恶意软件数据库比对。',
   notice: '本平台是与 OBS Project 无关的非官方服务。本平台不保证各插件的安全性，请自行承担责任并谨慎使用。',
   noticeShort: '本平台为非官方服务，不保证各插件的安全性，请谨慎使用。',
   searchHeading: '查找 OBS Studio 插件',
@@ -697,7 +697,7 @@ const zhHant: Dict = {
   ...zhHans,
   tagline: '可免費取得的 OBS Studio 外掛倉庫',
   siteDescription:
-    '一個可以透過網頁以及 Claude Code、Codex 等 AI 代理尋找 OBS Studio 外掛的收錄平台。發行檔案會與已知惡意軟體資料庫進行比對。',
+    'OBS Studio 外掛的登記平台。可以上架用 Claude Code 製作的外掛，並從網頁或 AI 代理尋找外掛。檔案會與已知惡意軟體資料庫比對。',
   notice: '本平台是與 OBS Project 無關的非官方服務。本平台不保證各外掛的安全性，請自行承擔責任並謹慎使用。',
   noticeShort: '本平台為非官方服務，不保證各外掛的安全性，請謹慎使用。',
   searchHeading: '尋找 OBS Studio 外掛',
@@ -857,7 +857,7 @@ const ko: Dict = {
   ...en,
   tagline: '무료로 받을 수 있는 OBS Studio 플러그인 창고',
   siteDescription:
-    '웹과 Claude Code, Codex 같은 AI 에이전트에서 OBS Studio 플러그인을 찾을 수 있는 레지스트리입니다. 배포 파일은 알려진 악성 코드 데이터베이스와 대조합니다.',
+    'OBS Studio 플러그인 레지스트리입니다. Claude Code로 만든 플러그인을 게재할 수 있고, 웹이나 AI 에이전트에서 플러그인을 찾을 수 있습니다. 파일은 알려진 악성코드 데이터베이스와 대조합니다.',
   notice:
     '이 플랫폼은 OBS Project와 관계없는 비공식 서비스입니다. 각 플러그인의 안전성을 보장하지 않으므로, 본인의 책임하에 주의해서 이용해 주세요.',
   noticeShort: '이 플랫폼은 비공식이며 각 플러그인의 안전성을 보장하지 않으므로 주의해서 이용해 주세요.',
@@ -1024,7 +1024,7 @@ const ptBR: Dict = {
   ...en,
   tagline: 'Um depósito de plugins para o OBS Studio com download gratuito',
   siteDescription:
-    'Um registro de plugins do OBS Studio que você pode pesquisar pela web ou por agentes de IA como Claude Code e Codex. Cada arquivo é comparado com um banco de dados de malware conhecido.',
+    'Um registro de plugins do OBS Studio. Crie um plugin com o Claude Code e liste aqui, e encontre plugins pela web ou por agentes de IA. Os arquivos são verificados contra malware conhecido.',
   notice:
     'Esta plataforma é um serviço não oficial, sem vínculo com o OBS Project. Ela não garante a segurança de nenhum plugin; por isso, use os plugins com cuidado e por sua conta e risco.',
   noticeShort: 'Esta plataforma não é oficial e não garante a segurança dos plugins; por isso, use-os com cuidado.',
@@ -1191,7 +1191,7 @@ const es419: Dict = {
   ...en,
   tagline: 'Un depósito de plugins para OBS Studio con descarga gratuita',
   siteDescription:
-    'Un registro de plugins de OBS Studio que puedes buscar desde la web o desde agentes de IA como Claude Code y Codex. Cada archivo se compara con una base de datos de malware conocido.',
+    'Un registro de plugins de OBS Studio. Crea un plugin con Claude Code y lístalo aquí, y encuentra plugins desde la web o agentes de IA. Los archivos se comparan con malware conocido.',
   notice:
     'Esta plataforma es un servicio no oficial, sin relación con OBS Project. No garantiza la seguridad de ningún plugin; por eso, usa los plugins con cuidado y bajo tu propia responsabilidad.',
   noticeShort: 'Esta plataforma no es oficial y no garantiza la seguridad de los plugins; por eso, úsalos con cuidado.',
