@@ -287,7 +287,7 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 
 ワークフローは、証明の検証を 3 段に分けて行います。GitHub や Sigstore の一時的な障害を、本物の検証の失敗と区別するためです。`gh attestation verify` の終了コードは失敗の種類によらず 1 のため、1 回の実行では両者を区別できません。検証と分類は `.github/scripts/verify-attestation.sh` が行い、`.github/scripts/test-verify-attestation.sh` が CI で分類を確かめます。
 
-1. 起動ごとに 1 回、`gh attestation trusted-root` で Sigstore の信頼の根を取得する。取得に失敗した回は、すべての配布物を `error` (`trust_root_unavailable`) にする
+1. 起動ごとに 1 回、`gh attestation trusted-root` で Sigstore の信頼の根を取得する。取得に失敗した回は、ハッシュが一致した配布物をすべて `error` (`trust_root_unavailable`) にする
 2. 名前ごとに、`gh attestation download <配布物> --repo <リポジトリ> --predicate-type https://slsa.dev/provenance/v1` で証明を取得する。HTTP 404 と、取得した証明に SLSA の証明が無いときは、本物の失敗 (`no_attestation`) にする。不変のリリースには GitHub がリリースの証明を付けるため、ビルドの証明が無くても API は証明を返し、gh の絞り込みで 0 件になる。それ以外の失敗は、一時的な失敗 (`attestation_fetch_failed`) にする
 3. 取得した証明と信頼の根で、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット> --bundle <証明> --custom-trusted-root <信頼の根>` を実行する。記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加える。この照合は通信を使わないため、失敗はすべて本物の失敗 (`verification_failed`) にする
 
