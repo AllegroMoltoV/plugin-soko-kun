@@ -46,13 +46,22 @@ jobs:
           releases=$(jq '(.releases // []) | length' pending.json)
           echo "pending: ${count} assets, ${releases} releases for the network scan"
           if [ "${count}" -eq 0 ] && [ "${releases}" -eq 0 ]; then has_work=false; else has_work=true; fi
-          # scan は一覧を環境変数で受け取る。Linux の環境変数 1 つの上限 (128 KiB) に収まらなければ止める。
-          # 受け口が返すのは最大 50 件のため、通常は数十 KB に収まる。
+          # scan は一覧を環境変数で受け取る。Linux の環境変数 1 つの上限 (128 KiB) に収まらなければ、末尾の配布物から
+          # (配布物が無くなれば末尾の版から) 外して進める。受け口が返すのは最大 50 件で通常は数十 KB に収まるが、旧い名前を
+          # 配布物ごとに繰り返すため、名前を何度も変えたリポジトリの配布物の多いリリースで超えうる。失敗で止めると受け口の状態が
+          # 変わらず同じ一覧で失敗を繰り返すが、先頭から送れば検証した分が一覧の後ろへ回り、外した分は次の起動で扱われる。
           pending=$(jq -ac . pending.json)
-          if [ "${#pending}" -gt 100000 ]; then
-            echo "pending list is too large for an environment variable: ${#pending} bytes" >&2
-            exit 1
-          fi
+          while [ "${#pending}" -gt 100000 ]; do
+            if [ "$(jq '.assets | length' <<< "${pending}")" -gt 0 ]; then
+              pending=$(jq -ac '.assets |= .[:-1]' <<< "${pending}")
+            elif [ "$(jq '(.releases // []) | length' <<< "${pending}")" -gt 0 ]; then
+              pending=$(jq -ac '.releases |= .[:-1]' <<< "${pending}")
+            else
+              echo "pending list is too large even without items: ${#pending} bytes" >&2
+              exit 1
+            fi
+          done
+          echo "passing $(jq '.assets | length' <<< "${pending}") assets and $(jq '(.releases // []) | length' <<< "${pending}") releases to the scan job"
           {
             echo "has_work=${has_work}"
             echo "pending=${pending}"
