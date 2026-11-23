@@ -39,6 +39,7 @@
 | 0016 | [開発の実践のレビューを、項目ごとにルールと LLM に分け、ルールの事実を LLM に渡す](decisions/0016-review-by-rules-and-facts.md) | 採用 |
 | 0017 | [Cloudflare Workers の有料プランを続ける](decisions/0017-continue-workers-paid.md) | 採用 |
 | 0018 | [掲載を、オープンソースのライセンスで無料で入手できる版に限り、料金と素材の条件は作者の申告で示す](decisions/0018-free-and-open-listing.md) | 採用 |
+| 0019 | [第三者の入力に対する検査の原則](decisions/0019-verification-principles.md) | 採用 |
 
 ## 運用手順
 
