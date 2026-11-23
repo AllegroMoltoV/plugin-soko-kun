@@ -178,8 +178,9 @@ jobs:
             repository=$(jq -r '.repository' <<< "${item}")
             commit=$(jq -r '.commitSha' <<< "${item}")
             src="${work}/src-${release_id}"
-            scan=""
-            docs=""
+            # 結果はファイルに書き、jq には --slurpfile で渡す。コマンドライン引数で渡すと、1 つの引数の上限 (128 KiB) を
+            # 超えたときに jq が起動できず、その版が結果から抜けて、検出を待つ版の枠を占め続けるため。
+            rm -f "${work}/scan.json" "${work}/docs.json"
             # 第三者のソースで、同じ回のほかの版の検証を止めないよう、取得と取り出しに時間の上限を付け、
             # 取り出しの前後でディスクの空きを確かめる。Git LFS のファイルは取得しない。足りなければその版は error にして先へ進む。
             if [[ "${repository}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] && [[ "${commit}" =~ ^[0-9a-f]{40}$ ]] \
@@ -189,17 +190,16 @@ jobs:
                   && timeout 120 git fetch -q --depth 1 --no-tags "https://github.com/${repository}.git" "${commit}" \
                   && timeout 120 git checkout -q FETCH_HEAD) \
                   && [ "$(df --output=avail -B1 "${work}" | tail -1 | tr -d ' ')" -ge "${MIN_FREE_BYTES}" ]; then
-                scan=$(timeout 60 bash .github/scripts/scan-network.sh "${src}" || true)
+                timeout 60 bash .github/scripts/scan-network.sh "${src}" > "${work}/scan.json" || true
                 # 同じ取り出しで、README 以外の文書の案内を照合する。どちらかが失敗した版は error として送り、やり直させる。
-                docs=$(timeout 60 node .github/scripts/scan-docs.mjs "${src}" || true)
-                if [ -z "${docs}" ]; then scan=""; fi
+                timeout 60 node .github/scripts/scan-docs.mjs "${src}" > "${work}/docs.json" || true
               fi
             fi
             rm -rf "${src}"
-            if [ -n "${scan}" ]; then
-              echo "${repository} ${commit}: $(jq '.hits | length' <<< "${scan}") network API hits, $(jq '.hits | length' <<< "${docs}") document hits"
-              jq --argjson id "${release_id}" --argjson scan "${scan}" --argjson docs "${docs}" \
-                '. + [{releaseId: $id, result: "done"} + $scan + {docHits: $docs.hits, docTruncated: $docs.truncated}]' \
+            if jq -e . "${work}/scan.json" > /dev/null 2>&1 && jq -e . "${work}/docs.json" > /dev/null 2>&1; then
+              echo "${repository} ${commit}: $(jq '.hits | length' "${work}/scan.json") network API hits, $(jq '.hits | length' "${work}/docs.json") document hits"
+              jq --argjson id "${release_id}" --slurpfile scan "${work}/scan.json" --slurpfile docs "${work}/docs.json" \
+                '. + [{releaseId: $id, result: "done"} + $scan[0] + {docHits: $docs[0].hits, docTruncated: $docs[0].truncated}]' \
                 scans.json > scans.next && mv scans.next scans.json
             else
               echo "${repository} ${commit}: network scan error"
@@ -225,7 +225,10 @@ jobs:
           # ほかのプラグインの証明の検証まで止まる。error にした版は、受け口で試行を数え、使い切ると既存の扱いへ進む。
           chunk=100000
           while [ "${#body}" -gt $((chunk * 8)) ]; do
-            largest=$(jq -r '[.networkScans[] | select(.result == "done")] | max_by(tojson | length) | .releaseId // empty' <<< "${body}")
+            # 大きさは、送る形 (jq -a で ASCII にした後) のバイト数で比べる。非 ASCII は \uXXXX (6 バイト、BMP 外は 12 バイト) になる。
+            # コードポイントの数で比べると、非 ASCII の多い大きな結果が小さく見え、ほかの作者の結果が先に error にされるため。
+            largest=$(jq -r 'def size: tojson | [explode[] | if . > 65535 then 12 elif . > 127 then 6 else 1 end] | add;
+              [.networkScans[] | select(.result == "done")] | max_by(size) | .releaseId // empty' <<< "${body}")
             if [ -z "${largest}" ]; then
               echo "results are too large to pass to the report job even without network scans: ${#body} bytes" >&2
               exit 1
