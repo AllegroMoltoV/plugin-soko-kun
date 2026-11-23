@@ -113,6 +113,13 @@ jobs:
           releases=$(jq '(.releases // []) | length' pending.json)
 
           work=$(mktemp -d)
+          # 証明の照合に使う信頼の根 (Sigstore の TUF) を、この回の最初に 1 回だけ取得する。取得に失敗したら空のファイルにし、
+          # この回の配布物を一時的な失敗 (trust_root_unavailable) として送る。受け口で試行を数え、次の起動でやり直す。
+          trusted_root="${work}/trusted_root.jsonl"
+          if [ "${count}" -gt 0 ] && ! gh attestation trusted-root > "${trusted_root}"; then
+            echo "failed to fetch the trusted root"
+            : > "${trusted_root}"
+          fi
           echo '[]' > results.json
           echo '[]' > scans.json
           for i in $(seq 0 $((count - 1))); do
@@ -128,46 +135,22 @@ jobs:
             commit=$(jq -r '.commitSha' <<< "${item}")
             signer=$(jq -r '.signerWorkflow // empty' <<< "${item}")
             file="${work}/asset-${asset_id}"
-            result=error
-            reason=download_failed
-            signer_found=""
+            verdict='{"result":"error","reason":"download_failed"}'
 
-            # 配布物は実行せず、ハッシュと証明だけを確かめる。
+            # 配布物は実行せず、ハッシュと証明だけを確かめる。証明の検証と、一時的な失敗と本物の失敗の分類は verify-attestation.sh が行う。
             if curl -fsSL --max-filesize 1073741824 -o "${file}" "${url}"; then
               actual="sha256:$(sha256sum "${file}" | cut -d' ' -f1)"
               if [ "${actual}" != "${digest}" ]; then
-                result=failed
-                reason=digest_mismatch
+                verdict='{"result":"failed","reason":"digest_mismatch"}'
               else
-                result=failed
-                reason=verification_failed
-                for name in "${names[@]}"; do
-                  args=(attestation verify "${file}" --repo "${name}" --source-ref "refs/tags/${tag}" --source-digest "${commit}" --format json)
-                  if [ -n "${signer}" ]; then args+=(--signer-workflow "${name}/${signer}"); fi
-                  if gh "${args[@]}" > "${work}/out.json" 2> "${work}/err.txt"; then
-                    # 名前は別のリポジトリに使われうるため、証明書のリポジトリ ID が登録したものと同じことも確かめる。
-                    found_id=$(jq -r '.[0].verificationResult.signature.certificate.sourceRepositoryIdentifier // empty' "${work}/out.json")
-                    if [ -n "${repository_id}" ] && [ "${found_id}" != "${repository_id}" ]; then
-                      reason=repository_id_mismatch
-                      echo "  ${name}: repository id ${found_id} differs from ${repository_id}"
-                      continue
-                    fi
-                    # buildSignerURI は https://github.com/<owner>/<repo>/<workflow のパス>@<ref> の形。
-                    uri=$(jq -r '.[0].verificationResult.signature.certificate.buildSignerURI // empty' "${work}/out.json")
-                    signer_found=$(sed -E 's#^https://github\.com/[^/]+/[^/]+/##; s#@.*$##' <<< "${uri}")
-                    result=passed
-                    reason=""
-                    break
-                  fi
-                  echo "  ${name}: not verified"
-                  sed 's/^/    /' "${work}/err.txt" | head -5
-                done
+                # スクリプトが想定外に失敗しても、ほかの配布物の検証を止めず、この配布物を一時的な失敗として送る (ADR 0019 の原則 2)。
+                verdict=$(bash .github/scripts/verify-attestation.sh "${file}" "${trusted_root}" "${tag}" "${commit}" "${signer}" "${repository_id}" "${names[@]}") \
+                  || verdict='{"result":"error","reason":"attestation_check_failed"}'
               fi
             fi
             rm -f "${file}"
-            echo "${repository} ${tag} asset ${asset_id}: ${result} ${reason}"
-            jq --argjson id "${asset_id}" --arg result "${result}" --arg reason "${reason}" --arg signer "${signer_found}" \
-              '. + [{assetId: $id, result: $result} + (if $reason == "" then {} else {reason: $reason} end) + (if $signer == "" then {} else {signerWorkflow: $signer} end)]' \
+            echo "${repository} ${tag} asset ${asset_id}: $(jq -r '[.result, .reason // empty] | join(" ")' <<< "${verdict}")"
+            jq --argjson id "${asset_id}" --argjson verdict "${verdict}" '. + [{assetId: $id} + $verdict]' \
               results.json > results.next && mv results.next results.json
           done
 

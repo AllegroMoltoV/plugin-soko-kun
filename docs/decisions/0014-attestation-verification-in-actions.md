@@ -11,7 +11,7 @@
 本サービスのリポジトリに、証明を検証するワークフロー `.github/workflows/verify.yaml` を置きます。Worker の定期処理は、検証待ちの配布物があるとき、このワークフローを workflow_dispatch で起動します。ワークフローは次の順で処理します。
 
 1. GitHub Actions の OIDC のトークン (`aud` は `soko-kun`) を添えて、Worker から検証待ちの配布物の一覧を受け取る
-2. 配布物を取得し、GitHub の公式の CLI の `gh attestation verify` で、リポジトリ・タグ・タグのコミット・リリースのワークフローを指定して検証する
+2. 配布物を取得し、GitHub の公式の CLI の `gh attestation` で、リポジトリ・タグ・タグのコミット・リリースのワークフローを指定して検証する。証明と信頼の根の取得を、通信を使わない照合と分け、一時的な障害を本物の検証の失敗と区別する。手順は [スキャンの設計](../design/scanning.md) に記載している
 3. 結果を、同じく OIDC のトークンを添えて Worker に送る
 
 Worker は、GitHub が公開する鍵でトークンの署名を確かめ、`iss`・`aud`・`repository`・`job_workflow_ref` (本サービスのリポジトリの main の `verify.yaml`)・`exp` を照合してから、一覧を返し、結果を受け付けます。この検証の CPU 時間は、2026-11-13 の測定で 1 件 0〜3 ms でした。

@@ -285,7 +285,13 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 
 `job_workflow_ref` はワークフローのファイル単位の値のため、一覧を受け取るジョブ `prepare` と結果を送るジョブ `report` のどちらのトークンも通ります。第三者のデータを処理するジョブ `scan` はトークンを取りません。ジョブの分け方と理由は [CI と配備](../operations/ci-cd.md) に記載しています。
 
-ワークフローは、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット>` に、記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加えて実行します。現在の名前で通らなければ、旧い名前を新しい順に `<リポジトリ>` に入れて試します。名前を変える前に作られた証明は、作られたときの名前 (大文字と小文字の区別を含む) でしか検証に通らないためです。通った証明でも、証明書の `sourceRepositoryIdentifier` がリポジトリ ID と違えば `failed` (`repository_id_mismatch`) にします。ダウンロードした配布物の SHA-256 が `digest` と違えば `failed` にします。
+ワークフローは、証明の検証を 3 段に分けて行います。GitHub や Sigstore の一時的な障害を、本物の検証の失敗と区別するためです。`gh attestation verify` の終了コードは失敗の種類によらず 1 のため、1 回の実行では両者を区別できません。検証と分類は `.github/scripts/verify-attestation.sh` が行い、`.github/scripts/test-verify-attestation.sh` が CI で分類を確かめます。
+
+1. 起動ごとに 1 回、`gh attestation trusted-root` で Sigstore の信頼の根を取得する。取得に失敗した回は、ハッシュが一致した配布物をすべて `error` (`trust_root_unavailable`) にする
+2. 名前ごとに、`gh attestation download <配布物> --repo <リポジトリ> --predicate-type https://slsa.dev/provenance/v1` で証明を取得する。HTTP 404 と、取得した証明に SLSA の証明が無いときは、本物の失敗 (`no_attestation`) にする。不変のリリースには GitHub がリリースの証明を付けるため、ビルドの証明が無くても API は証明を返し、gh の絞り込みで 0 件になる。それ以外の失敗は、一時的な失敗 (`attestation_fetch_failed`) にする
+3. 取得した証明と信頼の根で、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット> --bundle <証明> --custom-trusted-root <信頼の根>` を実行する。記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加える。この照合は通信を使わないため、失敗はすべて本物の失敗 (`verification_failed`) にする
+
+現在の名前で通らなければ、旧い名前を新しい順に `<リポジトリ>` に入れて試します。名前を変える前に作られた証明は、作られたときの名前 (大文字と小文字の区別を含む) でしか検証に通らないためです。通った証明でも、証明書の `sourceRepositoryIdentifier` がリポジトリ ID と違えば、本物の失敗 (`repository_id_mismatch`) にします。どれかの名前で通れば `passed` です。通らず、一時的な失敗が 1 つでもあれば `error` にします。すべて本物の失敗なら、最後の本物の失敗の理由で `failed` にします。ダウンロードした配布物の SHA-256 が `digest` と違えば `failed` (`digest_mismatch`) にします。配布物を取得できなければ `error` (`download_failed`) にします。`error` は受け口で試行を数え、上限で管理者の確認待ちにします ([ADR 0019](../decisions/0019-verification-principles.md) の原則 2)。
 
 通信の検出では、ワークフローは版ごとに、空のディレクトリで `git fetch --depth 1 https://github.com/<リポジトリ>.git <タグのコミット>` を実行し、そのコミットのソースだけを取得します。取得したソースは実行もビルドもしません。`.github/scripts/scan-network.sh` が、`.git` を除くすべてのテキストファイルから、WinHTTP・WinINet・libcurl・Qt の通信のクラス・ソケット・HTTP と WebSocket のライブラリ・NSURLSession の呼び出しを文字列で探し、ファイル・行・API の名前・行の文字列を返します。拡張子とディレクトリでは絞りません。C のプリプロセッサは拡張子に関係なく `#include` で取り込み、`build` や `.deps` にもコミット済みの処理を置けるためです。UTF-8 として読めないバイト (cp1252 や Shift_JIS のコメント) を含む行も当てるため、ファイルはバイト列として探します。grep の出力は、ファイル名の後ろを NUL で区切って読みます。ファイル名に `:` を含めて、ファイル名と行番号の分け方を作者に決めさせないためです。検出は 50 件までで、超えた分は返さず `truncated` を付けます。取り出しの前後でディスクの空きが 3 GiB 未満なら、その版は探しません。Git LFS のファイルは取得しません。取得と取り出しはそれぞれ 120 秒、探索は 60 秒で打ち切ります。打ち切りと取得の失敗は `error` として返し、3 回まで次の起動でやり直します。尽きた版は、通信の API を検出していないものとしてレビューします。
 

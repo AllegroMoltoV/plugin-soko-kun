@@ -31,6 +31,8 @@ jobs:
       - run: npm test
       # 通信の検出のスクリプト (verify.yaml で使う) のテスト。
       - run: bash .github/scripts/test-scan-network.sh
+      # 証明の検証のスクリプト (verify.yaml で使う) のテスト。
+      - run: bash .github/scripts/test-verify-attestation.sh
 
   actionlint:
     runs-on: ubuntu-latest
