@@ -27,8 +27,9 @@ key="${FAKE}/${sub}/${repo//\//_}"
 code=$(cat "${key}.code" 2>/dev/null || echo 0)
 if [ -f "${key}.err" ]; then cat "${key}.err" >&2; fi
 if [ "${code}" -ne 0 ]; then exit "${code}"; fi
-if [ "${sub}" = "download" ] && [ ! -f "${key}.nobundle" ]; then
-  echo '{"bundle":1}' > 'sha256:0000.jsonl'
+if [ "${sub}" = "download" ]; then
+  if [ -f "${key}.out" ]; then cat "${key}.out"; fi
+  if [ ! -f "${key}.nobundle" ]; then echo '{"bundle":1}' > 'sha256:0000.jsonl'; fi
 fi
 if [ "${sub}" = "verify" ]; then
   if [ -f "${key}.out" ]; then cat "${key}.out"; else
@@ -90,6 +91,21 @@ fi
 # 不変のリリースにはリリースの証明が付くため、ビルドの証明が無くても API は 200 を返し、gh の絞り込みで 0 件になる。
 setup 'download:o_r:1:failed to filter attestations: no attestations found with predicate type: https://slsa.dev/provenance/v1'
 check 'download 200 without SLSA provenance' '{"result":"failed","reason":"no_attestation"}' "${root}" 42 o/r
+
+# API が 0 件を返すと、gh は終了コード 0 で標準出力に No attestations found と書き、証明のファイルを作らない。
+setup
+touch "${FAKE}/download/o_r.nobundle"
+echo 'No attestations found for /tmp/asset' > "${FAKE}/download/o_r.out"
+check 'download returns no attestations with exit code 0' '{"result":"failed","reason":"no_attestation"}' "${root}" 42 o/r
+
+# download は種類を問わず取得してから手元で絞り込むため、既定の 30 件ではビルドの証明が押し出されうる。gh の上限の 1000 件を取る。
+setup
+check 'download limit' '{"result":"passed","signerWorkflow":".github/workflows/release.yml"}' "${root}" 42 o/r
+if ! grep -q '^attestation download .*--limit 1000' "${FAKE}/calls"; then
+  echo "FAIL download limit: download did not request 1000 attestations" >&2
+  cat "${FAKE}/calls" >&2
+  failures=$((failures + 1))
+fi
 
 setup 'download:o_r:1:Error: failed to fetch attestations: HTTP 502: Bad Gateway (https://api.github.com/repos/o/r/attestations/sha256:0)'
 check 'download 5xx' '{"result":"error","reason":"attestation_fetch_failed"}' "${root}" 42 o/r

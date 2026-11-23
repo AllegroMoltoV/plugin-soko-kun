@@ -6,7 +6,7 @@
 # 一時的な障害 (GitHub や Sigstore の 5xx・レート制限・通信の失敗) を本物の検証の失敗と分けるため、検証を 3 段に分ける。
 # gh attestation verify の終了コードは失敗の種類によらず 1 で、1 回の verify では両者を区別できないため。
 #   1. 信頼の根は、呼び出し側が gh attestation trusted-root で 1 回だけ取得して渡す。無ければ error (trust_root_unavailable)。
-#   2. 名前ごとに gh attestation download で証明を取得する。HTTP 404 (証明が無い) と、取得した証明に SLSA の証明が無い場合だけを
+#   2. 名前ごとに gh attestation download で証明を取得する。HTTP 404 と API が 0 件を返した場合 (証明が無い) と、取得した証明に SLSA の証明が無い場合だけを
 #      本物の失敗 (no_attestation) とし、それ以外の失敗は一時的な失敗 (attestation_fetch_failed) とする。不変のリリースには
 #      GitHub がリリースの証明を付けるため、ビルドの証明が無い配布物でも API は 200 を返し、gh の絞り込みが no attestations found で失敗する。
 #   3. 取得した証明と信頼の根で、通信を使わずに照合する。失敗はすべて本物の失敗 (verification_failed) とする。
@@ -43,7 +43,9 @@ for name in "${names[@]}"; do
   dl="${work}/dl"
   rm -rf "${dl}"
   mkdir "${dl}"
-  if ! (cd "${dl}" && gh attestation download "${file}" --repo "${name}" --predicate-type https://slsa.dev/provenance/v1) > "${work}/dl.txt" 2> "${work}/err.txt"; then
+  # download は種類を問わず取得し、種類の絞り込みを取得の後に手元で行う。既定の 30 件では、同じ digest のリリースの証明が
+  # 多いとビルドの証明が押し出されるため、gh の上限の 1000 件を取る。
+  if ! (cd "${dl}" && gh attestation download "${file}" --repo "${name}" --predicate-type https://slsa.dev/provenance/v1 --limit 1000) > "${work}/dl.txt" 2> "${work}/err.txt"; then
     if grep -qF -e 'HTTP 404: Not Found' -e 'no attestations found' "${work}/err.txt"; then
       genuine=no_attestation
       echo "  ${name}: no attestation" >&2
@@ -52,6 +54,12 @@ for name in "${names[@]}"; do
       echo "  ${name}: failed to fetch the attestation" >&2
     fi
     head -5 "${work}/err.txt" | sed 's/^/    /' >&2
+    continue
+  fi
+  # API が 0 件を返すと、gh は終了コード 0 で標準出力に No attestations found と書き、証明のファイルを作らない。
+  if grep -qF 'No attestations found' "${work}/dl.txt"; then
+    genuine=no_attestation
+    echo "  ${name}: no attestation" >&2
     continue
   fi
   bundles=("${dl}"/*.jsonl)
