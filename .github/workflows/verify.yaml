@@ -104,6 +104,10 @@ jobs:
           PENDING: ${{ needs.prepare.outputs.pending }}
         run: |
           set -euo pipefail
+          # 第三者の文字列 (エラーの文面やパス) がログの行頭に出ても、ワークフローコマンドとして解釈させない。
+          # ::add-mask:: で本文の一部を秘密として登録されると、その値を含むジョブの出力が捨てられ、report が壊れた本文を送って
+          # 同じ一覧で失敗を繰り返すため。結果はファイル (GITHUB_OUTPUT) で渡すため、この停止の影響を受けない。
+          echo "::stop-commands::$(openssl rand -hex 16)"
           printf '%s' "${PENDING}" > pending.json
           count=$(jq '.assets | length' pending.json)
           releases=$(jq '(.releases // []) | length' pending.json)
