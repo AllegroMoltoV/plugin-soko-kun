@@ -28,14 +28,27 @@ You can also ask Claude Code to read https://soko-kun.allegromoltov.jp and build
 
 ## Network access
 
-The plugin contains only instructions and template files. It runs no code of its own. When Claude Code follows the skill, it may access these services:
+The plugin contains instructions and template files. The plugin itself runs nothing when installed. The template files (a GitHub Actions workflow, CMake files, and C++ tests) run only after Claude Code copies them into your plugin repository.
+
+When Claude Code follows the skill on your computer, it may access these services:
 
 | Service | Purpose |
 | --- | --- |
 | GitHub (github.com, api.github.com) through `git` and `gh` | Creating the plugin repository, pushing, running GitHub Actions, publishing releases, and reading the official template and the review criteria |
+| The obsproject repositories on GitHub (obs-plugintemplate, obs-studio, obs-deps) | Downloading the template, the OBS Studio source, and its prebuilt dependencies for local builds, as the official template does |
 | Plugin Soko-kun MCP server (https://soko-kun.allegromoltov.jp/mcp) | Checking the repository against the listing conditions and submitting the plugin, after the author signs in with GitHub |
-| The obsproject repositories on GitHub (obs-plugintemplate, obs-studio, obs-deps) | Downloading the template, the OBS Studio source, and its prebuilt dependencies for builds and tests, as the official template does |
+| Sigstore public-good instance (sigstore.dev) through `gh attestation verify` | Verifying the build provenance attestations of the released files |
+| PyPI (pypi.org, files.pythonhosted.org) | Installing gersemi 0.21.0 for the template's format check |
 | obsproject.com | Reading the OBS Forums Resource and IP Policy, which the skill cites for naming |
+| 127.0.0.1 only | Connecting to obs-websocket and the Chrome DevTools Protocol of a local OBS Studio to verify the plugin |
+
+When GitHub Actions runs the template workflow in your plugin repository, it may access these services:
+
+| Service | Purpose |
+| --- | --- |
+| GitHub and the obsproject repositories on GitHub | Checking out the code and downloading the OBS Studio source and its dependencies |
+| Ubuntu package archives and the obsproject/obs-studio PPA on Launchpad | Installing the packages for the headless render tests on Ubuntu |
+| Sigstore public-good instance (sigstore.dev) | Signing the build provenance attestations of the release files |
 
 The plugin collects no personal data and sends nothing to the author of this plugin.
 
