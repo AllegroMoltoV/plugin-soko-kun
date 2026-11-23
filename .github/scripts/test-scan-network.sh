@@ -26,4 +26,21 @@ if [ "${actual}" != "${expected}" ]; then
   echo "locale: LANG=${LANG:-unset} LC_ALL=${LC_ALL:-unset}" >&2
   exit 1
 fi
+
+# 候補のパスの合計が引数の上限 (ARG_MAX、ubuntu で 2 MiB) を超える場面。候補を grep のコマンドラインに並べると、grep を
+# 起動できず、当たり 0 件として通信の検出を逃れられる。約 3,800 バイトのパスのファイルを 600 個置き、合計を 2 MiB より大きくする。
+many="${work}/many"
+deep="${many}/deep"
+for _ in $(seq 1 15); do deep="${deep}/$(printf 'd%.0s' $(seq 1 250))"; done
+mkdir -p "${deep}" "${many}/src"
+for n in $(seq 1 600); do printf '// socket (\n' > "${deep}/f${n}.cpp"; done
+printf 'curl_easy_init();\n' > "${many}/src/real.cpp"
+result="$(bash "${script}" "${many}")"
+actual="$(jq -c '[.hits[] | select(.file == "src/real.cpp") | {file, line, api}]' <<< "${result}")"
+expected='[{"file":"src/real.cpp","line":1,"api":"libcurl"}]'
+if [ "${actual}" != "${expected}" ] || [ "$(jq '.hits | length' <<< "${result}")" -ne 50 ] || [ "$(jq '.truncated' <<< "${result}")" != "true" ]; then
+  echo "scan-network.sh (ARG_MAX): expected ${expected} with 50 hits and truncated, got $(jq -c '{n: (.hits | length), truncated, real: [.hits[] | select(.file == "src/real.cpp")]}' <<< "${result}")" >&2
+  exit 1
+fi
+
 echo "scan-network.sh: ok (LANG=${LANG:-unset} LC_ALL=${LC_ALL:-unset})"
