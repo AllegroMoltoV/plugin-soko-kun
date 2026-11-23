@@ -2,7 +2,7 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { listMyPlugins, nextCheck, resumeOf, versionState } from '../../src/domain/author';
-import { BLOCKER_WAITS_FOR, type BlockerCode } from '../../src/domain/status';
+import { BLOCKER_WAITS_FOR, type BlockerCode, MAX_SCAN_ATTEMPTS } from '../../src/domain/status';
 import { submitPlugin } from '../../src/domain/submit';
 import { markListable } from '../fixtures/checks';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from '../fixtures/github';
@@ -50,6 +50,28 @@ describe('listMyPlugins', () => {
       .plugins[0];
     expect(plugin?.versions[0]?.state).toBe('checking');
     expect(plugin?.versions[0]?.blockers.length).toBeGreaterThan(0);
+  });
+
+  it('MalwareBazaar の照会が上限まで続けて失敗した版は held にし、照会の結果を retries_exhausted と返す', async () => {
+    await register();
+    await markListable(env.DB);
+    await env.DB.prepare("UPDATE scans SET result = 'error', attempts = ?").bind(MAX_SCAN_ATTEMPTS).run();
+    network.use(...githubHandlers());
+    const result = await listMyPlugins(env, { githubUserId: 4242, githubLogin: OWNER, githubToken: USER_TOKEN }, {});
+    const version = (
+      result as {
+        plugins: Array<{
+          versions: Array<{
+            state: string;
+            blockers: Array<{ code: string }>;
+            checks: { malwarebazaar?: { result: string } };
+          }>;
+        }>;
+      }
+    ).plugins[0]?.versions[0];
+    expect(version?.state).toBe('held');
+    expect(version?.blockers.map((blocker) => blocker.code)).toContain('scan_retries_exhausted');
+    expect(version?.checks.malwarebazaar).toEqual({ result: 'retries_exhausted' });
   });
 
   // 作者やリポジトリに書き込める者が、表示名・差分の見出し・ファイルの名前・レビューの根拠で、作者の AI へ文を届けられないようにする。

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { Budget } from '../../src/budget';
 import { FINAL_RESERVE, MALWAREBAZAAR_PER_RUN, recordListings, runCron, SYNC_COST } from '../../src/domain/cron';
 import { RELEASE_CHECK_COST, runReleaseChecks } from '../../src/domain/release-checks';
+import { MAX_SCAN_ATTEMPTS } from '../../src/domain/status';
 import { submitPlugin } from '../../src/domain/submit';
 import { markListable } from '../fixtures/checks';
 import {
@@ -833,5 +834,134 @@ describe('証明の検証のワークフローの起動', () => {
     );
     const report = await runCron(withToken);
     expect(report.verifyDispatch).toBe('failed_401');
+  });
+});
+
+// MalwareBazaar の照会の試行の数え方と、照会の例外の閉じ込め (ADR 0019 の原則 2)。
+describe('runCron の MalwareBazaar の照会の試行', () => {
+  const ZIP = `sha256:${'d1'.repeat(32)}`;
+  const OTHER = `sha256:${'e2'.repeat(32)}`;
+  const DAY_MS = 86_400_000;
+
+  // 窓口の配布物 (ZIP) を掲載中にし、もう 1 つの配布物 (OTHER) は直前に照会を終えた未登録として、照会の対象から外す。
+  async function setupListed(): Promise<void> {
+    await registerFixture();
+    const asset = await env.DB.prepare(
+      'SELECT a.release_id, r.tag FROM assets a JOIN releases r ON r.github_release_id = a.release_id WHERE a.digest = ?',
+    )
+      .bind(ZIP)
+      .first<{ release_id: number; tag: string }>();
+    if (!asset) throw new Error('fixture asset is missing');
+    await env.DB.prepare(
+      "INSERT INTO listing_periods (plugin_id, github_release_id, digest, tag, asset_name, started_at) SELECT id, ?, ?, ?, 'x.zip', ? FROM plugins",
+    )
+      .bind(asset.release_id, ZIP, asset.tag, new Date().toISOString())
+      .run();
+    await env.DB.prepare("UPDATE scans SET result = 'not_found', attempts = 0, scanned_at = ? WHERE digest = ?")
+      .bind(new Date().toISOString(), OTHER)
+      .run();
+  }
+
+  const setScan = (digest: string, result: string, attempts: number, scannedAt: string | null) =>
+    env.DB.prepare(
+      "UPDATE scans SET result = ?, attempts = ?, scanned_at = ? WHERE digest = ? AND scanner = 'malwarebazaar'",
+    )
+      .bind(result, attempts, scannedAt, digest)
+      .run();
+  const scanOf = (digest: string) =>
+    env.DB.prepare("SELECT result, detail, attempts FROM scans WHERE digest = ? AND scanner = 'malwarebazaar'")
+      .bind(digest)
+      .first<{ result: string; detail: string | null; attempts: number }>();
+  const weekAgo = () => new Date(Date.now() - 8 * DAY_MS).toISOString();
+
+  // 照会した hash を記録し、hash ごとに決めた応答を返す。
+  function mbHandler(queried: string[], respond: (hash: string) => Response) {
+    return http.post('https://mb-api.abuse.ch/api/v1/', async ({ request }) => {
+      const hash = new URLSearchParams(await request.text()).get('hash') ?? '';
+      queried.push(hash);
+      return respond(hash);
+    });
+  }
+  const answer = (status: string) => () => HttpResponse.json({ query_status: status });
+  const run = (handler: ReturnType<typeof http.post>, budget?: Budget) => {
+    network.resetHandlers();
+    network.use(repoById(503), handler, ...releaseCheckHandlers());
+    return runCron(env, budget);
+  };
+
+  it('掲載中の配布物の照会し直しが未登録なら、attempts を 0 に戻す', async () => {
+    await setupListed();
+    // 照会のたびに 1 ずつ増やしていた旧い数え方の値。
+    await setScan(ZIP, 'not_found', 7, weekAgo());
+    const queried: string[] = [];
+    await run(mbHandler(queried, answer('hash_not_found')));
+    expect(queried).toEqual(['d1'.repeat(32)]);
+    expect(await scanOf(ZIP)).toMatchObject({ result: 'not_found', attempts: 0 });
+  });
+
+  it('照会し直しが error になったら 1 から数え、次の起動で照会する', async () => {
+    await setupListed();
+    await setScan(ZIP, 'not_found', 2, weekAgo());
+    await run(mbHandler([], answer('unknown_auth_key')));
+    expect(await scanOf(ZIP)).toMatchObject({ result: 'error', attempts: 1 });
+    const queried: string[] = [];
+    await run(mbHandler(queried, answer('hash_not_found')));
+    expect(queried).toEqual(['d1'.repeat(32)]);
+    expect(await scanOf(ZIP)).toMatchObject({ result: 'not_found', attempts: 0 });
+  });
+
+  it('error が続けば 1 ずつ増え、上限に達したら照会の対象に選ばない', async () => {
+    await setupListed();
+    await setScan(ZIP, 'error', MAX_SCAN_ATTEMPTS - 1, weekAgo());
+    const first: string[] = [];
+    await run(mbHandler(first, answer('unknown_auth_key')));
+    expect(first).toEqual(['d1'.repeat(32)]);
+    expect(await scanOf(ZIP)).toMatchObject({ result: 'error', attempts: MAX_SCAN_ATTEMPTS });
+    const second: string[] = [];
+    await run(mbHandler(second, answer('hash_not_found')));
+    expect(second).toEqual([]);
+  });
+
+  it.each([
+    ['fetch の例外', () => HttpResponse.error()],
+    ['JSON でない 200 の応答', () => new HttpResponse('<html>maintenance</html>', { status: 200 })],
+    [
+      '別のホストへのリダイレクト',
+      () => new HttpResponse(null, { status: 302, headers: { Location: 'https://example.com/' } }),
+    ],
+  ])(
+    '照会が %s になっても、その配布物を error として数え、ほかの配布物の照会と後段を続ける',
+    async (_name, failure) => {
+      await registerFixture();
+      await setScan(ZIP, 'pending', 0, null);
+      await setScan(OTHER, 'pending', 0, null);
+      const queried: string[] = [];
+      const report = await run(
+        mbHandler(queried, (hash) =>
+          hash === 'd1'.repeat(32) ? failure() : HttpResponse.json({ query_status: 'hash_not_found' }),
+        ),
+      );
+      expect(queried).toHaveLength(2);
+      const failed = await scanOf(ZIP);
+      expect(failed).toMatchObject({ result: 'error', attempts: 1 });
+      expect(failed?.detail?.length).toBeLessThanOrEqual(200);
+      expect(await scanOf(OTHER)).toMatchObject({ result: 'not_found', attempts: 0 });
+      // 後段の新しい版の検査と同期が走っている (同期は repoById(503) で止まる)。
+      expect(report.releasesChecked).toBeDefined();
+      expect(report.stoppedBy).toBe('github_unavailable');
+    },
+  );
+
+  it('429 は試行に数えずに止め、照会の途中の予算の超過は後段の打ち切りとして記録する', async () => {
+    await registerFixture();
+    await setScan(ZIP, 'pending', 0, null);
+    await run(mbHandler([], () => new HttpResponse(null, { status: 429 })));
+    expect(await scanOf(ZIP)).toMatchObject({ result: 'pending', attempts: 0 });
+    // 同じホストへのリダイレクトを続け、照会の途中で予算を使い切る。
+    const loop = () =>
+      new HttpResponse(null, { status: 302, headers: { Location: 'https://mb-api.abuse.ch/api/v1/' } });
+    const report = await run(mbHandler([], loop), new Budget(FINAL_RESERVE + 2, 45));
+    expect(report.stoppedBy).toBe('budget_subrequest');
+    expect(await scanOf(ZIP)).toMatchObject({ result: 'pending', attempts: 0 });
   });
 });

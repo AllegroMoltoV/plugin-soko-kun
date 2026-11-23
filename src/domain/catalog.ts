@@ -17,6 +17,7 @@ import {
   type ReleaseForStatus,
   type ReviewState,
   releaseBlockers,
+  type ScanLookup,
   type Scanner,
   type ScanResult,
 } from './status';
@@ -168,6 +169,7 @@ interface ScanRow {
   digest: string;
   scanner: Scanner;
   result: ScanResult;
+  attempts: number;
   detail: string | null;
   scanned_at: string | null;
 }
@@ -432,7 +434,10 @@ async function loadViews(env: Env, pluginId?: string, waits?: Map<string, AdminW
       ownerChanged: plugin.owner_changed_at !== null,
       readmeHeld: plugin.readme_held === 1,
     }));
-    const lookup = (digest: string, scanner: Scanner) => scanMap.get(`${digest}:${scanner}`)?.result;
+    const lookup: ScanLookup = (digest, scanner) => {
+      const scan = scanMap.get(`${digest}:${scanner}`);
+      return scan && { result: scan.result, attempts: scan.attempts };
+    };
     const status = computeStatus(
       { adminSuspended: plugin.admin_suspended === 1, removed: plugin.removed === 1 },
       forStatus,

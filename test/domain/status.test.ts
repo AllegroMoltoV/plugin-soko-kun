@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BLOCKER_WAITS_FOR,
   computeStatus,
+  MAX_SCAN_ATTEMPTS,
   type ReleaseChecks,
   type ReleaseForStatus,
   releaseBlockers,
@@ -48,8 +49,12 @@ const newer: ReleaseForStatus = {
 };
 const clean = lookupFrom({ 'sha256:old': 'not_found', 'sha256:new': 'not_found' });
 
-function lookupFrom(table: Record<string, ScanResult>): ScanLookup {
-  return (digest) => table[digest];
+// 値が結果だけなら、続けて失敗した回数 (attempts) を 1 とする。表に無い digest は結果の行が無いものとする。
+function lookupFrom(table: Record<string, ScanResult | { result: ScanResult; attempts: number }>): ScanLookup {
+  return (digest) => {
+    const value = table[digest];
+    return typeof value === 'string' ? { result: value, attempts: 1 } : value;
+  };
 }
 
 function withChecks(changes: Partial<ReleaseChecks>, release: ReleaseForStatus = newer): ReleaseForStatus {
@@ -203,5 +208,48 @@ describe('releaseBlockers (新しい版の条件)', () => {
       lookupFrom({ 'sha256:old': 'not_found' }),
     );
     expect(result.status).toBe('pending');
+  });
+});
+
+// MalwareBazaar の照会が続けて失敗し、上限に達した版は、本サービスの処理待ちではなく管理者の待ちとして返す。
+describe('releaseBlockers (MalwareBazaar の照会の試行切れ)', () => {
+  const exhausted = { result: 'error' as const, attempts: MAX_SCAN_ATTEMPTS };
+
+  it('error が上限に達した配布物を持つ版は scan_retries_exhausted を付け、scan_pending を付けない', () => {
+    const blockers = releaseBlockers(newer, lookupFrom({ 'sha256:new': exhausted }));
+    expect(blockers).toContain('scan_retries_exhausted');
+    expect(blockers).not.toContain('scan_pending');
+    expect(BLOCKER_WAITS_FOR.scan_retries_exhausted).toBe('admin');
+  });
+
+  it('管理者の承認があっても掲載しない', () => {
+    const result = computeStatus(
+      active,
+      [withChecks({ adminApproved: true })],
+      lookupFrom({ 'sha256:new': exhausted }),
+    );
+    expect(result.status).toBe('pending');
+  });
+
+  it('上限の手前の error は scan_pending のまま', () => {
+    const below = lookupFrom({ 'sha256:new': { result: 'error', attempts: MAX_SCAN_ATTEMPTS - 1 } });
+    expect(releaseBlockers(newer, below)).toContain('scan_pending');
+    expect(releaseBlockers(newer, below)).not.toContain('scan_retries_exhausted');
+  });
+
+  it('試行切れとほかの未確定の配布物があれば、両方を挙げる', () => {
+    const release = {
+      ...newer,
+      assets: [
+        { name: 'a.zip', digest: 'sha256:a', os: 'windows', attestation: 'passed' as const },
+        { name: 'b.zip', digest: 'sha256:b', os: 'linux', attestation: 'passed' as const },
+      ],
+    };
+    const mixed = lookupFrom({ 'sha256:a': exhausted, 'sha256:b': 'pending' });
+    expect(releaseBlockers(release, mixed)).toEqual(expect.arrayContaining(['scan_pending', 'scan_retries_exhausted']));
+  });
+
+  it('旧い版 (legacy) にも付ける', () => {
+    expect(releaseBlockers(older, lookupFrom({ 'sha256:old': exhausted }))).toEqual(['scan_retries_exhausted']);
   });
 });

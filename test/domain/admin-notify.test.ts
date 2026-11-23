@@ -5,6 +5,7 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { Budget } from '../../src/budget';
 import { notifyAdmin } from '../../src/domain/admin-notify';
+import { MAX_SCAN_ATTEMPTS } from '../../src/domain/status';
 import { submitPlugin } from '../../src/domain/submit';
 import { markListable } from '../fixtures/checks';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from '../fixtures/github';
@@ -52,6 +53,21 @@ describe('管理者の確認待ちの通知', () => {
     expect(new URL(requests[0]?.url ?? '').searchParams.get('wait')).toBe('true');
     expect(requests[0]?.body.allowed_mentions).toEqual({ parse: [] });
     expect(requests[0]?.body.content).toContain('diff_held');
+  });
+
+  it('MalwareBazaar の照会が続けて失敗して上限に達した版は、scan_retries_exhausted として知らせる', async () => {
+    await registerHeld();
+    await env.DB.prepare("UPDATE release_checks SET diff_state = 'passed'").run();
+    await env.DB.prepare("UPDATE scans SET result = 'error', attempts = ?").bind(MAX_SCAN_ATTEMPTS).run();
+    const requests = discord();
+    expect(await notifyAdmin(withWebhook, new Budget())).toBe('sent');
+    expect(requests[0]?.body.content).toContain('scan_retries_exhausted');
+    // 上限の手前の error は本サービスの処理を待つだけのため、知らせない。知らせた記録も消える。
+    await env.DB.prepare('UPDATE scans SET attempts = ?')
+      .bind(MAX_SCAN_ATTEMPTS - 1)
+      .run();
+    expect(await notifyAdmin(withWebhook, new Budget())).toBe('skipped_none');
+    expect(await keys()).toEqual([]);
   });
 
   it('送信に失敗したら記録せず、次の起動で送り直す', async () => {

@@ -94,7 +94,7 @@ OAuth のクライアント・認可・トークンの情報は D1 ではなく 
 | `scanner` | TEXT | 主キーの一部。値は `malwarebazaar` | スキャナー |
 | `result` | TEXT | NOT NULL、下表の値のいずれか | 検査結果 |
 | `detail` | TEXT | | スキャナーの応答の要約 |
-| `attempts` | INTEGER | NOT NULL、既定値 0 | 照会した回数 |
+| `attempts` | INTEGER | NOT NULL、既定値 0 | 続けて失敗した回数。`error` で 1 増え、`not_found` と `malicious` で 0 に戻る。5 回に達した `error` は自動では照会せず、管理者の確認を待つ |
 | `scanned_at` | TEXT | | 最後に照会した日時 |
 
 索引: `scans_pending (result, scanned_at)`
@@ -262,7 +262,7 @@ MalwareBazaar の `not_found` を確定とする判断は [ADR 0005](../decision
 リリースが検査済みとなるのは、次をすべて満たすときです。
 
 - 配布物を 1 件以上持つ。
-- すべての配布物について、MalwareBazaar の結果が確定である。
+- すべての配布物について、MalwareBazaar の結果が確定である。`error` が 5 回続いた配布物を持つリリースは、理由 `scan_retries_exhausted` で管理者の確認を待つ。版の承認では解けず、`legacy` が 1 のリリースにも適用する。
 - `release_suspensions` に記録されていない。
 - `plugins` の `readme_held` が 0 である。版の承認では解けず、`legacy` が 1 のリリースにも適用する。
 - `release_checks` の行があり、`license_state` が `passed` である。版の承認では解けず、`legacy` が 1 のリリースにも適用する ([ADR 0018](../decisions/0018-free-and-open-listing.md))。
