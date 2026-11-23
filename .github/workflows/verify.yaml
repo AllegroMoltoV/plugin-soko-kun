@@ -194,16 +194,33 @@ jobs:
             fi
           done
 
+          # 当たりのファイル名を、受け口 (src/review/network.ts の FILE: 改行と NUL を含まず 200 文字以下) が受け付ける形に整える。
+          # 受け口は形の合わない当たりを捨てるため、深いパスや改行を含む名前のファイルに置いた処理の検出が消えないようにする。
+          # 改行・CR・NUL は ? に置き換え、100 文字 (コードポイント) を超える名前は末尾の 99 文字を残して先頭を … にする。
+          # 受け口は UTF-16 の長さで数えるため、1 文字が 2 単位になる文字だけでも 200 以下に収まる。
+          body=$(jq -ac --slurpfile scans scans.json '
+            def fix_file: explode | map(if . == 0 or . == 10 or . == 13 then 63 else . end) | implode
+              | if length > 100 then "…" + .[-99:] else . end;
+            def fix_hits: if type == "array" then map(if (.file | type) == "string" then .file |= fix_file else . end) else . end;
+            {results: ., networkScans: ($scans[0] | map(if .result == "done" then (.hits |= fix_hits) | (.docHits |= fix_hits) else . end))}
+          ' results.json)
+
           # report は送る本文を環境変数で受け取る。Linux の環境変数 1 つの上限 (128 KiB) を超えうるため、
           # ASCII だけの JSON (jq -a) にして 100,000 バイトずつ最大 8 個の output に分ける。ASCII なのでバイト単位で切っても文字が壊れない。
-          # 8 個の合計 800,000 バイトは job output の上限 (1 MB) に収まる。結果は最大 100 件、通信の検出は最大 5 版で、
-          # 1 版あたり検出 50 件と文書 50 件 (本文は 160 文字まで) のため、通常はこの範囲に収まる。超えたら止める。
-          body=$(jq -ac --slurpfile scans scans.json '{results: ., networkScans: $scans[0]}' results.json)
+          # 8 個の合計 800,000 バイトは job output の上限 (1 MB) に収まる。超えるときは、本文の大きい版から順に通信の検出の結果を
+          # error に置き換える。失敗で止めると受け口に何も届かず、試行の回数も増えないため、同じ一覧で失敗を繰り返して
+          # ほかのプラグインの証明の検証まで止まる。error にした版は、受け口で試行を数え、使い切ると既存の扱いへ進む。
           chunk=100000
-          if [ "${#body}" -gt $((chunk * 8)) ]; then
-            echo "results are too large to pass to the report job: ${#body} bytes" >&2
-            exit 1
-          fi
+          while [ "${#body}" -gt $((chunk * 8)) ]; do
+            largest=$(jq -r '[.networkScans[] | select(.result == "done")] | max_by(tojson | length) | .releaseId // empty' <<< "${body}")
+            if [ -z "${largest}" ]; then
+              echo "results are too large to pass to the report job even without network scans: ${#body} bytes" >&2
+              exit 1
+            fi
+            echo "release ${largest}: network scan results are too large to send; reporting as error"
+            body=$(jq -ac --argjson id "${largest}" \
+              '.networkScans |= map(if .releaseId == $id then {releaseId: .releaseId, result: "error"} else . end)' <<< "${body}")
+          done
           for k in 0 1 2 3 4 5 6 7; do
             echo "body_${k}=${body:$((k * chunk)):${chunk}}" >> "${GITHUB_OUTPUT}"
           done
