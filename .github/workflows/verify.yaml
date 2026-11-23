@@ -2,6 +2,9 @@ name: Verify attestations
 
 # 掲載を待つ配布物の証明を検証し、新しい版のソースから通信の API を探し、結果を倉庫くんへ送る (ADR 0014、ADR 0016)。
 # 倉庫くんは、このリポジトリの main で動くこのワークフローの OIDC のトークンだけを受け付ける。
+# 第三者のデータを処理する scan ジョブには id-token を付けない。MCP Registry は OIDC のトークンの repository_owner だけで
+# io.github.AllegroMoltoV/* の公開権限を与えるため、そのジョブで第三者のデータを処理するツールの脆弱性を突かれると、
+# Registry の登録を書き換えられるトークンを発行されうる。トークンを取るのは、第三者のデータを処理しない prepare と report だけにする。
 on:
   schedule:
     - cron: '7,22,37,52 * * * *'
@@ -9,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: verify-attestations
@@ -21,29 +23,94 @@ env:
   MIN_FREE_BYTES: '3221225472'
 
 jobs:
-  verify:
+  # 検証待ちの一覧を受け取り、job output で scan へ渡す。
+  prepare:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      pending: ${{ steps.pending.outputs.pending }}
+      has_work: ${{ steps.pending.outputs.has_work }}
     steps:
+      - name: Fetch pending release files
+        id: pending
+        run: |
+          set -euo pipefail
+          token=$(curl -fsS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=soko-kun" | jq -r '.value')
+          curl -fsS -H "Authorization: Bearer ${token}" "${SOKO_KUN_ORIGIN}/internal/attestations/pending" > pending.json
+          count=$(jq '.assets | length' pending.json)
+          releases=$(jq '(.releases // []) | length' pending.json)
+          echo "pending: ${count} assets, ${releases} releases for the network scan"
+          if [ "${count}" -eq 0 ] && [ "${releases}" -eq 0 ]; then has_work=false; else has_work=true; fi
+          # scan は一覧を環境変数で受け取る。Linux の環境変数 1 つの上限 (128 KiB) に収まらなければ、末尾の配布物から
+          # (配布物が無くなれば末尾の版から) 外して進める。受け口が返すのは最大 50 件で通常は数十 KB に収まるが、旧い名前を
+          # 配布物ごとに繰り返すため、名前を何度も変えたリポジトリの配布物の多いリリースで超えうる。失敗で止めると受け口の状態が
+          # 変わらず同じ一覧で失敗を繰り返すが、先頭から送れば検証した分が一覧の後ろへ回り、外した分は次の起動で扱われる。
+          pending=$(jq -ac . pending.json)
+          while [ "${#pending}" -gt 100000 ]; do
+            if [ "$(jq '.assets | length' <<< "${pending}")" -gt 0 ]; then
+              pending=$(jq -ac '.assets |= .[:-1]' <<< "${pending}")
+            elif [ "$(jq '(.releases // []) | length' <<< "${pending}")" -gt 0 ]; then
+              pending=$(jq -ac '.releases |= .[:-1]' <<< "${pending}")
+            else
+              echo "pending list is too large even without items: ${#pending} bytes" >&2
+              exit 1
+            fi
+          done
+          echo "passing $(jq '.assets | length' <<< "${pending}") assets and $(jq '(.releases // []) | length' <<< "${pending}") releases to the scan job"
+          {
+            echo "has_work=${has_work}"
+            echo "pending=${pending}"
+          } >> "${GITHUB_OUTPUT}"
+
+  # 第三者の配布物とソースを取得して検証し、送る結果を job output で report へ渡す。OIDC のトークンは取らない。
+  scan:
+    needs: prepare
+    if: needs.prepare.outputs.has_work == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    outputs:
+      body_0: ${{ steps.verify.outputs.body_0 }}
+      body_1: ${{ steps.verify.outputs.body_1 }}
+      body_2: ${{ steps.verify.outputs.body_2 }}
+      body_3: ${{ steps.verify.outputs.body_3 }}
+      body_4: ${{ steps.verify.outputs.body_4 }}
+      body_5: ${{ steps.verify.outputs.body_5 }}
+      body_6: ${{ steps.verify.outputs.body_6 }}
+      body_7: ${{ steps.verify.outputs.body_7 }}
+    steps:
+      # 権限の付け間違いで、このジョブが OIDC のトークンを取れる状態になっていないことを確かめる。
+      - name: Confirm that no OIDC token can be requested
+        run: |
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "The scan job must not have id-token: write." >&2
+            exit 1
+          fi
+          echo "No OIDC token request variables are set."
       # 通信の検出のスクリプト (.github/scripts/scan-network.sh) を使うため。
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Verify pending release files
+        id: verify
         env:
           GH_TOKEN: ${{ github.token }}
+          PENDING: ${{ needs.prepare.outputs.pending }}
         run: |
           set -euo pipefail
-          token() {
-            curl -fsS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=soko-kun" | jq -r '.value'
-          }
-          curl -fsS -H "Authorization: Bearer $(token)" "${SOKO_KUN_ORIGIN}/internal/attestations/pending" > pending.json
+          # 第三者の文字列 (エラーの文面やパス) がログの行頭に出ても、ワークフローコマンドとして解釈させない。
+          # ::add-mask:: で本文の一部を秘密として登録されると、その値を含むジョブの出力が捨てられ、report が壊れた本文を送って
+          # 同じ一覧で失敗を繰り返すため。結果はファイル (GITHUB_OUTPUT) で渡すため、この停止の影響を受けない。
+          echo "::stop-commands::$(openssl rand -hex 16)"
+          printf '%s' "${PENDING}" > pending.json
           count=$(jq '.assets | length' pending.json)
           releases=$(jq '(.releases // []) | length' pending.json)
-          echo "pending: ${count} assets, ${releases} releases for the network scan"
-          if [ "${count}" -eq 0 ] && [ "${releases}" -eq 0 ]; then exit 0; fi
 
           work=$(mktemp -d)
           echo '[]' > results.json
@@ -140,6 +207,59 @@ jobs:
             fi
           done
 
-          jq --slurpfile scans scans.json '{results: ., networkScans: $scans[0]}' results.json > body.json
-          curl -fsS -X POST -H "Authorization: Bearer $(token)" -H 'Content-Type: application/json' \
-            --data @body.json "${SOKO_KUN_ORIGIN}/internal/attestations/results"
+          # 当たりのファイル名を、受け口 (src/review/network.ts の FILE: 改行と NUL を含まず 200 文字以下) が受け付ける形に整える。
+          # 受け口は形の合わない当たりを捨てるため、深いパスや改行を含む名前のファイルに置いた処理の検出が消えないようにする。
+          # 改行・CR・NUL は ? に置き換え、100 文字 (コードポイント) を超える名前は末尾の 99 文字を残して先頭を … にする。
+          # 受け口は UTF-16 の長さで数えるため、1 文字が 2 単位になる文字だけでも 200 以下に収まる。
+          body=$(jq -ac --slurpfile scans scans.json '
+            def fix_file: explode | map(if . == 0 or . == 10 or . == 13 then 63 else . end) | implode
+              | if length > 100 then "…" + .[-99:] else . end;
+            def fix_hits: if type == "array" then map(if (.file | type) == "string" then .file |= fix_file else . end) else . end;
+            {results: ., networkScans: ($scans[0] | map(if .result == "done" then (.hits |= fix_hits) | (.docHits |= fix_hits) else . end))}
+          ' results.json)
+
+          # report は送る本文を環境変数で受け取る。Linux の環境変数 1 つの上限 (128 KiB) を超えうるため、
+          # ASCII だけの JSON (jq -a) にして 100,000 バイトずつ最大 8 個の output に分ける。ASCII なのでバイト単位で切っても文字が壊れない。
+          # 8 個の合計 800,000 バイトは job output の上限 (1 MB) に収まる。超えるときは、本文の大きい版から順に通信の検出の結果を
+          # error に置き換える。失敗で止めると受け口に何も届かず、試行の回数も増えないため、同じ一覧で失敗を繰り返して
+          # ほかのプラグインの証明の検証まで止まる。error にした版は、受け口で試行を数え、使い切ると既存の扱いへ進む。
+          chunk=100000
+          while [ "${#body}" -gt $((chunk * 8)) ]; do
+            largest=$(jq -r '[.networkScans[] | select(.result == "done")] | max_by(tojson | length) | .releaseId // empty' <<< "${body}")
+            if [ -z "${largest}" ]; then
+              echo "results are too large to pass to the report job even without network scans: ${#body} bytes" >&2
+              exit 1
+            fi
+            echo "release ${largest}: network scan results are too large to send; reporting as error"
+            body=$(jq -ac --argjson id "${largest}" \
+              '.networkScans |= map(if .releaseId == $id then {releaseId: .releaseId, result: "error"} else . end)' <<< "${body}")
+          done
+          for k in 0 1 2 3 4 5 6 7; do
+            echo "body_${k}=${body:$((k * chunk)):${chunk}}" >> "${GITHUB_OUTPUT}"
+          done
+
+  # scan の結果を倉庫くんへ送るだけにする。第三者のデータに由来する body は、展開も解析もせずにそのまま送り、形の検証は受け口に任せる。
+  report:
+    needs: [prepare, scan]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    steps:
+      - name: Send results
+        env:
+          BODY_0: ${{ needs.scan.outputs.body_0 }}
+          BODY_1: ${{ needs.scan.outputs.body_1 }}
+          BODY_2: ${{ needs.scan.outputs.body_2 }}
+          BODY_3: ${{ needs.scan.outputs.body_3 }}
+          BODY_4: ${{ needs.scan.outputs.body_4 }}
+          BODY_5: ${{ needs.scan.outputs.body_5 }}
+          BODY_6: ${{ needs.scan.outputs.body_6 }}
+          BODY_7: ${{ needs.scan.outputs.body_7 }}
+        run: |
+          set -euo pipefail
+          token=$(curl -fsS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=soko-kun" | jq -r '.value')
+          printf '%s' "${BODY_0}" "${BODY_1}" "${BODY_2}" "${BODY_3}" "${BODY_4}" "${BODY_5}" "${BODY_6}" "${BODY_7}" | curl -fsS -X POST -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
+            --data-binary @- "${SOKO_KUN_ORIGIN}/internal/attestations/results"

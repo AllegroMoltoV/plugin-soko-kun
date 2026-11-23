@@ -38,3 +38,81 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --env production
+
+  # Registry への公開は deploy と別の job にする。公開に失敗しても deploy は成功のまま残り、この job だけをやり直せる。
+  publish-registry:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # id-token: write は、Registry の名前空間への公開権限を得られるため、この job だけに付ける。
+    # environment は付けない。Registry は OIDC の repository_owner だけで io.github.<所有者>/* の権限を与え、
+    # environment を見ないため、承認は名前空間の守りにならない。公開は needs により、承認済みの deploy の後に限られる。
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      MCP_PUBLISHER_VERSION: v1.8.9
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: server.json と package.json の版を照合する
+        run: |
+          set -euo pipefail
+          server_version="$(jq -r '.version' server.json)"
+          package_version="$(jq -r '.version' package.json)"
+          if [ "$server_version" != "$package_version" ]; then
+            echo "版が食い違っています: server.json=$server_version package.json=$package_version" >&2
+            exit 1
+          fi
+      # 同じ版の再公開は Registry に拒まれる。job だけを再実行したときに失敗しないよう、登録済みの版は飛ばす。
+      - name: 登録済みの版を確認する
+        id: registered
+        run: |
+          set -euo pipefail
+          name="$(jq -r '.name' server.json)"
+          version="$(jq -r '.version' server.json)"
+          encoded_name="${name//\//%2F}"
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            "https://registry.modelcontextprotocol.io/v0/servers/$encoded_name/versions/$version")"
+          case "$status" in
+            200)
+              echo "$name $version は登録済みのため、公開を飛ばします。"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo "$name $version は未登録のため、公開します。"
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "登録状況を判定できません: HTTP $status" >&2
+              exit 1
+              ;;
+          esac
+      - name: cosign を導入する
+        if: steps.registered.outputs.skip == 'false'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: mcp-publisher を取得して検証する
+        if: steps.registered.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          arch="$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+          archive="mcp-publisher_${os}_${arch}.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+      - name: Registry に認証する
+        if: steps.registered.outputs.skip == 'false'
+        run: ./mcp-publisher login github-oidc
+      - name: Registry に公開する
+        if: steps.registered.outputs.skip == 'false'
+        run: ./mcp-publisher publish

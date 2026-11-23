@@ -8,8 +8,8 @@ GitHub Actions のワークフローの目的と権限、依存の更新、本�
 | --- | --- | --- | --- |
 | `ci.yml` | 静的検査とテスト、ワークフローの検査、依存の脆弱性の検査 | PR、`main` への push | `contents: read` |
 | `codeql.yml` | CodeQL によるコードの脆弱性の検査 | PR、`main` への push、毎週月曜 04:23 UTC | ワークフローは `contents: read`。ジョブに `security-events: write` と `actions: read` を加える |
-| `deploy.yml` | 本番への D1 のマイグレーションの適用と Worker の配備 | 手動実行 `workflow_dispatch` だけ | `contents: read`。environment `production` の秘密情報を使う |
-| `verify.yaml` | 配布物の証明の署名の検証と、新しい版のソースからの通信の API の検出。結果を Worker の受け口へ送る ([検査と同期](../design/scanning.md)) | 15 分ごとの `schedule` と、Worker の定期処理からの `workflow_dispatch` | `contents: read` と `id-token: write` (受け口へ送る OIDC のトークン) |
+| `deploy.yml` | 本番への D1 のマイグレーションの適用と Worker の配備、MCP Registry への公開 | 手動実行 `workflow_dispatch` だけ | ワークフローは `contents: read`。ジョブ `deploy` は environment `production` の秘密情報を使う。ジョブ `publish-registry` だけに `id-token: write` を加える |
+| `verify.yaml` | 配布物の証明の署名の検証と、新しい版のソースからの通信の API の検出。結果を Worker の受け口へ送る ([検査と同期](../design/scanning.md)) | 15 分ごとの `schedule` と、Worker の定期処理からの `workflow_dispatch` | ワークフローは `contents: read`。受け口と通信するジョブ `prepare` と `report` だけに `id-token: write` を加える |
 
 ### ci.yml
 
@@ -33,7 +33,23 @@ GitHub Actions のワークフローの目的と権限、依存の更新、本�
 2. `wrangler d1 migrations apply DB --remote --env production` で、本番の D1 にマイグレーションを適用する。
 3. `wrangler deploy --env production` で Worker を配備する。
 
-ジョブは environment `production` で動きます。配備は同時に 1 つだけ実行し、実行中の配備を取り消しません。
+ジョブ `deploy` は environment `production` で動きます。配備は同時に 1 つだけ実行し、実行中の配備を取り消しません。ジョブ `deploy` が成功すると、ジョブ `publish-registry` が MCP Registry へ公開します。手順は [公式 MCP Registry への登録](mcp-registry.md) に記載しています。
+
+### verify.yaml
+
+`verify.yaml` は 3 つのジョブに分かれます。第三者の配布物とソースを処理するジョブ `scan` には `id-token: write` を付けません。MCP Registry は OIDC のトークンの `repository_owner` だけで `io.github.AllegroMoltoV/*` の公開権限を与えます。そのため、`scan` で動くツール (git・gh・grep・node・jq) の脆弱性を突かれた場合に、Registry の登録を書き換えられるトークンを発行させないためです。GitHub が用意する runner はジョブごとに別の仮想マシンで動くため、ジョブを分ければトークンを取る環境と第三者のデータを処理する環境を分けられます。
+
+| ジョブ | 権限 | 内容 |
+| --- | --- | --- |
+| `prepare` | `contents: read`、`id-token: write` | 受け口から検証待ちの一覧を受け取り、ジョブの出力で `scan` へ渡す |
+| `scan` | `contents: read` | 最初に OIDC のトークンを要求する環境変数が無いことを確かめる。配布物の取得とハッシュ、証明の検証、ソースの取得と通信の API の検出を行い、送る結果をジョブの出力で `report` へ渡す |
+| `report` | `id-token: write` | `scan` の結果を解析せずにそのまま受け口へ送る。形の検証は受け口が行う |
+
+この分け方では、`scan` を乗っ取られた場合の結果の改ざんは防げません。`report` は、`scan` が作った結果をそのまま本サービスのトークンを付けて送ります。
+
+ジョブの出力は、次のジョブで環境変数として受け取ります。Linux の環境変数は 1 つあたり 128 KiB までのため、`scan` は結果を ASCII だけの JSON にして 100,000 バイトずつ最大 8 個の出力に分け、`report` がつなぎ直します。8 個の合計 800,000 バイトを超えるときは、本文の大きい版から順に、通信の検出の結果を `error` に置き換えます。失敗で止めると受け口に何も届かず試行の回数も増えないため、同じ一覧で失敗を繰り返し、ほかのプラグインの証明の検証まで止まるためです。
+
+`scan` は、当たりのファイル名を受け口が受け付ける形に整えてから送ります。受け口は、改行や NUL を含むか 200 文字を超えるファイル名の当たりを捨てるためです。改行・CR・NUL は `?` に置き換え、100 文字を超える名前は末尾の 99 文字を残して先頭を `…` にします。
 
 ## fork の PR の扱い
 

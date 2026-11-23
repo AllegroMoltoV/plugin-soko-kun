@@ -283,6 +283,8 @@ Cron の定期処理は、`release_checks` のうち未完了の行を、1 回�
 | `job_workflow_ref` | `AllegroMoltoV/plugin-soko-kun/.github/workflows/verify.yaml@refs/heads/main` |
 | `exp` | 現在より後 |
 
+`job_workflow_ref` はワークフローのファイル単位の値のため、一覧を受け取るジョブ `prepare` と結果を送るジョブ `report` のどちらのトークンも通ります。第三者のデータを処理するジョブ `scan` はトークンを取りません。ジョブの分け方と理由は [CI と配備](../operations/ci-cd.md) に記載しています。
+
 ワークフローは、`gh attestation verify <配布物> --repo <リポジトリ> --source-ref refs/tags/<タグ> --source-digest <タグのコミット>` に、記録したリリースのワークフローがあれば `--signer-workflow <リポジトリ>/<ワークフローのパス>` を加えて実行します。現在の名前で通らなければ、旧い名前を新しい順に `<リポジトリ>` に入れて試します。名前を変える前に作られた証明は、作られたときの名前 (大文字と小文字の区別を含む) でしか検証に通らないためです。通った証明でも、証明書の `sourceRepositoryIdentifier` がリポジトリ ID と違えば `failed` (`repository_id_mismatch`) にします。ダウンロードした配布物の SHA-256 が `digest` と違えば `failed` にします。
 
 通信の検出では、ワークフローは版ごとに、空のディレクトリで `git fetch --depth 1 https://github.com/<リポジトリ>.git <タグのコミット>` を実行し、そのコミットのソースだけを取得します。取得したソースは実行もビルドもしません。`.github/scripts/scan-network.sh` が、`.git` を除くすべてのテキストファイルから、WinHTTP・WinINet・libcurl・Qt の通信のクラス・ソケット・HTTP と WebSocket のライブラリ・NSURLSession の呼び出しを文字列で探し、ファイル・行・API の名前・行の文字列を返します。拡張子とディレクトリでは絞りません。C のプリプロセッサは拡張子に関係なく `#include` で取り込み、`build` や `.deps` にもコミット済みの処理を置けるためです。UTF-8 として読めないバイト (cp1252 や Shift_JIS のコメント) を含む行も当てるため、ファイルはバイト列として探します。検出は 50 件までで、超えた分は返さず `truncated` を付けます。取り出しの前後でディスクの空きが 3 GiB 未満なら、その版は探しません。Git LFS のファイルは取得しません。取得と取り出しはそれぞれ 120 秒、探索は 60 秒で打ち切ります。打ち切りと取得の失敗は `error` として返し、3 回まで次の起動でやり直します。尽きた版は、通信の API を検出していないものとしてレビューします。
