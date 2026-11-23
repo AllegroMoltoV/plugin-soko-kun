@@ -70,6 +70,11 @@ describe('Web', () => {
     expect(text).toContain(`${ORIGIN}/mcp`);
   });
 
+  it('トップページの横の欄から /llms.txt へリンクする', async () => {
+    const html = await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text();
+    expect(html).toContain('href="/llms.txt"');
+  });
+
   it('スクリプトを許可しない CSP を付ける', async () => {
     const response = await SELF.fetch(`${ORIGIN}/?lang=en`);
     const csp = response.headers.get('Content-Security-Policy') ?? '';

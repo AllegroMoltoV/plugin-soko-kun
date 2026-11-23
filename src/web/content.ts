@@ -96,7 +96,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Build your plugin with Claude Code',
           paragraphs: [
             'The OBS Forums resource policy (updated July 29, 2026) does not accept resources written entirely or largely with AI coding tools: https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/ This platform lists plugins under the same conditions whether or not AI was used, so a plugin you build with Claude Code can be listed here.',
-            'Video: building, testing, and publishing an OBS Studio plugin with Claude Code and this platform: https://youtu.be/fHonQmddp7A',
+            'Video: building, testing, and publishing an OBS Studio plugin with Claude Code and this platform: https://youtu.be/fHonQmddp7A Article: https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589',
             'If you build your plugin with Claude Code, you can install a skill that collects what the developer of this platform learned from making ten OBS Studio plugins. It covers planning, setting up the template, common pitfalls in the OBS API, headless render tests in CI, releases with build provenance attestations, and listing on this platform.',
             'Install it by running the following in a terminal:',
             {
@@ -489,7 +489,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Claude Code でプラグインを作る',
           paragraphs: [
             'OBS Forums の掲載の規約 (2026 年 7 月 29 日更新) は、全部または大部分を AI のコーディングツールで書いたものを掲載しません: https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/ このプラットフォームは、AI の使用の有無にかかわらず同じ条件で掲載するので、Claude Code で作ったプラグインも掲載できます。',
-            '動画: Claude Code とこのプラットフォームで OBS Studio のプラグインを作り、テストし、公開する流れ: https://youtu.be/fHonQmddp7A',
+            '動画: Claude Code とこのプラットフォームで OBS Studio のプラグインを作り、テストし、公開する流れ: https://youtu.be/fHonQmddp7A 記事 (英語): https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589',
             'Claude Code でプラグインを作る場合は、このプラットフォームの開発者が 10 本の OBS Studio のプラグインを作って得た知見をまとめたスキルを入れられます。企画、テンプレートの準備、OBS の API の落とし穴、CI での画面なしの描画のテスト、ビルドの来歴の証明つきのリリース、このプラットフォームへの掲載を扱います。',
             'ターミナルで次を実行して入れてください。',
             {
@@ -886,7 +886,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '使用 Claude Code 制作插件',
           paragraphs: [
             'OBS Forums 的资源规定（2026 年 7 月 29 日更新）不接受全部或大部分由 AI 编程工具编写的资源：https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/ 本平台无论是否使用 AI 都以相同条件上架，因此用 Claude Code 制作的插件也可以在这里上架。',
-            '视频：用 Claude Code 和本平台制作、测试并发布 OBS Studio 插件的流程：https://youtu.be/fHonQmddp7A',
+            '视频：用 Claude Code 和本平台制作、测试并发布 OBS Studio 插件的流程：https://youtu.be/fHonQmddp7A 文章（英文）：https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589',
             '如果使用 Claude Code 制作插件，可以安装一个技能。它汇集了本平台开发者制作 10 个 OBS Studio 插件时获得的经验，涵盖规划、模板准备、OBS API 的常见陷阱、CI 中的无界面渲染测试、带构建来源证明的发布，以及在本平台上架。',
             '在终端中运行以下命令进行安装：',
             {
@@ -1261,7 +1261,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: '使用 Claude Code 製作外掛',
           paragraphs: [
             'OBS Forums 的資源規定（2026 年 7 月 29 日更新）不接受全部或大部分由 AI 程式設計工具撰寫的資源：https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/ 本平台無論是否使用 AI 都以相同條件上架，因此用 Claude Code 製作的外掛也可以在這裡上架。',
-            '影片：用 Claude Code 和本平台製作、測試並發布 OBS Studio 外掛的流程：https://youtu.be/fHonQmddp7A',
+            '影片：用 Claude Code 和本平台製作、測試並發布 OBS Studio 外掛的流程：https://youtu.be/fHonQmddp7A 文章（英文）：https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589',
             '如果使用 Claude Code 製作外掛，可以安裝一個技能。它彙整了本平台開發者製作 10 個 OBS Studio 外掛時獲得的經驗，涵蓋規劃、範本準備、OBS API 的常見陷阱、CI 中的無畫面渲染測試、附建置來源證明的發布，以及在本平台上架。',
             '在終端機中執行以下指令進行安裝：',
             {
@@ -1636,7 +1636,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Claude Code로 플러그인 만들기',
           paragraphs: [
             'OBS Forums의 리소스 정책(2026년 7월 29일 갱신)은 전부 또는 대부분을 AI 코딩 도구로 작성한 리소스를 게재하지 않습니다: https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/ 이 플랫폼은 AI 사용 여부와 관계없이 같은 조건으로 게재하므로, Claude Code로 만든 플러그인도 게재할 수 있습니다.',
-            '영상: Claude Code와 이 플랫폼으로 OBS Studio 플러그인을 만들고, 테스트하고, 공개하는 흐름: https://youtu.be/fHonQmddp7A',
+            '영상: Claude Code와 이 플랫폼으로 OBS Studio 플러그인을 만들고, 테스트하고, 공개하는 흐름: https://youtu.be/fHonQmddp7A 글(영어): https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589',
             'Claude Code로 플러그인을 만든다면, 이 플랫폼의 개발자가 OBS Studio 플러그인 10개를 만들며 얻은 지식을 정리한 스킬을 설치할 수 있습니다. 기획, 템플릿 준비, OBS API의 함정, CI에서의 화면 없는 렌더링 테스트, 빌드 출처 증명이 붙은 릴리스, 이 플랫폼에의 게재를 다룹니다.',
             '터미널에서 다음을 실행해 설치해 주세요:',
             {
@@ -2024,7 +2024,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Crie seu plugin com o Claude Code',
           paragraphs: [
             'A política de recursos dos OBS Forums (atualizada em 29 de julho de 2026) não aceita recursos escritos total ou majoritariamente com ferramentas de programação com IA: https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/ Esta plataforma lista plugins com as mesmas condições, usando IA ou não, então um plugin feito com o Claude Code pode ser listado aqui.',
-            'Vídeo: como criar, testar e publicar um plugin do OBS Studio com o Claude Code e esta plataforma: https://youtu.be/fHonQmddp7A',
+            'Vídeo: como criar, testar e publicar um plugin do OBS Studio com o Claude Code e esta plataforma: https://youtu.be/fHonQmddp7A Artigo (em inglês): https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589',
             'Se você cria o seu plugin com o Claude Code, pode instalar uma skill que reúne o que o desenvolvedor desta plataforma aprendeu ao criar dez plugins para o OBS Studio. Ela cobre o planejamento, a preparação do template, armadilhas comuns da API do OBS, testes de renderização sem tela no CI, releases com atestados de proveniência de build e a listagem nesta plataforma.',
             'Instale-a executando o seguinte em um terminal:',
             {
@@ -2423,7 +2423,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           heading: 'Crea tu plugin con Claude Code',
           paragraphs: [
             'La política de recursos de OBS Forums (actualizada el 29 de julio de 2026) no acepta recursos escritos total o mayormente con herramientas de programación con IA: https://obsproject.com/forum/threads/forum-resource-and-ip-policy.195980/ Esta plataforma lista plugins con las mismas condiciones, se use IA o no, así que un plugin hecho con Claude Code se puede listar aquí.',
-            'Video: cómo crear, probar y publicar un plugin de OBS Studio con Claude Code y esta plataforma: https://youtu.be/fHonQmddp7A',
+            'Video: cómo crear, probar y publicar un plugin de OBS Studio con Claude Code y esta plataforma: https://youtu.be/fHonQmddp7A Artículo (en inglés): https://allegromoltov.medium.com/build-publish-obs-plugins-with-ai-plugin-soko-kun-ede9c92b7589',
             'Si creas tu plugin con Claude Code, puedes instalar una skill que reúne lo que el desarrollador de esta plataforma aprendió al crear diez plugins para OBS Studio. Cubre la planificación, la preparación de la plantilla, errores comunes de la API de OBS, pruebas de renderizado sin pantalla en CI, releases con atestaciones de procedencia de compilación y la publicación en esta plataforma.',
             'Instálala ejecutando lo siguiente en una terminal:',
             {
