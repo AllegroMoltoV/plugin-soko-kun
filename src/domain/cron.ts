@@ -118,6 +118,8 @@ interface SyncRow {
 export const SYNC_COST = 7;
 // 同期 1 件の D1 のクエリの上限。
 const SYNC_QUERIES = 3;
+// 成功を挟まずにこの件数のプラグインの同期が続けて失敗したら、GitHub 全体の障害とみなしてその起動の同期を止める。
+export const SYNC_OUTAGE_FAILURES = 3;
 // 証明の検証のワークフローの起動 (dispatchVerify) に取り分ける外部呼び出しと D1 のクエリ。
 export const DISPATCH_RESERVE = 1;
 // 定期処理の最後の 2 つ (証明の検証のワークフローの起動と、管理者の確認待ちの通知) に取り分ける外部呼び出しと D1 のクエリ。
@@ -419,26 +421,34 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
        ) AS has_pending
      FROM plugins p ORDER BY p.last_synced_at LIMIT 20`,
   ).all<SyncRow>();
+  let consecutiveFailures = 0;
   for (const row of results) {
     if (!budget.canFetch(SYNC_COST) || !budget.canQuery(SYNC_QUERIES)) break;
     try {
       await syncOne(env, budget, github, row);
       report.synced += 1;
+      consecutiveFailures = 0;
     } catch (error) {
-      // GitHub の障害やレート制限では、そのプラグインを更新せずに次回へ回す。既存の正常な情報は変えない。
-      if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) {
-        report.stoppedBy = `github_${error.kind}`;
+      // レート制限と予算の超過は運営側の資源の不足のため、そのプラグインを更新せずに次回へ回す (ADR 0019 の原則 2)。
+      if (error instanceof GitHubError && error.kind === 'rate_limited') {
+        report.stoppedBy = 'github_rate_limited';
         break;
       }
-      // そのプラグインに固有の失敗 (403 など) は、同期済みの時刻だけ進めて次へ回す。
-      // 毎回先頭で失敗して、ほかのプラグインの同期が止まり続けないようにするため。
-      if (error instanceof GitHubError && budget.canQuery()) {
-        budget.takeD1Query();
-        await env.DB.prepare('UPDATE plugins SET last_synced_at = ? WHERE id = ?').bind(now(), row.id).run();
-        report.failed += 1;
-        continue;
+      if (error instanceof BudgetExceededError) throw error;
+      // 失敗を書き込む D1 のクエリが残っていなければ、書かずに止める。次の起動で同じ扱いになる。
+      if (!budget.canQuery()) break;
+      // それ以外の失敗 (403・5xx・形の合わない応答・通信の失敗) は、そのリポジトリだけの恒常的な失敗かもしれない。
+      // 同期済みの時刻だけ進めて次へ回し、毎回先頭で失敗して、ほかのプラグインの同期が止まり続けないようにする。
+      // 既存の正常な情報は変えない。
+      budget.takeD1Query();
+      await env.DB.prepare('UPDATE plugins SET last_synced_at = ? WHERE id = ?').bind(now(), row.id).run();
+      report.failed += 1;
+      consecutiveFailures += 1;
+      // 成功を挟まずに続けて失敗したら、GitHub 全体の障害とみなしてこの起動の同期を止め、予算を使い切らないようにする。
+      if (consecutiveFailures >= SYNC_OUTAGE_FAILURES) {
+        report.stoppedBy = 'github_unavailable';
+        break;
       }
-      throw error;
     }
   }
 }
@@ -499,13 +509,11 @@ export async function runDownloads(env: Env, budget: Budget, report: CronReport,
       statements.push(...pluginStatements);
       recorded += 1;
     } catch (error) {
-      if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) {
-        report.stoppedBy = `github_${error.kind}`;
+      if (error instanceof GitHubError && error.kind === 'rate_limited') {
+        report.stoppedBy = 'github_rate_limited';
         break;
       }
-      // そのプラグインに固有の失敗は記録せず、次回の起動で処理する。
-      if (error instanceof GitHubError) continue;
-      throw error;
+      if (error instanceof BudgetExceededError) throw error;
     }
   }
   if (statements.length === 0) return;
@@ -517,7 +525,7 @@ export async function runDownloads(env: Env, budget: Budget, report: CronReport,
   report.downloadsRecorded = recorded;
 }
 
-// 既定のブランチの README を取得する。GitHub の一時的な障害は呼び出し元へ投げ、記録ごと次の起動へ回す。
+// 既定のブランチの README を取得する。GitHub のレート制限と障害は呼び出し元へ投げ、記録ごと次の起動へ回す。
 // ほかの失敗は照合の失敗として返し、確認待ちにする。形の合わない応答で照合を逃れられないようにするため。
 async function fetchReadme(github: GitHubClient, row: { owner: string; repo: string }): Promise<ReadmeFetch> {
   try {
@@ -627,7 +635,7 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
     await runScans(env, budget, report);
     // 新しい版の検査は掲載に直接つながるため、量がプラグインの数に比例する同期より先に行う (ADR 0007)。
     // 検査の間は同期 1 件の分を後段に残し、検査が予算を使い切っても同期が進むようにする。検査で失敗しても後段は止めない。
-    // 本当のレート制限や障害なら、同期が自分の最初の呼び出しで検知して止まる。
+    // 本当のレート制限なら同期が自分の最初の呼び出しで検知して止まり、GitHub 全体の障害なら続けて失敗した時点で止まる。
     budget.reserve(FINAL_RESERVE + SYNC_COST, FINAL_QUERIES + SYNC_QUERIES);
     try {
       report.releasesChecked = await runReleaseChecks(env, budget);
