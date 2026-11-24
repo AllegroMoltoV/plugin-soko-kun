@@ -44,6 +44,7 @@ const report = (): CronReport => ({
   translated: 0,
   previews: 0,
   downloadsRecorded: 0,
+  downloadsFailed: 0,
   subrequests: 0,
   d1Queries: 0,
 });
@@ -115,10 +116,20 @@ describe('既定のブランチの README の照合', () => {
     await registerListed();
     await checkReadme(readme('# Plugin\n'));
     const result = await checkReadme(() => new HttpResponse(null, { status: 503 }));
-    expect(result.stoppedBy).toBe('github_unavailable');
+    // そのプラグインを記録せずに次へ進む。ほかのプラグインの記録は止めない。
+    expect(result).toMatchObject({ downloadsRecorded: 0, downloadsFailed: 1 });
+    expect(result.stoppedBy).toBeUndefined();
     expect((await plugin())?.readme_held).toBe(0);
     const count = await env.DB.prepare('SELECT count(*) AS n FROM download_snapshots').first<{ n: number }>();
     expect(count?.n).toBe(1);
+  });
+
+  it('README の取得が通信の失敗になっても止めず、記録ごと次の起動へ回す', async () => {
+    await registerListed();
+    await checkReadme(readme('# Plugin\n'));
+    const result = await checkReadme(() => HttpResponse.error());
+    expect(result).toMatchObject({ downloadsRecorded: 0, downloadsFailed: 1 });
+    expect((await plugin())?.readme_held).toBe(0);
   });
 
   it('形の合わない応答では止める', async () => {

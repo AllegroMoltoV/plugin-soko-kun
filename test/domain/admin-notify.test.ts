@@ -4,7 +4,7 @@ import { env } from 'cloudflare:test';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { Budget } from '../../src/budget';
-import { notifyAdmin } from '../../src/domain/admin-notify';
+import { message, notifyAdmin, OPERATOR_GITHUB_ID } from '../../src/domain/admin-notify';
 import { MAX_SCAN_ATTEMPTS } from '../../src/domain/status';
 import { submitPlugin } from '../../src/domain/submit';
 import { markListable } from '../fixtures/checks';
@@ -14,11 +14,12 @@ import { network } from '../setup';
 const WEBHOOK = 'https://discord.com/api/webhooks/123/token-for-test';
 const withWebhook = { ...env, DISCORD_WEBHOOK_URL: WEBHOOK };
 
-async function registerHeld(): Promise<void> {
+// 確認待ちの通知の確かめでは、運営者以外の作者の登録の通知が混ざらないよう、運営者として登録する。
+async function registerHeld(githubUserId = OPERATOR_GITHUB_ID): Promise<void> {
   network.use(...githubHandlers());
   const result = await submitPlugin(
     env,
-    { githubUserId: 4242, githubToken: USER_TOKEN },
+    { githubUserId, githubToken: USER_TOKEN },
     `https://github.com/${OWNER}/${REPO}`,
   );
   if (!result.ok) throw new Error(result.code);
@@ -123,5 +124,53 @@ describe('管理者の確認待ちの通知', () => {
     expect(await notifyAdmin(withWebhook, new Budget())).toBe('skipped_none');
     expect(await notifyAdmin(env, new Budget())).toBe('skipped_no_url');
     expect(requests).toHaveLength(0);
+  });
+});
+
+// ADR 0019 の原則に照らした改善の一部は、運営者以外の作者が来てから影響する。管理者が着手の時点に気づけないことが危険側。
+describe('運営者以外の作者の登録の通知', () => {
+  it('運営者以外の作者のプラグインを 1 回だけ知らせ、確認待ちが解けても記録を消さない', async () => {
+    await registerHeld(4242);
+    const requests = discord();
+    expect(await notifyAdmin(withWebhook, new Budget())).toBe('sent');
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.body.content).toContain('運営者以外の作者がプラグインを 1 件登録しました');
+    expect(requests[0]?.body.content).toContain(`<https://github.com/${OWNER}/${REPO}>`);
+    expect(requests[0]?.body.content).toContain('diff_held');
+    // 確認待ちが解けて確認待ちの記録が消えても、登録の記録は残り、送り直さない。
+    await env.DB.prepare("UPDATE release_checks SET admin_approved_at = '2026-11-15T00:00:00Z'").run();
+    expect(await notifyAdmin(withWebhook, new Budget())).toBe('skipped_none');
+    expect(await keys()).toEqual([expect.stringMatching(/^a:/)]);
+    expect(requests).toHaveLength(1);
+  });
+
+  it('運営者のプラグインでは知らせない', async () => {
+    await registerHeld();
+    await env.DB.prepare("UPDATE release_checks SET diff_state = 'passed'").run();
+    const requests = discord();
+    expect(await notifyAdmin(withWebhook, new Budget())).toBe('skipped_none');
+    expect(requests).toHaveLength(0);
+  });
+});
+
+describe('通知の本文の長さ', () => {
+  it('確認待ちがあふれ、運営者以外の作者の登録が重なっても、Discord の上限の 2,000 文字に収める', () => {
+    const waits = Array.from({ length: 200 }, (_, i) => ({
+      key: `r:${i}:diff_held`,
+      plugin: `allegromoltov/plugin-with-a-long-name-${i}`,
+      code: 'diff_held' as const,
+      tag: `v${i}.0.0`,
+      url: `https://github.com/allegromoltov/plugin-with-a-long-name-${i}/releases/tag/v${i}.0.0`,
+    }));
+    const authors = Array.from({ length: 50 }, (_, i) => ({
+      key: `a:${i}`,
+      plugin: `someone/plugin-${i}`,
+      url: `https://github.com/someone/plugin-${i}`,
+    }));
+    const content = message(waits, authors);
+    expect(content.length).toBeLessThanOrEqual(2000);
+    expect(content).toContain('管理者の確認待ちが 200 件増えました');
+    expect(content).toContain('運営者以外の作者がプラグインを 50 件登録しました');
+    expect(content).toMatch(/ほか \d+ 件$/);
   });
 });

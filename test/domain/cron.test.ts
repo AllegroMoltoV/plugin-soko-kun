@@ -3,7 +3,14 @@ import { env } from 'cloudflare:test';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { Budget } from '../../src/budget';
-import { FINAL_RESERVE, MALWAREBAZAAR_PER_RUN, recordListings, runCron, SYNC_COST } from '../../src/domain/cron';
+import {
+  FINAL_RESERVE,
+  MALWAREBAZAAR_PER_RUN,
+  recordListings,
+  runCron,
+  SYNC_COST,
+  SYNC_OUTAGE_FAILURES,
+} from '../../src/domain/cron';
 import { RELEASE_CHECK_COST, runReleaseChecks } from '../../src/domain/release-checks';
 import { MAX_SCAN_ATTEMPTS } from '../../src/domain/status';
 import { submitPlugin } from '../../src/domain/submit';
@@ -47,6 +54,40 @@ const repoById = (status = 200, extra: Record<string, unknown> = {}) =>
       : new HttpResponse(null, { status }),
   );
 
+// 検査の対象にならない (リリースの無い) プラグインを足す。last_synced_at は同期の順番を決める。
+async function insertBarePlugin(index: number, lastSyncedAt: string): Promise<void> {
+  const stamp = '2000-01-01T00:00:00Z';
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO plugins (id, github_repo_id, owner, repo, license_spdx, submitter_github_id, created_at, updated_at, last_synced_at)
+     VALUES (?, ?, ?, ?, 'MIT', 1, ?, ?, ?)`,
+  )
+    .bind(`allegromoltov/q${index}`, 920000 + index, OWNER, `q${index}`, stamp, stamp, lastSyncedAt)
+    .run();
+}
+
+// GitHub 全体の障害。同期が続けて失敗して止まるよう、検査の対象にならないプラグインを足して SYNC_OUTAGE_FAILURES 件以上にする。
+async function githubOutage() {
+  for (let i = 1; i < SYNC_OUTAGE_FAILURES; i += 1) await insertBarePlugin(i, '2000-01-01T00:00:00Z');
+  return http.get('https://api.github.com/repositories/:id', () => new HttpResponse(null, { status: 503 }));
+}
+
+const bareRepo = (index: number) =>
+  http.get(`https://api.github.com/repositories/${920000 + index}`, () =>
+    HttpResponse.json({
+      id: 920000 + index,
+      name: `q${index}`,
+      owner: { login: OWNER },
+      private: false,
+      archived: false,
+      license: { spdx_id: 'MIT' },
+    }),
+  );
+const bareLatest = (index: number) =>
+  http.get(
+    `https://api.github.com/repos/${OWNER}/q${index}/releases/latest`,
+    () => new HttpResponse(null, { status: 304 }),
+  );
+
 const scannerHandlers = (counter: { mb: number }) => [
   http.post('https://mb-api.abuse.ch/api/v1/', () => {
     counter.mb += 1;
@@ -80,13 +121,23 @@ describe('runCron', () => {
     expect(row?.removed).toBe(1);
   });
 
-  it('GitHub の障害では既存の情報を変えない', async () => {
+  it('GitHub の障害では、同期の時刻のほかに既存の情報を変えない', async () => {
     await registerFixture();
-    const before = await env.DB.prepare('SELECT * FROM plugins').first();
-    network.use(repoById(503), ...scannerHandlers({ mb: 0 }), ...releaseCheckHandlers());
+    const select = `SELECT * FROM plugins WHERE id = (SELECT plugin_id FROM releases LIMIT 1)`;
+    const { last_synced_at: _before, ...before } = (await env.DB.prepare(select).first()) ?? {};
+    network.use(
+      await githubOutage(),
+      http.get('https://api.github.com/repos/:owner/:repo/releases', () => new HttpResponse(null, { status: 503 })),
+      ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
+    );
     const report = await runCron(env);
-    expect(report.stoppedBy).toBe('github_unavailable');
-    expect(await env.DB.prepare('SELECT * FROM plugins').first()).toEqual(before);
+    expect(report).toMatchObject({ stoppedBy: 'github_unavailable', synced: 0, failed: SYNC_OUTAGE_FAILURES });
+    const { last_synced_at: after, ...rest } = (await env.DB.prepare(select).first()) ?? {};
+    expect(rest).toEqual(before);
+    expect(after).not.toBe('2000-01-01T00:00:00Z');
+    // 障害で同期が止まった起動でもダウンロード数の記録を試み、失敗したプラグインは記録しない。
+    expect(report).toMatchObject({ downloadsRecorded: 0, downloadsFailed: SYNC_OUTAGE_FAILURES });
   });
 
   it('新しく現れた配布物は、同じ digest の過去の結果があっても照会し直す', async () => {
@@ -363,6 +414,117 @@ describe('runCron の同期の失敗', () => {
     expect(report).toMatchObject({ synced: 1, failed: 1 });
   });
 
+  // そのリポジトリだけが 5xx や形の合わない応答を返し続けても、ほかのプラグインを巻き込まない (ADR 0019 の原則 2)。
+  it.each([
+    ['503', () => new HttpResponse(null, { status: 503 })],
+    ['422', () => new HttpResponse(null, { status: 422 })],
+    ['通信の失敗', () => HttpResponse.error()],
+    ['JSON でない 200 の応答', () => new HttpResponse('<html>maintenance</html>', { status: 200 })],
+  ])(
+    '先頭のプラグインで %s が続いても、時刻を進めてほかのプラグインを同期し、定期処理を最後まで進める',
+    async (_name, failure) => {
+      for (const i of [1, 2, 3]) await insertBarePlugin(i, `2000-01-0${i}T00:00:00Z`);
+      network.use(
+        ...imageHandlers(),
+        ...downloadHandlers(),
+        http.get('https://api.github.com/repositories/920001', failure),
+        bareRepo(2),
+        bareRepo(3),
+        bareLatest(2),
+        bareLatest(3),
+        ...releaseCheckHandlers(),
+      );
+      const report = await runCron(env);
+      expect(report).toMatchObject({ synced: 2, failed: 1 });
+      expect(report.stoppedBy).toBeUndefined();
+      expect(report.adminNotify).toBeDefined();
+      const head = await env.DB.prepare("SELECT last_synced_at FROM plugins WHERE id = 'allegromoltov/q1'").first<{
+        last_synced_at: string;
+      }>();
+      // 時刻を進めるため、次の起動では失敗したプラグインが先頭で止め続けない。
+      expect(head?.last_synced_at).not.toBe('2000-01-01T00:00:00Z');
+    },
+  );
+
+  it('成功を挟まずに続けて失敗したら、GitHub 全体の障害として同期を止める', async () => {
+    for (const i of [1, 2, 3, 4]) await insertBarePlugin(i, `2000-01-0${i}T00:00:00Z`);
+    const calls: string[] = [];
+    network.use(
+      http.get('https://api.github.com/repositories/:id', ({ params }) => {
+        calls.push(String(params.id));
+        return new HttpResponse(null, { status: 503 });
+      }),
+      ...releaseCheckHandlers(),
+    );
+    const report = await runCron(env);
+    expect(report).toMatchObject({ stoppedBy: 'github_unavailable', synced: 0, failed: SYNC_OUTAGE_FAILURES });
+    expect(calls).toHaveLength(SYNC_OUTAGE_FAILURES);
+  });
+
+  it('通信の失敗は続けて起きても GitHub の障害の数に入れず、同期を止めない', async () => {
+    for (const i of [1, 2, 3, 4]) await insertBarePlugin(i, `2000-01-0${i}T00:00:00Z`);
+    network.use(
+      ...[1, 2, 3].map((i) =>
+        http.get(`https://api.github.com/repositories/${920000 + i}`, () => HttpResponse.error()),
+      ),
+      bareRepo(4),
+      bareLatest(4),
+      ...downloadHandlers(),
+      ...releaseCheckHandlers(),
+    );
+    const report = await runCron(env);
+    expect(report).toMatchObject({ synced: 1, failed: 3 });
+    expect(report.stoppedBy).toBeUndefined();
+  });
+
+  it('成功か、GitHub の障害の証拠にならない失敗を挟めば、同期を止めない', async () => {
+    for (const i of [1, 2, 3, 4, 5, 6]) await insertBarePlugin(i, `2000-01-0${i}T00:00:00Z`);
+    const unavailable = () => new HttpResponse(null, { status: 503 });
+    network.use(
+      http.get('https://api.github.com/repositories/920001', unavailable),
+      bareRepo(2),
+      bareLatest(2),
+      http.get('https://api.github.com/repositories/920003', unavailable),
+      http.get('https://api.github.com/repositories/920004', () => new HttpResponse(null, { status: 403 })),
+      http.get('https://api.github.com/repositories/920005', unavailable),
+      bareRepo(6),
+      bareLatest(6),
+      ...downloadHandlers(),
+      ...releaseCheckHandlers(),
+    );
+    const report = await runCron(env);
+    expect(report).toMatchObject({ synced: 2, failed: 4 });
+    expect(report.stoppedBy).toBeUndefined();
+  });
+
+  it('ダウンロード数の記録で先頭の 3 件が失敗し続けても、ほかのプラグインを記録する', async () => {
+    await registerFixture();
+    const fixture = await env.DB.prepare('SELECT id FROM plugins').first<{ id: string }>();
+    // 記録の済んだ日が古いものより、記録の無いものが先に選ばれる。失敗するプラグインを先頭に置く。
+    await env.DB.prepare("INSERT INTO download_snapshots (plugin_id, day, total) VALUES (?, '2000-01-01', 0)")
+      .bind(fixture?.id)
+      .run();
+    for (const i of [1, 2, 3]) await insertBarePlugin(i, `2000-01-0${i}T00:00:00Z`);
+    network.use(
+      repoById(),
+      ...githubHandlers(),
+      ...imageHandlers(),
+      ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
+      ...[1, 2, 3].flatMap((i) => [
+        bareRepo(i),
+        bareLatest(i),
+        http.get(`https://api.github.com/repos/${OWNER}/q${i}/releases`, () => new HttpResponse(null, { status: 503 })),
+      ]),
+      ...downloadHandlers([5]),
+    );
+    const report = await runCron(env);
+    expect(report.failed).toBe(0);
+    expect(report).toMatchObject({ downloadsRecorded: 1, downloadsFailed: 3 });
+    const { results } = await env.DB.prepare('SELECT plugin_id FROM download_snapshots WHERE total = 5').all();
+    expect(results).toEqual([{ plugin_id: fixture?.id }]);
+  });
+
   it('掲載終了のリポジトリが公開に戻れば、掲載終了を解く', async () => {
     await registerFixture();
     await env.DB.prepare('UPDATE plugins SET removed = 1').run();
@@ -395,7 +557,7 @@ describe('runCron の画像の取得', () => {
       ...scannerHandlers({ mb: 0 }),
       ...releaseCheckHandlers(),
     );
-    await runCron(env);
+    expect(await runCron(env)).toMatchObject({ synced: 1, failed: 0 });
     const { results } = await env.DB.prepare('SELECT kind, content_type, width FROM plugin_images').all();
     expect(results).toEqual([{ kind: 'logo', content_type: 'image/png', width: 64 }]);
 
@@ -455,7 +617,8 @@ describe('runCron のダウンロード数の記録', () => {
       ...scannerHandlers({ mb: 0 }),
       ...releaseCheckHandlers(),
     );
-    await runCron(env);
+    // 同期の失敗は飲み込まれるため、モックの漏れで失敗に化けていないことも確かめる。
+    expect(await runCron(env)).toMatchObject({ synced: 1, failed: 0 });
     const { results } = await env.DB.prepare('SELECT total FROM download_snapshots').all();
     expect(results).toEqual([{ total: 150 }]);
 
@@ -772,7 +935,7 @@ describe('証明の検証のワークフローの起動', () => {
     await registerFixture();
     const bodies: unknown[] = [];
     network.use(
-      repoById(503),
+      await githubOutage(),
       ...scannerHandlers({ mb: 0 }),
       ...releaseCheckHandlers(),
       http.post(DISPATCH_URL, async ({ request }) => {
@@ -806,7 +969,7 @@ describe('証明の検証のワークフローの起動', () => {
     await registerFixture();
     await env.DB.prepare("UPDATE attestation_checks SET result = 'passed'").run();
     await env.DB.prepare("UPDATE release_checks SET network_state = 'done'").run();
-    network.use(repoById(503), ...scannerHandlers({ mb: 0 }), ...releaseCheckHandlers());
+    network.use(await githubOutage(), ...scannerHandlers({ mb: 0 }), ...releaseCheckHandlers());
     const report = await runCron(withToken);
     expect(report.verifyDispatch).toBe('skipped_no_pending');
   });
@@ -815,7 +978,7 @@ describe('証明の検証のワークフローの起動', () => {
     await registerFixture();
     await env.DB.prepare("UPDATE attestation_checks SET result = 'passed'").run();
     network.use(
-      repoById(503),
+      await githubOutage(),
       ...scannerHandlers({ mb: 0 }),
       ...releaseCheckHandlers(),
       http.post(DISPATCH_URL, () => HttpResponse.json({ workflow_run_id: 1 })),
@@ -827,7 +990,7 @@ describe('証明の検証のワークフローの起動', () => {
   it('トークンが拒否されても定期処理は最後まで進み、失敗を返す', async () => {
     await registerFixture();
     network.use(
-      repoById(503),
+      await githubOutage(),
       ...scannerHandlers({ mb: 0 }),
       ...releaseCheckHandlers(),
       http.post(DISPATCH_URL, () => new HttpResponse(null, { status: 401 })),
@@ -883,9 +1046,9 @@ describe('runCron の MalwareBazaar の照会の試行', () => {
     });
   }
   const answer = (status: string) => () => HttpResponse.json({ query_status: status });
-  const run = (handler: ReturnType<typeof http.post>, budget?: Budget) => {
+  const run = async (handler: ReturnType<typeof http.post>, budget?: Budget) => {
     network.resetHandlers();
-    network.use(repoById(503), handler, ...releaseCheckHandlers());
+    network.use(await githubOutage(), handler, ...releaseCheckHandlers());
     return runCron(env, budget);
   };
 
@@ -946,7 +1109,7 @@ describe('runCron の MalwareBazaar の照会の試行', () => {
       expect(failed).toMatchObject({ result: 'error', attempts: 1 });
       expect(failed?.detail?.length).toBeLessThanOrEqual(200);
       expect(await scanOf(OTHER)).toMatchObject({ result: 'not_found', attempts: 0 });
-      // 後段の新しい版の検査と同期が走っている (同期は repoById(503) で止まる)。
+      // 後段の新しい版の検査と同期が走っている (同期は GitHub の障害で止まる)。
       expect(report.releasesChecked).toBeDefined();
       expect(report.stoppedBy).toBe('github_unavailable');
     },
