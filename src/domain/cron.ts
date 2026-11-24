@@ -118,8 +118,8 @@ interface SyncRow {
 
 // プラグイン 1 件の同期に必要な外部呼び出しの最大数: リポジトリ、リリース、コミットの解決、画像の一覧とダウンロード 2 件、buildspec.json。
 export const SYNC_COST = 7;
-// 同期 1 件の D1 のクエリの上限。
-const SYNC_QUERIES = 3;
+// 同期 1 件の D1 のクエリの最大数: 既知の配布物の読み込み、画像の読み込み、OBS の版の読み込み、書き込み。
+const SYNC_QUERIES = 4;
 // 成功を挟まずにこの件数のプラグインの同期が GitHub の利用不可 (5xx など) で続けて失敗したら、GitHub 全体の障害とみなして
 // その起動の同期を止める。
 export const SYNC_OUTAGE_FAILURES = 3;
@@ -414,7 +414,7 @@ export function resetAttestationStatement(env: Env, assetId: number): D1Prepared
   ).bind(assetId);
 }
 
-async function runSync(env: Env, budget: Budget, report: CronReport): Promise<void> {
+export async function runSync(env: Env, budget: Budget, report: CronReport): Promise<void> {
   const github = new GitHubClient(budget, {
     kind: 'app',
     clientId: env.GITHUB_CLIENT_ID,

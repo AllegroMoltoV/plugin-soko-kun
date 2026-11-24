@@ -4,10 +4,12 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { Budget } from '../../src/budget';
 import {
+  type CronReport,
   FINAL_RESERVE,
   MALWAREBAZAAR_PER_RUN,
   recordListings,
   runCron,
+  runSync,
   SYNC_COST,
   SYNC_OUTAGE_FAILURES,
 } from '../../src/domain/cron';
@@ -542,6 +544,33 @@ describe('runCron の同期の失敗', () => {
     await runCron(env);
     const row = await env.DB.prepare('SELECT removed FROM plugins').first<{ removed: number }>();
     expect(row?.removed).toBe(0);
+  });
+});
+
+describe('同期の D1 の予算', () => {
+  // 新しいリリース・画像のタグの変化・OBS の版の読み込みで、同期 1 件が D1 のクエリを最大の 4 件使う状態にする。
+  async function syncUsingFourQueries(): Promise<void> {
+    await registerFixture();
+    await env.DB.prepare('UPDATE plugins SET releases_etag = NULL, images_tag = NULL').run();
+    network.use(repoById(), ...githubHandlers(), ...imageHandlers());
+  }
+
+  it('同期 1 件の分が残っていなければ、予算切れの例外を投げずに同期を見送る', async () => {
+    await syncUsingFourQueries();
+    // 冒頭の対象の読み込みで 1 件を使い、残りは 3 件。
+    const report = { synced: 0, failed: 0 } as CronReport;
+    await expect(runSync(env, new Budget(45, 4), report)).resolves.toBeUndefined();
+    expect(report).toMatchObject({ synced: 0, failed: 0 });
+  });
+
+  it('同期 1 件の分が残っていれば同期する', async () => {
+    await syncUsingFourQueries();
+    const budget = new Budget(45, 5);
+    const report = { synced: 0, failed: 0 } as CronReport;
+    await runSync(env, budget, report);
+    expect(report).toMatchObject({ synced: 1, failed: 0 });
+    // 冒頭の対象の読み込みの 1 件と、同期 1 件の 4 件。
+    expect(budget.d1Queries).toBe(5);
   });
 });
 
