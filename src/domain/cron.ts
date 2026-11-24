@@ -30,6 +30,8 @@ export interface CronReport {
   translated: number;
   previews: number;
   downloadsRecorded: number;
+  // ダウンロード数の記録と README の照合に失敗し、記録しなかったプラグインの数。
+  downloadsFailed: number;
   subrequests: number;
   d1Queries: number;
   releasesChecked?: number;
@@ -118,8 +120,17 @@ interface SyncRow {
 export const SYNC_COST = 7;
 // 同期 1 件の D1 のクエリの上限。
 const SYNC_QUERIES = 3;
-// 成功を挟まずにこの件数のプラグインの同期が続けて失敗したら、GitHub 全体の障害とみなしてその起動の同期を止める。
+// 成功を挟まずにこの件数のプラグインの同期が GitHub の利用不可か通信の失敗で続けて失敗したら、GitHub 全体の障害とみなして
+// その起動の同期を止める。
 export const SYNC_OUTAGE_FAILURES = 3;
+
+// GitHub 全体の障害の兆候: GitHub の 5xx などの利用不可と、fetch の通信の失敗 (TypeError)。
+const isOutageSignal = (error: unknown) =>
+  (error instanceof GitHubError && error.kind === 'unavailable') || error instanceof TypeError;
+
+// ログに出す失敗の種類。例外のメッセージには URL や応答の本文が入る場合があるため、種類だけを出す。
+const failureKind = (error: unknown) =>
+  error instanceof GitHubError ? `github_${error.kind}` : error instanceof Error ? error.name : 'unknown';
 // 証明の検証のワークフローの起動 (dispatchVerify) に取り分ける外部呼び出しと D1 のクエリ。
 export const DISPATCH_RESERVE = 1;
 // 定期処理の最後の 2 つ (証明の検証のワークフローの起動と、管理者の確認待ちの通知) に取り分ける外部呼び出しと D1 のクエリ。
@@ -437,14 +448,16 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
       if (error instanceof BudgetExceededError) throw error;
       // 失敗を書き込む D1 のクエリが残っていなければ、書かずに止める。次の起動で同じ扱いになる。
       if (!budget.canQuery()) break;
-      // それ以外の失敗 (403・5xx・形の合わない応答・通信の失敗) は、そのリポジトリだけの恒常的な失敗かもしれない。
+      // それ以外の失敗 (403・5xx・形の合わない応答・通信の失敗、ほかの例外) は、そのプラグインだけの恒常的な失敗かもしれない。
       // 同期済みの時刻だけ進めて次へ回し、毎回先頭で失敗して、ほかのプラグインの同期が止まり続けないようにする。
-      // 既存の正常な情報は変えない。
+      // 既存の正常な情報は変えない。飲み込んだ例外で不具合が隠れないよう、種類をログに出す。
+      console.error(`sync failed: ${row.id}: ${failureKind(error)}`);
       budget.takeD1Query();
       await env.DB.prepare('UPDATE plugins SET last_synced_at = ? WHERE id = ?').bind(now(), row.id).run();
       report.failed += 1;
-      consecutiveFailures += 1;
-      // 成功を挟まずに続けて失敗したら、GitHub 全体の障害とみなしてこの起動の同期を止め、予算を使い切らないようにする。
+      // 成功を挟まずに GitHub の利用不可か通信の失敗が続いたら、GitHub 全体の障害とみなしてこの起動の同期を止め、
+      // 予算を使い切らないようにする。権限なしやコードの例外は、GitHub の障害の証拠にならないため数えない。
+      if (isOutageSignal(error)) consecutiveFailures += 1;
       if (consecutiveFailures >= SYNC_OUTAGE_FAILURES) {
         report.stoppedBy = 'github_unavailable';
         break;
@@ -514,6 +527,11 @@ export async function runDownloads(env: Env, budget: Budget, report: CronReport,
         break;
       }
       if (error instanceof BudgetExceededError) throw error;
+      // それ以外の失敗 (403・5xx・形の合わない応答・通信の失敗、ほかの例外) は、そのプラグインを記録せずに次へ進み、
+      // 次回の起動で処理する。記録しなかったプラグインは次の起動でも先頭に来るため、続けて失敗しても止めない。止めると、
+      // 失敗し続けるリポジトリが先頭に並んだときに、ほかのプラグインの記録と README の照合が止まり続ける。
+      console.error(`downloads failed: ${row.id}: ${failureKind(error)}`);
+      report.downloadsFailed += 1;
     }
   }
   if (statements.length === 0) return;
@@ -626,6 +644,7 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
     translated: 0,
     previews: 0,
     downloadsRecorded: 0,
+    downloadsFailed: 0,
     subrequests: 0,
     d1Queries: 0,
   };
@@ -647,7 +666,9 @@ export async function runCron(env: Env, budget = new Budget()): Promise<CronRepo
     budget.reserve(FINAL_RESERVE, FINAL_QUERIES);
     await runSync(env, budget, report);
     await recordListings(env, budget);
-    if (!report.stoppedBy) await runDownloads(env, budget, report);
+    // レート制限では記録を止める。GitHub 全体の障害で同期が止まった起動でも記録を行う。失敗したプラグインは記録せずに次へ進む
+    // だけのため、恒常的に失敗するリポジトリが同期の順で並んで同期が止まったときに、記録と README の照合が止まり続けないようにする。
+    if (report.stoppedBy !== 'github_rate_limited') await runDownloads(env, budget, report);
     report.translated = await runTranslations(env, budget);
     report.previews = await runPreviews(env, budget);
   } catch (error) {

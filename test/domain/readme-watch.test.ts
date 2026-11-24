@@ -44,6 +44,7 @@ const report = (): CronReport => ({
   translated: 0,
   previews: 0,
   downloadsRecorded: 0,
+  downloadsFailed: 0,
   subrequests: 0,
   d1Queries: 0,
 });

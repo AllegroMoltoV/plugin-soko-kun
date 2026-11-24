@@ -121,7 +121,7 @@ describe('runCron', () => {
     expect(row?.removed).toBe(1);
   });
 
-  it('GitHub の障害では、同期の時刻のほかに既存の情報を変えず、ダウンロード数の記録も飛ばす', async () => {
+  it('GitHub の障害では、同期の時刻のほかに既存の情報を変えない', async () => {
     await registerFixture();
     const select = `SELECT * FROM plugins WHERE id = (SELECT plugin_id FROM releases LIMIT 1)`;
     const { last_synced_at: _before, ...before } = (await env.DB.prepare(select).first()) ?? {};
@@ -455,6 +455,26 @@ describe('runCron の同期の失敗', () => {
     expect(calls).toHaveLength(SYNC_OUTAGE_FAILURES);
   });
 
+  it('成功か、GitHub の障害の証拠にならない失敗を挟めば、同期を止めない', async () => {
+    for (const i of [1, 2, 3, 4, 5, 6]) await insertBarePlugin(i, `2000-01-0${i}T00:00:00Z`);
+    const unavailable = () => new HttpResponse(null, { status: 503 });
+    network.use(
+      http.get('https://api.github.com/repositories/920001', unavailable),
+      bareRepo(2),
+      bareLatest(2),
+      http.get('https://api.github.com/repositories/920003', unavailable),
+      http.get('https://api.github.com/repositories/920004', () => new HttpResponse(null, { status: 403 })),
+      http.get('https://api.github.com/repositories/920005', unavailable),
+      bareRepo(6),
+      bareLatest(6),
+      ...downloadHandlers(),
+      ...releaseCheckHandlers(),
+    );
+    const report = await runCron(env);
+    expect(report).toMatchObject({ synced: 2, failed: 4 });
+    expect(report.stoppedBy).toBeUndefined();
+  });
+
   it('ダウンロード数の記録で先頭の 3 件が失敗し続けても、ほかのプラグインを記録する', async () => {
     await registerFixture();
     const fixture = await env.DB.prepare('SELECT id FROM plugins').first<{ id: string }>();
@@ -478,7 +498,7 @@ describe('runCron の同期の失敗', () => {
     );
     const report = await runCron(env);
     expect(report.failed).toBe(0);
-    expect(report.downloadsRecorded).toBe(1);
+    expect(report).toMatchObject({ downloadsRecorded: 1, downloadsFailed: 3 });
     const { results } = await env.DB.prepare('SELECT plugin_id FROM download_snapshots WHERE total = 5').all();
     expect(results).toEqual([{ plugin_id: fixture?.id }]);
   });
