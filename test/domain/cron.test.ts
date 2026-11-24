@@ -125,13 +125,19 @@ describe('runCron', () => {
     await registerFixture();
     const select = `SELECT * FROM plugins WHERE id = (SELECT plugin_id FROM releases LIMIT 1)`;
     const { last_synced_at: _before, ...before } = (await env.DB.prepare(select).first()) ?? {};
-    network.use(await githubOutage(), ...scannerHandlers({ mb: 0 }), ...releaseCheckHandlers());
+    network.use(
+      await githubOutage(),
+      http.get('https://api.github.com/repos/:owner/:repo/releases', () => new HttpResponse(null, { status: 503 })),
+      ...scannerHandlers({ mb: 0 }),
+      ...releaseCheckHandlers(),
+    );
     const report = await runCron(env);
     expect(report).toMatchObject({ stoppedBy: 'github_unavailable', synced: 0, failed: SYNC_OUTAGE_FAILURES });
     const { last_synced_at: after, ...rest } = (await env.DB.prepare(select).first()) ?? {};
     expect(rest).toEqual(before);
     expect(after).not.toBe('2000-01-01T00:00:00Z');
-    expect(report.downloadsRecorded).toBe(0);
+    // 障害で同期が止まった起動でもダウンロード数の記録を試み、失敗したプラグインは記録しない。
+    expect(report).toMatchObject({ downloadsRecorded: 0, downloadsFailed: SYNC_OUTAGE_FAILURES });
   });
 
   it('新しく現れた配布物は、同じ digest の過去の結果があっても照会し直す', async () => {

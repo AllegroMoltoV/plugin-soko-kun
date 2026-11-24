@@ -450,12 +450,12 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
         break;
       }
       if (error instanceof BudgetExceededError) throw error;
+      console.error(`sync failed: ${row.id}: ${failureKind(error)}`);
       // 失敗を書き込む D1 のクエリが残っていなければ、書かずに止める。次の起動で同じ扱いになる。
       if (!budget.canQuery()) break;
       // それ以外の失敗 (403・5xx・形の合わない応答・通信の失敗、ほかの例外) は、そのプラグインだけの恒常的な失敗かもしれない。
       // 同期済みの時刻だけ進めて次へ回し、毎回先頭で失敗して、ほかのプラグインの同期が止まり続けないようにする。
-      // 既存の正常な情報は変えない。飲み込んだ例外で不具合が隠れないよう、種類をログに出す。
-      console.error(`sync failed: ${row.id}: ${failureKind(error)}`);
+      // 既存の正常な情報は変えない。飲み込んだ例外で不具合が隠れないよう、種類は上でログに出している。
       budget.takeD1Query();
       await env.DB.prepare('UPDATE plugins SET last_synced_at = ? WHERE id = ?').bind(now(), row.id).run();
       report.failed += 1;

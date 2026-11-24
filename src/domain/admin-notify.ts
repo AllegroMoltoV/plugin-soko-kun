@@ -15,11 +15,13 @@ export const OPERATOR_GITHUB_ID = 77569633;
 // 運営者以外の作者の登録を知らせた記録のキーの接頭辞。確認待ちと違い解けることが無いため、記録を消さない。
 const AUTHOR_KEY_PREFIX = 'a:';
 
-type ThirdPartyPlugin = { key: string; plugin: string; url: string };
+export type ThirdPartyPlugin = { key: string; plugin: string; url: string };
 
 const WEBHOOK_PREFIX = 'https://discord.com/api/webhooks/';
-// Discord のメッセージの本文の上限は 2,000 文字。末尾の件数の行の分を残す。
-const MAX_CONTENT = 1900;
+// Discord のメッセージの本文の上限。超えると 400 が返り、記録を足さないため、同じ本文を送り続けて失敗し続ける。
+const MAX_CONTENT = 2000;
+// 節の末尾の「ほか N 件」の行に残す文字数。
+const TAIL_RESERVE = 20;
 
 export type AdminNotify = 'sent' | 'skipped_no_url' | 'skipped_none' | 'skipped_budget' | `failed_${string}`;
 
@@ -30,7 +32,7 @@ const escapeMarkdown = (text: string) => text.replace(/[\\`*_~|>[\]()#-]/g, '\\$
 const entry = (subject: string, detail: string, url: string) =>
   `\n- ${escapeMarkdown(subject)}${detail ? `: ${detail}` : ''}${url ? ` <${url}>` : ''}`;
 
-function message(waits: AdminWait[], authors: ThirdPartyPlugin[]): string {
+export function message(waits: AdminWait[], authors: ThirdPartyPlugin[]): string {
   const sections: { header: string; lines: string[] }[] = [];
   if (waits.length > 0) {
     sections.push({
@@ -45,16 +47,20 @@ function message(waits: AdminWait[], authors: ThirdPartyPlugin[]): string {
     });
   }
   let content = '';
-  for (const section of sections) {
+  sections.forEach((section, index) => {
     content += `${content ? '\n' : ''}${section.header}`;
+    // 自分の節の件数の行と、後ろの節の見出しと件数の行の分を残す。見出しは切り詰めずに必ず載せるため。
+    const reserve = sections
+      .slice(index + 1)
+      .reduce((sum, later) => sum + 1 + later.header.length + TAIL_RESERVE, TAIL_RESERVE);
     let shown = 0;
     for (const line of section.lines) {
-      if (content.length + line.length > MAX_CONTENT) break;
+      if (content.length + line.length + reserve > MAX_CONTENT) break;
       content += line;
       shown += 1;
     }
     if (shown < section.lines.length) content += `\n- ほか ${section.lines.length - shown} 件`;
-  }
+  });
   return content;
 }
 

@@ -117,7 +117,7 @@ describe('既定のブランチの README の照合', () => {
     await checkReadme(readme('# Plugin\n'));
     const result = await checkReadme(() => new HttpResponse(null, { status: 503 }));
     // そのプラグインを記録せずに次へ進む。ほかのプラグインの記録は止めない。
-    expect(result).toMatchObject({ downloadsRecorded: 0 });
+    expect(result).toMatchObject({ downloadsRecorded: 0, downloadsFailed: 1 });
     expect(result.stoppedBy).toBeUndefined();
     expect((await plugin())?.readme_held).toBe(0);
     const count = await env.DB.prepare('SELECT count(*) AS n FROM download_snapshots').first<{ n: number }>();

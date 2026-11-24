@@ -63,7 +63,7 @@ npx wrangler dev --test-scheduled
 curl "http://localhost:8787/__scheduled?cron=*/15+*+*+*+*"
 ```
 
-`wrangler dev` の端末には、`{"event":"cron",...}` の形の行が出力されます。この行は、照会した件数 (`scanned`)・同期した件数 (`synced`)・同期に失敗した件数 (`failed`)・翻訳した件数 (`translated`)・画像を取得した件数 (`previews`)・ダウンロード数を記録した件数 (`downloadsRecorded`)・新しい版を検査した件数 (`releasesChecked`)・使った外部呼び出しと D1 のクエリの件数 (`subrequests`、`d1Queries`)・停止の理由 (`stoppedBy`)・証明の検証のワークフローの起動の結果 (`verifyDispatch`)・管理者の確認待ちの通知の結果 (`adminNotify`) を含みます。`downloadsRecorded` は、ダウンロード数を記録したプラグインの件数です。`.dev.vars` に `DISCORD_WEBHOOK_URL` を置くと、ローカルの定期処理も Discord へ通知します。本番と同じ URL を置くと本番の通知と混ざるため、置かないか、試しのチャンネルの URL を置きます。テストはこの値を読みません。
+`wrangler dev` の端末には、`{"event":"cron",...}` の形の行が出力されます。この行は、照会した件数 (`scanned`)・同期した件数 (`synced`)・同期に失敗した件数 (`failed`)・翻訳した件数 (`translated`)・画像を取得した件数 (`previews`)・ダウンロード数を記録した件数 (`downloadsRecorded`)・ダウンロード数の記録に失敗した件数 (`downloadsFailed`)・新しい版を検査した件数 (`releasesChecked`)・使った外部呼び出しと D1 のクエリの件数 (`subrequests`、`d1Queries`)・停止の理由 (`stoppedBy`)・証明の検証のワークフローの起動の結果 (`verifyDispatch`)・管理者の確認待ちと登録の通知の結果 (`adminNotify`) を含みます。`downloadsRecorded` は、ダウンロード数を記録したプラグインの件数です。`.dev.vars` に `DISCORD_WEBHOOK_URL` を置くと、ローカルの定期処理も Discord へ通知します。本番と同じ URL を置くと本番の通知と混ざるため、置かないか、試しのチャンネルの URL を置きます。テストはこの値を読みません。
 
 ## テストと静的検査
 

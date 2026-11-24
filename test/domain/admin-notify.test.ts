@@ -4,7 +4,7 @@ import { env } from 'cloudflare:test';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { Budget } from '../../src/budget';
-import { notifyAdmin, OPERATOR_GITHUB_ID } from '../../src/domain/admin-notify';
+import { message, notifyAdmin, OPERATOR_GITHUB_ID } from '../../src/domain/admin-notify';
 import { MAX_SCAN_ATTEMPTS } from '../../src/domain/status';
 import { submitPlugin } from '../../src/domain/submit';
 import { markListable } from '../fixtures/checks';
@@ -150,5 +150,27 @@ describe('運営者以外の作者の登録の通知', () => {
     const requests = discord();
     expect(await notifyAdmin(withWebhook, new Budget())).toBe('skipped_none');
     expect(requests).toHaveLength(0);
+  });
+});
+
+describe('通知の本文の長さ', () => {
+  it('確認待ちがあふれ、運営者以外の作者の登録が重なっても、Discord の上限の 2,000 文字に収める', () => {
+    const waits = Array.from({ length: 200 }, (_, i) => ({
+      key: `r:${i}:diff_held`,
+      plugin: `allegromoltov/plugin-with-a-long-name-${i}`,
+      code: 'diff_held' as const,
+      tag: `v${i}.0.0`,
+      url: `https://github.com/allegromoltov/plugin-with-a-long-name-${i}/releases/tag/v${i}.0.0`,
+    }));
+    const authors = Array.from({ length: 50 }, (_, i) => ({
+      key: `a:${i}`,
+      plugin: `someone/plugin-${i}`,
+      url: `https://github.com/someone/plugin-${i}`,
+    }));
+    const content = message(waits, authors);
+    expect(content.length).toBeLessThanOrEqual(2000);
+    expect(content).toContain('管理者の確認待ちが 200 件増えました');
+    expect(content).toContain('運営者以外の作者がプラグインを 50 件登録しました');
+    expect(content).toMatch(/ほか \d+ 件$/);
   });
 });
