@@ -547,7 +547,8 @@ export async function runDownloads(env: Env, budget: Budget, report: CronReport,
   report.downloadsRecorded = recorded;
 }
 
-// 既定のブランチの README を取得する。GitHub のレート制限と障害は呼び出し元へ投げ、記録ごと次の起動へ回す。
+// 既定のブランチの README を取得する。GitHub のレート制限と障害と、通信の失敗 (fetch の TypeError) は呼び出し元へ投げ、
+// 記録ごと次の起動へ回す。GitHub が不安定な間に、掲載中のプラグインを確認待ちにして掲載から外さないため。
 // ほかの失敗は照合の失敗として返し、確認待ちにする。形の合わない応答で照合を逃れられないようにするため。
 async function fetchReadme(github: GitHubClient, row: { owner: string; repo: string }): Promise<ReadmeFetch> {
   try {
@@ -555,6 +556,7 @@ async function fetchReadme(github: GitHubClient, row: { owner: string; repo: str
     return readme === null || readme === 'too_large' ? readme : { content: readme.content };
   } catch (error) {
     if (error instanceof GitHubError && (error.kind === 'rate_limited' || error.kind === 'unavailable')) throw error;
+    if (error instanceof TypeError) throw error;
     if (error instanceof BudgetExceededError) throw error;
     return { error: error instanceof GitHubError ? `github_${error.kind}` : 'unexpected_response' };
   }

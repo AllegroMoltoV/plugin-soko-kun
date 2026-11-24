@@ -461,6 +461,22 @@ describe('runCron の同期の失敗', () => {
     expect(calls).toHaveLength(SYNC_OUTAGE_FAILURES);
   });
 
+  it('通信の失敗は続けて起きても GitHub の障害の数に入れず、同期を止めない', async () => {
+    for (const i of [1, 2, 3, 4]) await insertBarePlugin(i, `2000-01-0${i}T00:00:00Z`);
+    network.use(
+      ...[1, 2, 3].map((i) =>
+        http.get(`https://api.github.com/repositories/${920000 + i}`, () => HttpResponse.error()),
+      ),
+      bareRepo(4),
+      bareLatest(4),
+      ...downloadHandlers(),
+      ...releaseCheckHandlers(),
+    );
+    const report = await runCron(env);
+    expect(report).toMatchObject({ synced: 1, failed: 3 });
+    expect(report.stoppedBy).toBeUndefined();
+  });
+
   it('成功か、GitHub の障害の証拠にならない失敗を挟めば、同期を止めない', async () => {
     for (const i of [1, 2, 3, 4, 5, 6]) await insertBarePlugin(i, `2000-01-0${i}T00:00:00Z`);
     const unavailable = () => new HttpResponse(null, { status: 503 });

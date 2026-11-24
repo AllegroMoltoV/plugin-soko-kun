@@ -124,6 +124,14 @@ describe('既定のブランチの README の照合', () => {
     expect(count?.n).toBe(1);
   });
 
+  it('README の取得が通信の失敗になっても止めず、記録ごと次の起動へ回す', async () => {
+    await registerListed();
+    await checkReadme(readme('# Plugin\n'));
+    const result = await checkReadme(() => HttpResponse.error());
+    expect(result).toMatchObject({ downloadsRecorded: 0, downloadsFailed: 1 });
+    expect((await plugin())?.readme_held).toBe(0);
+  });
+
   it('形の合わない応答では止める', async () => {
     await registerListed();
     await checkReadme(readme('# Plugin\n'));
