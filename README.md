@@ -1,5 +1,7 @@
 # Plugin Soko-kun (配信プラグイン倉庫くん)
 
+[![Plugin Soko-kun MCP connector](https://glama.ai/mcp/connectors/jp.allegromoltov.soko-kun/plugin-soko-kun/badges/score.svg)](https://glama.ai/mcp/connectors/jp.allegromoltov.soko-kun/plugin-soko-kun)
+
 [English](#english) | [日本語](#日本語)
 
 ## English
