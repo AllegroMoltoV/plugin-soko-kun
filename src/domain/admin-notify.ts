@@ -10,7 +10,7 @@ export const NOTIFY_RESERVE = 1;
 export const NOTIFY_QUERIES = 4;
 
 // 運営者 (AllegroMoltoV) の GitHub のユーザー ID。運営者以外の作者が登録したプラグインを 1 件ずつ知らせる。
-// ADR 0019 の区分 B の残り (第三者の作者が来てから影響する穴) に着手する時点を、管理者が知るため。
+// ADR 0019 の原則に照らした改善のうち、運営者以外の作者が来てから影響するもの (同期の失敗の試行の数え方など) に着手する時点を、管理者が知るため。
 export const OPERATOR_GITHUB_ID = 77569633;
 // 運営者以外の作者の登録を知らせた記録のキーの接頭辞。確認待ちと違い解けることが無いため、記録を消さない。
 const AUTHOR_KEY_PREFIX = 'a:';
@@ -40,7 +40,7 @@ function message(waits: AdminWait[], authors: ThirdPartyPlugin[]): string {
   }
   if (authors.length > 0) {
     sections.push({
-      header: `倉庫くん: 運営者以外の作者がプラグインを ${authors.length} 件登録しました。ADR 0019 の区分 B の残りに着手する条件です。`,
+      header: `倉庫くん: 運営者以外の作者がプラグインを ${authors.length} 件登録しました。ADR 0019 の原則に照らした改善のうち、運営者以外の作者が来てから影響するものに着手してください。`,
       lines: authors.map((author) => entry(author.plugin, '', author.url)),
     });
   }

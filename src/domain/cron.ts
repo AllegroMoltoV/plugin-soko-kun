@@ -120,17 +120,21 @@ interface SyncRow {
 export const SYNC_COST = 7;
 // 同期 1 件の D1 のクエリの上限。
 const SYNC_QUERIES = 3;
-// 成功を挟まずにこの件数のプラグインの同期が GitHub の利用不可か通信の失敗で続けて失敗したら、GitHub 全体の障害とみなして
+// 成功を挟まずにこの件数のプラグインの同期が GitHub の利用不可 (5xx など) で続けて失敗したら、GitHub 全体の障害とみなして
 // その起動の同期を止める。
 export const SYNC_OUTAGE_FAILURES = 3;
 
-// GitHub 全体の障害の兆候: GitHub の 5xx などの利用不可と、fetch の通信の失敗 (TypeError)。
-const isOutageSignal = (error: unknown) =>
-  (error instanceof GitHubError && error.kind === 'unavailable') || error instanceof TypeError;
+// GitHub 全体の障害の兆候: GitHub の 5xx などの利用不可。fetch の通信の失敗の TypeError は、コードの不具合や形の合わない応答の
+// TypeError と区別できないため含めない。含めると、コードの不具合が GitHub の障害に見える。
+const isOutageSignal = (error: unknown) => error instanceof GitHubError && error.kind === 'unavailable';
 
-// ログに出す失敗の種類。例外のメッセージには URL や応答の本文が入る場合があるため、種類だけを出す。
+// ログに出す失敗の種類。GitHubError 以外では、原因を特定できるようメッセージの先頭も出す。Worker のログは運営者だけが読める。
 const failureKind = (error: unknown) =>
-  error instanceof GitHubError ? `github_${error.kind}` : error instanceof Error ? error.name : 'unknown';
+  error instanceof GitHubError
+    ? `github_${error.kind}`
+    : error instanceof Error
+      ? `${error.name}: ${error.message.slice(0, 200)}`
+      : 'unknown';
 // 証明の検証のワークフローの起動 (dispatchVerify) に取り分ける外部呼び出しと D1 のクエリ。
 export const DISPATCH_RESERVE = 1;
 // 定期処理の最後の 2 つ (証明の検証のワークフローの起動と、管理者の確認待ちの通知) に取り分ける外部呼び出しと D1 のクエリ。
@@ -455,8 +459,8 @@ async function runSync(env: Env, budget: Budget, report: CronReport): Promise<vo
       budget.takeD1Query();
       await env.DB.prepare('UPDATE plugins SET last_synced_at = ? WHERE id = ?').bind(now(), row.id).run();
       report.failed += 1;
-      // 成功を挟まずに GitHub の利用不可か通信の失敗が続いたら、GitHub 全体の障害とみなしてこの起動の同期を止め、
-      // 予算を使い切らないようにする。権限なしやコードの例外は、GitHub の障害の証拠にならないため数えない。
+      // 成功を挟まずに GitHub の利用不可が続いたら、GitHub 全体の障害とみなしてこの起動の同期を止め、予算を使い切らない
+      // ようにする。権限なし・通信の失敗・コードの例外は、GitHub の障害と区別できる証拠にならないため数えない。
       if (isOutageSignal(error)) consecutiveFailures += 1;
       if (consecutiveFailures >= SYNC_OUTAGE_FAILURES) {
         report.stoppedBy = 'github_unavailable';

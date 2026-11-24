@@ -22,7 +22,7 @@ D1 のテーブルと、掲載状態の算出規則の仕様です。スキー�
 | `release_suspensions` | 管理者が止めた版とマルウェアを検出した版。削除しない |
 | `plugin_aliases` | プラグインの旧い URL の ID 1 つにつき 1 行 |
 | `check_log` | `submit_plugin` の確認のモードの要求 1 件につき 1 行 |
-| `admin_notifications` | Discord へ通知した管理者の確認待ちの理由 1 つにつき 1 行 |
+| `admin_notifications` | Discord へ通知した管理者の確認待ちの理由 1 つにつき 1 行。運営者以外の作者が登録したプラグイン 1 つにつき 1 行 |
 
 OAuth のクライアント・認可・トークンの情報は D1 ではなく KV の `OAUTH_KV` に置きます。KV の形式は `@cloudflare/workers-oauth-provider` が管理します。
 
