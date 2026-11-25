@@ -1,6 +1,6 @@
 # Render test and post-build install for a plugin created from obs-plugintemplate.
 # Append this fragment to the end of the root CMakeLists.txt, after set_target_properties_plugin().
-# The render test sources are tests/render-test.cpp, tests/render-fixture.hpp, and tests/obs-test-env.hpp.
+# The render test sources are tests/render-test.cpp, tests/render-fixture.hpp, and tests/obs-integration-env.hpp.
 
 # Versions of the OBS sources and the prebuilt dependencies. They must match dependencies.obs-studio.version and
 # dependencies.prebuilt.version in buildspec.json, because the folders under .deps are named after them.

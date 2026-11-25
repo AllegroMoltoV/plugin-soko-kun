@@ -3,7 +3,7 @@
 // Shared parts of the render test: a test input source with known pixels, waiting for frames, reading a source's
 // output back to memory, and writing images for visual checks.
 
-#include "obs-test-env.hpp"
+#include "obs-integration-env.hpp"
 
 #include <obs.h>
 

@@ -147,7 +147,7 @@ Done when:
 | [templates/INIT.md](templates/INIT.md) | Requirements file for stage 1 |
 | [templates/render-test.yaml](templates/render-test.yaml) | GitHub Actions workflow for the headless render test on three operating systems |
 | [templates/render-tests.cmake](templates/render-tests.cmake) | CMake fragment that builds the render test and registers it with CTest on Windows |
-| [templates/tests/obs-test-env.hpp](templates/tests/obs-test-env.hpp) | Starts libobs without the frontend and loads the plugin |
+| [templates/tests/obs-integration-env.hpp](templates/tests/obs-integration-env.hpp) | Starts libobs without the frontend and loads the plugin |
 | [templates/tests/render-fixture.hpp](templates/tests/render-fixture.hpp) | Test input source, frame waiting, and pixel readback |
 | [templates/tests/render-test.cpp](templates/tests/render-test.cpp) | Minimal render test with one scenario to replace with the plugin's own checks |
 

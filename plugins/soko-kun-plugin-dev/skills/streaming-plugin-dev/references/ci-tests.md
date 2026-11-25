@@ -22,9 +22,11 @@ Because macOS and Ubuntu run OpenGL, the test catches effect code that compiles 
 | --- | --- | --- |
 | [render-test.yaml](../templates/render-test.yaml) | `.github/workflows/render-test.yaml` | `PLUGIN_NAME`, `OBS_VERSION`, `SCENARIOS` |
 | [render-tests.cmake](../templates/render-tests.cmake) | Append to the root `CMakeLists.txt` | The scenario list, and the versions if `buildspec.json` differs |
-| [tests/obs-test-env.hpp](../templates/tests/obs-test-env.hpp) | `tests/obs-test-env.hpp` | Nothing |
+| [tests/obs-integration-env.hpp](../templates/tests/obs-integration-env.hpp) | `tests/obs-integration-env.hpp` | Nothing |
 | [tests/render-fixture.hpp](../templates/tests/render-fixture.hpp) | `tests/render-fixture.hpp` | Nothing at first |
 | [tests/render-test.cpp](../templates/tests/render-test.cpp) | `tests/render-test.cpp` | `kFilterId` and the scenarios |
+
+Keep `integration` in the name of `tests/obs-integration-env.hpp`. For `ci-scenario-tests`, Plugin Soko-kun reads only a few test sources and reads paths that contain `integration` or `e2e` first ([criteria document](https://github.com/AllegroMoltoV/plugin-soko-kun/blob/main/docs/design/review-criteria.md)). The file that starts libobs must be among them, or the criterion is not met. If you add another test whose path contains `integration` or `e2e`, include `obs-integration-env.hpp` directly from that test as its first local `#include "..."`, because the catalog reads the files a source includes right after the source, in the order they appear.
 
 Add `!/tests` to `.gitignore` (see [scaffold.md](scaffold.md)). The workflow calls the template's `.github/actions/build-plugin` action, so it works only in a repository created from obs-plugintemplate. Keep `OBS_VERSION` and the dependency version in the CMake fragment equal to the versions in `buildspec.json`; the paths under `.deps` contain them.
 
