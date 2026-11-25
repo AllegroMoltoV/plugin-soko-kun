@@ -49,6 +49,14 @@ Add only the folders the plugin needs. Do not add `!/` lines for agent and edito
 
 The template sets the Windows install prefix to `$ENV{ALLUSERSPROFILE}/obs-studio/plugins` in `cmake/windows/defaults.cmake`. The environment variable contains backslashes, which become invalid escapes in `cmake_install.cmake` and break `cmake --install`. Convert the value with `file(TO_CMAKE_PATH ...)` before using it as the prefix.
 
+### The Windows package uses the plugin layout of OBS 32 and earlier
+
+The template installs the Windows DLL into `<name>/bin/64bit/`, so the release zip has `<name>\bin\64bit\<name>.dll`. Starting with OBS Studio 33.0, the plugin layout on Windows is `%ProgramData%\obs-studio\plugins\<name>\<name>.dll` next to `<name>\data\` (https://obsproject.com/kb/legacy-plugin-locations). OBS 33 still loads the older layout, but marks it as Legacy in the plugin manager, and the page says such plugins will not be loaded in the future. A portable OBS 33 does not read the older layout at all. One of the listed plugins kept the template layout and had three releases in it before anyone noticed.
+
+In `cmake/windows/helpers.cmake`, change both `DESTINATION "${target}/bin/64bit"` (the `install(TARGETS ...)` for the DLL and the `install(FILES ...)` for the PDB) to `DESTINATION "${target}"`. The `data` folder already goes to `${target}/data`. The Ubuntu package does not change. Check the result with `cmake --install <build dir> --config RelWithDebInfo --prefix <empty folder>`: the DLL must be at `<name>\<name>.dll`.
+
+In the README, state OBS Studio 33 or later as the Windows requirement, and use the new DLL path in the installation steps. If an earlier release used the older layout, link it for users of OBS 32 and earlier, and tell users who update that they can delete the old `<name>\bin` folder. The page says a plugin loaded from the new layout skips the same plugin in an older layout.
+
 ### Do not install into the shared plugin folder on every build
 
 Some plugins add a post-build step that runs `cmake --install` after each build. On Windows that writes into `%ProgramData%\obs-studio\plugins`, which the author's own OBS and other sessions share. If you add such a step, put it behind an option that defaults to `OFF`, for example `ENABLE_POST_BUILD_INSTALL`, as in [../templates/render-tests.cmake](../templates/render-tests.cmake). Configure local builds with the option off and install into a portable OBS instead (see [local-verification.md](local-verification.md)).
