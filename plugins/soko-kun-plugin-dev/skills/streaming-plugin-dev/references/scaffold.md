@@ -61,6 +61,19 @@ The template builds and packages but never runs tests. Add the tests yourself:
 - On macOS, the template's `build-macos` script builds only the plugin target. Build the test targets explicitly before running them.
 - After CI passes, open the log and confirm that the tests actually ran. A passing workflow with zero tests looks the same as a passing workflow with tests.
 
+### The OBS PPA intermittently returns 503 on Ubuntu
+
+The template's Ubuntu job installs OBS from the official PPA (`ppa.launchpadcontent.net`). When the PPA returns `503 Service Unavailable`, `apt-get update` prints `Some index files failed to download. They have been ignored` and continues. The older `obs-studio` from Ubuntu's own archive is installed instead, and CMake fails later with `Could not find a package configuration file provided by "LibObs"`. A listed plugin hit this on pull requests.
+
+Make apt retry failed downloads. Add this step at the start of the Ubuntu job in `build-project.yaml`, before the checkout:
+
+```yaml
+- name: Retry apt downloads
+  run: echo 'Acquire::Retries "10";' | sudo tee /etc/apt/apt.conf.d/80-retries
+```
+
+The render test template ([render-test.yaml](../templates/render-test.yaml)) already has this step. Retries usually get past the outage, but a long outage can still fail the job; run it again later. Add the step while scaffolding: after listing, a workflow change holds the next release (see [release.md](release.md)).
+
 ### The format check uses fixed tool versions
 
 The template's format check runs gersemi 0.21.0 and clang-format 19. Use the same versions locally: install gersemi 0.21.0 into a separate virtual environment, and use clang-format 19 (the copy bundled with Visual Studio 19.1.5 matched). With other versions, the check passes locally and fails in CI.
