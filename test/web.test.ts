@@ -310,7 +310,7 @@ describe('Web', () => {
 });
 
 // 検索欄の文を利用者自身の AI (Google の AI モード) に渡すボタン (5ig)。倉庫くんは検索をせず、質問の文を組み立てて移るだけ。
-describe('Google の AI で探す', () => {
+describe('Google AI で検索', () => {
   async function postAiSearch(fields: Record<string, string>, init: RequestInit = {}): Promise<Response> {
     return SELF.fetch(`${ORIGIN}/ai-search`, { method: 'POST', body: new URLSearchParams(fields), ...init });
   }
@@ -396,13 +396,20 @@ describe('Google の AI で探す', () => {
     expect(large.status).toBe(413);
   });
 
-  // 上部の帯は見せる文言を CSS で切り替えるため、読み上げの名前は aria-label で正式な文言に固定する (PR #79 のレビュー)。
-  it('上部の帯のボタンは、読み上げに正式な文言を使う', async () => {
-    const html = await (await SELF.fetch(`${ORIGIN}/about?lang=ja`)).text();
-    expect(html).toContain(`aria-label="${escapeHtml(DICTS.ja.aiSearchButton)}"`);
-    // 見せる短い文言を読み上げの名前に含め、音声入力で見えている文言を言っても押せるようにする (WCAG 2.5.3)
+  // 検索のボタンと AI のボタンを並列に扱い、2 つのフォームで同じ文言を見せる (依頼者 2026-11-27)。
+  it('7 言語のそれぞれで、2 つのフォームとも検索のボタンと AI のボタンに同じ文言を見せる', async () => {
     for (const lang of LANGS) {
-      expect(DICTS[lang].aiSearchButton).toContain(DICTS[lang].aiSearchShort);
+      const t = DICTS[lang];
+      const html = await (await SELF.fetch(`${ORIGIN}/?lang=${lang}`)).text();
+      const searchForms = html
+        .split('<form')
+        .slice(1)
+        .filter((form) => form.includes('name="q"'));
+      expect(searchForms).toHaveLength(2);
+      for (const form of searchForms) {
+        expect(form).toContain(`<span>${escapeHtml(t.searchButton)}</span>`);
+        expect(form).toContain(`<span>${escapeHtml(t.aiSearchButton)}</span>`);
+      }
     }
   });
 
@@ -428,7 +435,7 @@ describe('Google の AI で探す', () => {
 
   it('プライバシーポリシーに、送った文を保存せず Google の AI モードへ渡すことを書く', async () => {
     const html = await (await SELF.fetch(`${ORIGIN}/privacy?lang=ja`)).text();
-    expect(html).toContain('「Google の AI で探す」のボタンで送った文は、このプラットフォームに保存せず');
+    expect(html).toContain('「Google AI で検索」のボタンで送った文は、このプラットフォームに保存せず');
   });
 });
 

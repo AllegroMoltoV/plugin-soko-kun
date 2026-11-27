@@ -37,40 +37,45 @@ export function withLang(path: string, lang: Lang): string {
   return `${url.pathname}${url.search}`;
 }
 
-// 検索ボタンは虫眼鏡の図だけを見せ、読み上げ用に文字を残す。画像ファイルを使わず、CSP の img-src に依存しない。
+// 検索のボタンと「Google の AI で検索」のボタンは、同じ見た目で横に並べる。幅の広い表示では入力欄の横に、
+// 幅の狭い表示では入力欄の次の行に置く (CSS の .search-buttons)。図は HTML に直接書いた SVG で描き、CSP の img-src に依存しない。
+export const SearchButtons: FC<{ t: Dict }> = ({ t }) => (
+  <span class="search-buttons">
+    <SearchButton label={t.searchButton} />
+    <AiSearchButton t={t} />
+  </span>
+);
+
 export const SearchButton: FC<{ label: string }> = ({ label }) => (
-  <button type="submit" class="icon-button" title={label}>
+  <button type="submit" class="icon-button">
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
       <circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor" stroke-width="2" />
       <line x1="10" y1="10" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
     </svg>
-    <span class="visually-hidden">{label}</span>
+    <span>{label}</span>
   </button>
 );
 
 // 検索欄の文を、利用者自身の AI (Google の AI モード) に渡すボタン (5ig)。倉庫くんは検索をせず、
 // POST /ai-search が質問の文を組み立てて別のタブで転送する。Enter キーの暗黙の送信はツリー順で最初の送信ボタンを使うため、
-// 虫眼鏡のボタンより後ろに置き、Enter キーでは今までどおり部分一致の検索をする。
-// 上部の帯の幅の広い表示では、検索欄の横に収まるよう短い文言を見せる。幅の狭い表示ではボタンを次の行に置くため、正式な文言を見せる。
-// 見せる文言を CSS で切り替えても、読み上げには常に正式な文言を使うよう aria-label を付ける。
-export const AiSearchButton: FC<{ t: Dict; short?: boolean }> = ({ t, short }) => (
+// 検索のボタンより後ろに置き、Enter キーでは今までどおり部分一致の検索をする。
+// 図は 4 方向に光る星。Google のロゴは使わず、配色の規則に合わせて文字と同じ色で描く。
+export const AiSearchButton: FC<{ t: Dict }> = ({ t }) => (
   <button
     type="submit"
-    class="ai-search"
+    class="icon-button ai-search"
     formaction="/ai-search"
     formmethod="post"
     formtarget="_blank"
     title={t.aiSearchHint}
-    aria-label={short ? t.aiSearchButton : undefined}
   >
-    {short ? (
-      <>
-        <span class="ai-search-short">{t.aiSearchShort}</span>
-        <span class="ai-search-long">{t.aiSearchButton}</span>
-      </>
-    ) : (
-      t.aiSearchButton
-    )}
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M8 0C8.6 4.6 11.4 7.4 16 8C11.4 8.6 8.6 11.4 8 16C7.4 11.4 4.6 8.6 0 8C4.6 7.4 7.4 4.6 8 0Z"
+        fill="currentColor"
+      />
+    </svg>
+    <span>{t.aiSearchButton}</span>
   </button>
 );
 
@@ -204,8 +209,7 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
                     aria-label={t.searchPlaceholder}
                     maxlength={100}
                   />
-                  <SearchButton label={t.searchButton} />
-                  <AiSearchButton t={t} short />
+                  <SearchButtons t={t} />
                 </form>
               </search>
               <details class="lang">
