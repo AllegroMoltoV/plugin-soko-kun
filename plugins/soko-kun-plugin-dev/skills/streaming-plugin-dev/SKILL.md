@@ -1,6 +1,7 @@
 ---
 name: streaming-plugin-dev
 description: Build an OBS Studio plugin with Claude Code and get it listed on Plugin Soko-kun (配信プラグイン倉庫くん, https://soko-kun.allegromoltov.jp). Use when the user wants to create, scaffold, test, release, or publish an OBS Studio plugin (filter, source, dock, transition, or output), set up obs-plugintemplate, add headless render tests to CI, release with build provenance attestations and immutable releases, or submit a plugin to Plugin Soko-kun or fix a submission it refused.
+tags: [obs-studio, obs-plugin, streaming, plugin-development, claude-code, github-actions, release]
 ---
 
 # Building an OBS Studio plugin and listing it on Plugin Soko-kun
