@@ -377,6 +377,31 @@ describe('Google の AI で探す', () => {
     );
   });
 
+  // 100 単位目で絵文字が割れると、片割れのサロゲートで encodeURIComponent が例外を投げ、500 になっていた (PR #79 のレビュー)。
+  it('100 単位目で割れるサロゲートペアは落として移る', async () => {
+    const response = await postAiSearch({ lang: 'en', q: `${'a'.repeat(99)}😀` });
+    expect(response.status).toBe(200);
+    expect(targetsOf(await response.text()).refresh.searchParams.get('q')).toBe(
+      DICTS.en.aiSearchPrompt(`${ORIGIN}/?lang=en`, 'a'.repeat(99)),
+    );
+  });
+
+  // 大きな本文や multipart をメモリに展開しない (PR #79 のレビュー)。
+  it('フォームの送信以外の形と、4 KB を超える本文は受け付けない', async () => {
+    const multipart = new FormData();
+    multipart.set('q', 'noise');
+    const asMultipart = await SELF.fetch(`${ORIGIN}/ai-search`, { method: 'POST', body: multipart });
+    expect(asMultipart.status).toBe(415);
+    const large = await postAiSearch({ lang: 'en', q: 'a'.repeat(5000) });
+    expect(large.status).toBe(413);
+  });
+
+  // 上部の帯は見せる文言を CSS で切り替えるため、読み上げの名前は aria-label で正式な文言に固定する (PR #79 のレビュー)。
+  it('上部の帯のボタンは、読み上げに正式な文言を使う', async () => {
+    const html = await (await SELF.fetch(`${ORIGIN}/about?lang=ja`)).text();
+    expect(html).toContain(`aria-label="${escapeHtml(DICTS.ja.aiSearchButton)}"`);
+  });
+
   // Google の確認画面が出た質問の URL は 1,911 文字だった。原因は未特定のため、最大の入力での長さを見張る。
   it('最大の長さの入力でも、移り先の URL は 7 言語とも 2,048 文字に収まる', async () => {
     for (const lang of LANGS) {

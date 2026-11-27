@@ -1,4 +1,5 @@
 import { type Context, Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { getCookie, setCookie } from 'hono/cookie';
 import {
   catalogStats,
@@ -442,18 +443,36 @@ export function aiSearchUrl(prompt: string): string {
   return `https://www.google.com/search?udm=50&q=${encodeURIComponent(prompt)}`;
 }
 
-app.post('/ai-search', async (c) => {
-  const body = await c.req.parseBody();
-  const fromBody = typeof body.lang === 'string' ? LANGS.find((l) => l === body.lang) : undefined;
-  const lang = fromBody ?? c.get('lang');
-  const t = DICTS[lang];
-  const input = typeof body.q === 'string' ? body.q.trim().slice(0, AI_SEARCH_MAX_INPUT) : '';
-  const catalogUrl = `${c.env.ORIGIN}${withLang('/', lang)}`;
-  const target = aiSearchUrl(t.aiSearchPrompt(catalogUrl, input || t.aiSearchEmpty));
-  c.header('X-Robots-Tag', 'noindex');
-  c.header('Cache-Control', 'no-store');
-  return c.html(<AiSearchRedirect t={t} lang={lang} target={target} />);
-});
+// フォームの送信 (application/x-www-form-urlencoded) だけを受け、本文は検索欄の上限に余裕を持たせた 4 KB までにする。
+// 大きな本文や multipart をメモリに展開しないため。
+const AI_SEARCH_MAX_BODY = 4 * 1024;
+
+app.post(
+  '/ai-search',
+  bodyLimit({ maxSize: AI_SEARCH_MAX_BODY, onError: (c) => c.text('Payload Too Large', 413) }),
+  async (c) => {
+    if (!(c.req.header('Content-Type') ?? '').startsWith('application/x-www-form-urlencoded')) {
+      return c.text('Unsupported Media Type', 415);
+    }
+    const body = await c.req.parseBody();
+    const fromBody = typeof body.lang === 'string' ? LANGS.find((l) => l === body.lang) : undefined;
+    const lang = fromBody ?? c.get('lang');
+    const t = DICTS[lang];
+    // 100 単位目で切ると絵文字などのサロゲートペアが割れ、encodeURIComponent が例外を投げるため、末尾の片割れを落とす。
+    const input =
+      typeof body.q === 'string'
+        ? body.q
+            .trim()
+            .slice(0, AI_SEARCH_MAX_INPUT)
+            .replace(/[\uD800-\uDBFF]$/, '')
+        : '';
+    const catalogUrl = `${c.env.ORIGIN}${withLang('/', lang)}`;
+    const target = aiSearchUrl(t.aiSearchPrompt(catalogUrl, input || t.aiSearchEmpty));
+    c.header('X-Robots-Tag', 'noindex');
+    c.header('Cache-Control', 'no-store');
+    return c.html(<AiSearchRedirect t={t} lang={lang} target={target} />);
+  },
+);
 
 // 収集を防ぐため、アドレスはフォームの送信 (POST) を受けたときだけ、@ を [at] に置き換えて返す。
 // GET は、アドレスを表示したページで言語を切り替えたときに来る。アドレスは返さず、選んだ言語のボタンを返す。

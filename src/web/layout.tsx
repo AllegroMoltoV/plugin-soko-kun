@@ -52,6 +52,7 @@ export const SearchButton: FC<{ label: string }> = ({ label }) => (
 // POST /ai-search が質問の文を組み立てて別のタブで転送する。Enter キーの暗黙の送信はツリー順で最初の送信ボタンを使うため、
 // 虫眼鏡のボタンより後ろに置き、Enter キーでは今までどおり部分一致の検索をする。
 // 上部の帯の幅の広い表示では、検索欄の横に収まるよう短い文言を見せる。幅の狭い表示ではボタンを次の行に置くため、正式な文言を見せる。
+// 見せる文言を CSS で切り替えても、読み上げには常に正式な文言を使うよう aria-label を付ける。
 export const AiSearchButton: FC<{ t: Dict; short?: boolean }> = ({ t, short }) => (
   <button
     type="submit"
@@ -60,6 +61,7 @@ export const AiSearchButton: FC<{ t: Dict; short?: boolean }> = ({ t, short }) =
     formmethod="post"
     formtarget="_blank"
     title={t.aiSearchHint}
+    aria-label={short ? t.aiSearchButton : undefined}
   >
     {short ? (
       <>
