@@ -3,7 +3,7 @@ import { env, SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { SUBMIT_ERROR_CODES, submitPlugin } from '../src/domain/submit';
 import { PAGES } from '../src/web/content';
-import { LANGS } from '../src/web/i18n';
+import { DICTS, LANGS } from '../src/web/i18n';
 import { markListable } from './fixtures/checks';
 import { githubHandlers, OWNER, REPO, USER_TOKEN } from './fixtures/github';
 import { png } from './fixtures/images';
@@ -308,3 +308,130 @@ describe('Web', () => {
     expect(html).toContain('method="post" action="/contact?lang=ja"');
   });
 });
+
+// 検索欄の文を利用者自身の AI (Google の AI モード) に渡すボタン (5ig)。倉庫くんは検索をせず、質問の文を組み立てて移るだけ。
+describe('Google の AI で探す', () => {
+  async function postAiSearch(fields: Record<string, string>, init: RequestInit = {}): Promise<Response> {
+    return SELF.fetch(`${ORIGIN}/ai-search`, { method: 'POST', body: new URLSearchParams(fields), ...init });
+  }
+
+  // 応答の meta refresh とリンクから、移り先の URL を取り出す。属性の & は &amp; で出る。
+  function targetsOf(html: string): { refresh: URL; link: URL } {
+    const refresh = html.match(/<meta http-equiv="refresh" content="0;url=([^"]+)"/)?.[1];
+    const link = html.match(/<a href="(https:\/\/www\.google\.com\/[^"]+)"/)?.[1];
+    if (!refresh || !link) throw new Error('the redirect targets are missing');
+    const decode = (value: string) => new URL(value.replaceAll('&amp;', '&'));
+    return { refresh: decode(refresh), link: decode(link) };
+  }
+
+  it('2 つの検索フォームの両方に、虫眼鏡のボタンより後ろにボタンを置く', async () => {
+    const html = await (await SELF.fetch(`${ORIGIN}/?lang=ja`)).text();
+    const forms = html.split('<form').slice(1);
+    const searchForms = forms.filter((form) => form.includes('name="q"'));
+    expect(searchForms).toHaveLength(2);
+    for (const form of searchForms) {
+      const button = form.indexOf('formaction="/ai-search"');
+      expect(button).toBeGreaterThan(form.indexOf('class="icon-button"'));
+      const tag = form.slice(form.lastIndexOf('<button', button), form.indexOf('>', button));
+      expect(tag).toContain('formmethod="post"');
+      expect(tag).toContain('formtarget="_blank"');
+    }
+    // 上部の帯だけを持つ固定ページにも、上部の帯のボタンがある
+    const about = await (await SELF.fetch(`${ORIGIN}/about?lang=ja`)).text();
+    expect(about.split('formaction="/ai-search"')).toHaveLength(2);
+  });
+
+  it('7 言語のそれぞれで、ボタンの文言と、その言語の質問の文とカタログの URL で移る', async () => {
+    for (const lang of LANGS) {
+      const t = DICTS[lang];
+      const page = await (await SELF.fetch(`${ORIGIN}/?lang=${lang}`)).text();
+      expect(page).toContain(escapeHtml(t.aiSearchButton));
+      expect(page).toContain(escapeHtml(t.aiSearchHint));
+      const response = await postAiSearch({ lang, q: '  音量 balance  ' });
+      expect(response.status).toBe(200);
+      const html = await response.text();
+      const { refresh, link } = targetsOf(html);
+      expect(refresh.href).toBe(link.href);
+      expect(refresh.origin + refresh.pathname).toBe('https://www.google.com/search');
+      expect(refresh.searchParams.get('udm')).toBe('50');
+      expect(refresh.searchParams.get('q')).toBe(t.aiSearchPrompt(`${ORIGIN}/?lang=${lang}`, '音量 balance'));
+      expect(html).toContain(escapeHtml(t.aiSearchRedirect));
+    }
+  });
+
+  // 言語を決めるミドルウェアは本文を読まない。Cookie の無い初回の利用者でも、画面の言語の質問の文にする。
+  it('Cookie が無いときも、フォームの lang の言語で質問の文を組み立てる', async () => {
+    const response = await postAiSearch({ lang: 'ko', q: 'mosaic' }, { headers: { 'Accept-Language': 'en' } });
+    const { refresh } = targetsOf(await response.text());
+    expect(refresh.searchParams.get('q')).toBe(DICTS.ko.aiSearchPrompt(`${ORIGIN}/?lang=ko`, 'mosaic'));
+  });
+
+  it('入力は 100 文字で切り、空のときは探したいものを尋ねるよう伝える', async () => {
+    const long = await postAiSearch({ lang: 'ja', q: 'あ'.repeat(150) });
+    expect(targetsOf(await long.text()).refresh.searchParams.get('q')).toBe(
+      DICTS.ja.aiSearchPrompt(`${ORIGIN}/?lang=ja`, 'あ'.repeat(100)),
+    );
+    const empty = await postAiSearch({ lang: 'ja', q: '   ' });
+    expect(targetsOf(await empty.text()).refresh.searchParams.get('q')).toBe(
+      DICTS.ja.aiSearchPrompt(`${ORIGIN}/?lang=ja`, DICTS.ja.aiSearchEmpty),
+    );
+  });
+
+  // 100 単位目で絵文字が割れると、片割れのサロゲートで encodeURIComponent が例外を投げ、500 になっていた (PR #79 のレビュー)。
+  it('100 単位目で割れるサロゲートペアは落として移る', async () => {
+    const response = await postAiSearch({ lang: 'en', q: `${'a'.repeat(99)}😀` });
+    expect(response.status).toBe(200);
+    expect(targetsOf(await response.text()).refresh.searchParams.get('q')).toBe(
+      DICTS.en.aiSearchPrompt(`${ORIGIN}/?lang=en`, 'a'.repeat(99)),
+    );
+  });
+
+  // 大きな本文や multipart をメモリに展開しない (PR #79 のレビュー)。
+  it('フォームの送信以外の形と、4 KB を超える本文は受け付けない', async () => {
+    const multipart = new FormData();
+    multipart.set('q', 'noise');
+    const asMultipart = await SELF.fetch(`${ORIGIN}/ai-search`, { method: 'POST', body: multipart });
+    expect(asMultipart.status).toBe(415);
+    const large = await postAiSearch({ lang: 'en', q: 'a'.repeat(5000) });
+    expect(large.status).toBe(413);
+  });
+
+  // 上部の帯は見せる文言を CSS で切り替えるため、読み上げの名前は aria-label で正式な文言に固定する (PR #79 のレビュー)。
+  it('上部の帯のボタンは、読み上げに正式な文言を使う', async () => {
+    const html = await (await SELF.fetch(`${ORIGIN}/about?lang=ja`)).text();
+    expect(html).toContain(`aria-label="${escapeHtml(DICTS.ja.aiSearchButton)}"`);
+    // 見せる短い文言を読み上げの名前に含め、音声入力で見えている文言を言っても押せるようにする (WCAG 2.5.3)
+    for (const lang of LANGS) {
+      expect(DICTS[lang].aiSearchButton).toContain(DICTS[lang].aiSearchShort);
+    }
+  });
+
+  // Google の確認画面が出た質問の URL は 1,911 文字だった。原因は未特定のため、最大の入力での長さを見張る。
+  it('最大の長さの入力でも、移り先の URL は 7 言語とも 2,048 文字に収まる', async () => {
+    for (const lang of LANGS) {
+      const response = await postAiSearch({ lang, q: '漢'.repeat(100) });
+      const { refresh } = targetsOf(await response.text());
+      expect(refresh.href.length).toBeLessThanOrEqual(2048);
+    }
+  });
+
+  it('移るための応答は検索エンジンに載せず、キャッシュさせず、CSP を変えない', async () => {
+    const response = await postAiSearch({ lang: 'en', q: 'noise' });
+    expect(response.headers.get('X-Robots-Tag')).toBe('noindex');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(await response.text()).toContain('<meta name="robots" content="noindex"/>');
+    const csp = response.headers.get('Content-Security-Policy') ?? '';
+    expect(csp).toContain("form-action 'self'");
+    expect(csp).not.toContain('google');
+    expect(csp).not.toContain('script-src');
+  });
+
+  it('プライバシーポリシーに、送った文を保存せず Google の AI モードへ渡すことを書く', async () => {
+    const html = await (await SELF.fetch(`${ORIGIN}/privacy?lang=ja`)).text();
+    expect(html).toContain('「Google の AI で探す」のボタンで送った文は、このプラットフォームに保存せず');
+  });
+});
+
+function escapeHtml(text: string): string {
+  return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+}

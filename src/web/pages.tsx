@@ -5,7 +5,7 @@ import type { Category } from '../domain/metadata';
 import type { ScanResult } from '../domain/status';
 import type { Block, PageContent } from './content';
 import type { Dict, Lang } from './i18n';
-import { ContactButton, SearchButton, withLang } from './layout';
+import { AiSearchButton, ContactButton, SearchButton, withLang } from './layout';
 
 const formatDate = (iso: string | null | undefined, lang: Lang) =>
   iso ? new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date(iso)) : '-';
@@ -288,6 +288,7 @@ export const SearchForm: FC<{
           maxlength={100}
         />
         <SearchButton label={t.searchButton} />
+        <AiSearchButton t={t} />
       </div>
       <div class="row">
         <label>
@@ -313,6 +314,7 @@ export const SearchForm: FC<{
           </select>
         </label>
       </div>
+      <p class="ai-search-hint">{t.aiSearchHint}</p>
     </form>
   </search>
 );

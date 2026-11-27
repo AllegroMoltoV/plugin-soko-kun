@@ -48,6 +48,61 @@ export const SearchButton: FC<{ label: string }> = ({ label }) => (
   </button>
 );
 
+// 検索欄の文を、利用者自身の AI (Google の AI モード) に渡すボタン (5ig)。倉庫くんは検索をせず、
+// POST /ai-search が質問の文を組み立てて別のタブで転送する。Enter キーの暗黙の送信はツリー順で最初の送信ボタンを使うため、
+// 虫眼鏡のボタンより後ろに置き、Enter キーでは今までどおり部分一致の検索をする。
+// 上部の帯の幅の広い表示では、検索欄の横に収まるよう短い文言を見せる。幅の狭い表示ではボタンを次の行に置くため、正式な文言を見せる。
+// 見せる文言を CSS で切り替えても、読み上げには常に正式な文言を使うよう aria-label を付ける。
+export const AiSearchButton: FC<{ t: Dict; short?: boolean }> = ({ t, short }) => (
+  <button
+    type="submit"
+    class="ai-search"
+    formaction="/ai-search"
+    formmethod="post"
+    formtarget="_blank"
+    title={t.aiSearchHint}
+    aria-label={short ? t.aiSearchButton : undefined}
+  >
+    {short ? (
+      <>
+        <span class="ai-search-short">{t.aiSearchShort}</span>
+        <span class="ai-search-long">{t.aiSearchButton}</span>
+      </>
+    ) : (
+      t.aiSearchButton
+    )}
+  </button>
+);
+
+// POST /ai-search の応答。表示のためのページではなく、Google の AI モードへ移るための応答。
+// 303 で転送するとフォームの送信の続きとして CSP の form-action の対象になり、form-action 'self' で止まる。
+// meta refresh とリンクによる移動はフォームの送信ではないため、CSP を変えずに移れる。
+export const AiSearchRedirect: FC<{ t: Dict; lang: Lang; target: string }> = ({ t, lang, target }) => (
+  <>
+    {raw('<!DOCTYPE html>')}
+    <html lang={lang}>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex" />
+        <meta http-equiv="refresh" content={`0;url=${target}`} />
+        <title>{t.aiSearchOpen}</title>
+        <link rel="stylesheet" href={`/style.css?v=${STYLE_VERSION}`} />
+      </head>
+      <body>
+        <main class="ai-redirect">
+          <p>{t.aiSearchRedirect}</p>
+          <p>
+            <a href={target} rel="noreferrer">
+              {t.aiSearchOpen}
+            </a>
+          </p>
+        </main>
+      </body>
+    </html>
+  </>
+);
+
 const SITE_NAME = '配信プラグイン倉庫くん';
 const SITE_NAME_EN = 'Plugin Soko-kun';
 
@@ -150,6 +205,7 @@ export const Layout: FC<{ meta: PageMeta; side: Child; sideNarrow: Child; childr
                     maxlength={100}
                   />
                   <SearchButton label={t.searchButton} />
+                  <AiSearchButton t={t} short />
                 </form>
               </search>
               <details class="lang">

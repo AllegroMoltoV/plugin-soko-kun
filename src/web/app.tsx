@@ -1,4 +1,5 @@
 import { type Context, Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { getCookie, setCookie } from 'hono/cookie';
 import {
   catalogStats,
@@ -13,7 +14,7 @@ import { CATEGORIES, type Category, OS_VALUES, type Os } from '../domain/metadat
 import type { Env } from '../env';
 import { AUTHORITATIVE, PAGE_KEYS, PAGES } from './content';
 import { DICTS, LANGS, type Lang, negotiate } from './i18n';
-import { ContactButton, Layout, type PageMeta, toJsonLd, websiteJsonLd, withLang } from './layout';
+import { AiSearchRedirect, ContactButton, Layout, type PageMeta, toJsonLd, websiteJsonLd, withLang } from './layout';
 import { LOGO_SVG } from './logo';
 import {
   NoticesPage,
@@ -431,6 +432,47 @@ for (const key of PAGE_KEYS) {
     );
   });
 }
+
+// 検索欄の文を、利用者自身の AI (Google の AI モード) に渡す (5ig)。倉庫くんは検索をせず、質問の文を組み立てて移るだけ。
+// POST にするのは、Google に送る文を倉庫くんの URL に重ねて残さないため。入力は保存しない。
+// 言語を決めるミドルウェアは本文を読まないため、フォームの hidden の lang をここで優先する。
+// 入力の上限は検索欄の maxlength と同じ 100 文字 (UTF-16 の単位)。
+export const AI_SEARCH_MAX_INPUT = 100;
+
+export function aiSearchUrl(prompt: string): string {
+  return `https://www.google.com/search?udm=50&q=${encodeURIComponent(prompt)}`;
+}
+
+// フォームの送信 (application/x-www-form-urlencoded) だけを受け、本文は検索欄の上限に余裕を持たせた 4 KB までにする。
+// 大きな本文や multipart をメモリに展開しないため。
+const AI_SEARCH_MAX_BODY = 4 * 1024;
+
+app.post(
+  '/ai-search',
+  bodyLimit({ maxSize: AI_SEARCH_MAX_BODY, onError: (c) => c.text('Payload Too Large', 413) }),
+  async (c) => {
+    if (!(c.req.header('Content-Type') ?? '').startsWith('application/x-www-form-urlencoded')) {
+      return c.text('Unsupported Media Type', 415);
+    }
+    const body = await c.req.parseBody();
+    const fromBody = typeof body.lang === 'string' ? LANGS.find((l) => l === body.lang) : undefined;
+    const lang = fromBody ?? c.get('lang');
+    const t = DICTS[lang];
+    // 100 単位目で切ると絵文字などのサロゲートペアが割れ、encodeURIComponent が例外を投げるため、末尾の片割れを落とす。
+    const input =
+      typeof body.q === 'string'
+        ? body.q
+            .trim()
+            .slice(0, AI_SEARCH_MAX_INPUT)
+            .replace(/[\uD800-\uDBFF]$/, '')
+        : '';
+    const catalogUrl = `${c.env.ORIGIN}${withLang('/', lang)}`;
+    const target = aiSearchUrl(t.aiSearchPrompt(catalogUrl, input || t.aiSearchEmpty));
+    c.header('X-Robots-Tag', 'noindex');
+    c.header('Cache-Control', 'no-store');
+    return c.html(<AiSearchRedirect t={t} lang={lang} target={target} />);
+  },
+);
 
 // 収集を防ぐため、アドレスはフォームの送信 (POST) を受けたときだけ、@ を [at] に置き換えて返す。
 // GET は、アドレスを表示したページで言語を切り替えたときに来る。アドレスは返さず、選んだ言語のボタンを返す。
