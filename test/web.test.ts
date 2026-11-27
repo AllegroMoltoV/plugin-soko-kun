@@ -400,6 +400,10 @@ describe('Google の AI で探す', () => {
   it('上部の帯のボタンは、読み上げに正式な文言を使う', async () => {
     const html = await (await SELF.fetch(`${ORIGIN}/about?lang=ja`)).text();
     expect(html).toContain(`aria-label="${escapeHtml(DICTS.ja.aiSearchButton)}"`);
+    // 見せる短い文言を読み上げの名前に含め、音声入力で見えている文言を言っても押せるようにする (WCAG 2.5.3)
+    for (const lang of LANGS) {
+      expect(DICTS[lang].aiSearchButton).toContain(DICTS[lang].aiSearchShort);
+    }
   });
 
   // Google の確認画面が出た質問の URL は 1,911 文字だった。原因は未特定のため、最大の入力での長さを見張る。

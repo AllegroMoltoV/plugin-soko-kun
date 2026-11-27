@@ -397,7 +397,7 @@ const ja: Dict = {
   searchPlaceholder: 'キーワード (例: pitch shift)',
   searchButton: '探す',
   aiSearchButton: 'Google の AI で探す',
-  aiSearchShort: 'Google AI',
+  aiSearchShort: 'Google の AI',
   aiSearchHint:
     '「Google の AI で探す」を押すと、入力した文を Google の AI モードに送り、別のタブで開きます。回答は Google の AI が作るもので、誤ることがあります。',
   aiSearchPrompt: (catalogUrl, input) =>
@@ -1106,7 +1106,7 @@ const ptBR: Dict = {
   searchPlaceholder: 'Palavra-chave (ex.: pitch shift)',
   searchButton: 'Buscar',
   aiSearchButton: 'Buscar com a IA do Google',
-  aiSearchShort: 'Google AI',
+  aiSearchShort: 'IA do Google',
   aiSearchHint:
     'Buscar com a IA do Google envia o que você digitou ao Modo IA do Google e o abre em uma nova aba. A resposta é escrita pela IA do Google e pode estar errada.',
   aiSearchPrompt: (catalogUrl, input) =>
@@ -1285,7 +1285,7 @@ const es419: Dict = {
   searchPlaceholder: 'Palabra clave (p. ej., pitch shift)',
   searchButton: 'Buscar',
   aiSearchButton: 'Buscar con la IA de Google',
-  aiSearchShort: 'Google AI',
+  aiSearchShort: 'IA de Google',
   aiSearchHint:
     'Buscar con la IA de Google envía lo que escribiste al Modo IA de Google y lo abre en una pestaña nueva. La respuesta la escribe la IA de Google y puede ser incorrecta.',
   aiSearchPrompt: (catalogUrl, input) =>
