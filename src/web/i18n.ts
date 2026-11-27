@@ -58,6 +58,18 @@ export interface Dict {
   searchHeading: string;
   searchPlaceholder: string;
   searchButton: string;
+  // 検索欄の文を Google の AI モードに渡すボタン。上部の帯では幅が狭いため短い文言を使う
+  aiSearchButton: string;
+  aiSearchShort: string;
+  // ボタンを押すと何が起きるか。送り先と、回答が誤りうることを利用者に示す
+  aiSearchHint: string;
+  // AI モードに渡す質問の文。入力は用途とは限らないため、利用者の入力としてそのまま渡す
+  aiSearchPrompt: (catalogUrl: string, input: string) => string;
+  // 入力欄が空のときに、利用者の入力の代わりに渡す文
+  aiSearchEmpty: string;
+  // 転送のための応答の本文と、移らないときのリンク
+  aiSearchRedirect: string;
+  aiSearchOpen: string;
   osLabel: string;
   osAll: string;
   categoryLabel: string;
@@ -204,6 +216,15 @@ const en: Dict = {
   searchHeading: 'Find plugins for OBS Studio',
   searchPlaceholder: 'Keyword (e.g. pitch shift)',
   searchButton: 'Search',
+  aiSearchButton: 'Search with Google AI',
+  aiSearchShort: 'Google AI',
+  aiSearchHint:
+    'Search with Google AI sends what you typed to Google AI Mode and opens it in a new tab. The answer is written by Google AI and can be wrong.',
+  aiSearchPrompt: (catalogUrl, input) =>
+    `From the OBS Studio plugins listed on Plugin Soko-kun (${catalogUrl}), tell me which ones match the following input. User input: ${input}`,
+  aiSearchEmpty: '(empty; ask me what I am looking for)',
+  aiSearchRedirect: 'Opening Google AI Mode. If nothing happens, select the link below.',
+  aiSearchOpen: 'Open Google AI Mode',
   osLabel: 'OS',
   osAll: 'All',
   categoryLabel: 'Category',
@@ -375,6 +396,15 @@ const ja: Dict = {
   searchHeading: 'OBS Studio 向けのプラグインを探す',
   searchPlaceholder: 'キーワード (例: pitch shift)',
   searchButton: '探す',
+  aiSearchButton: 'Google の AI で探す',
+  aiSearchShort: 'Google AI',
+  aiSearchHint:
+    '「Google の AI で探す」を押すと、入力した文を Google の AI モードに送り、別のタブで開きます。回答は Google の AI が作るもので、誤ることがあります。',
+  aiSearchPrompt: (catalogUrl, input) =>
+    `配信プラグイン倉庫くん (${catalogUrl}) に掲載されている OBS Studio のプラグインから、次の入力に合うものを教えてください。利用者の入力: ${input}`,
+  aiSearchEmpty: '(空欄です。探したいものを私に尋ねてください)',
+  aiSearchRedirect: 'Google の AI モードへ移動します。移動しないときは、次のリンクを押してください。',
+  aiSearchOpen: 'Google の AI モードを開く',
   osLabel: 'OS',
   osAll: 'すべて',
   categoryLabel: 'カテゴリ',
@@ -546,6 +576,15 @@ const zhHans: Dict = {
   searchHeading: '查找 OBS Studio 插件',
   searchPlaceholder: '关键词（例：pitch shift）',
   searchButton: '搜索',
+  aiSearchButton: '用 Google AI 搜索',
+  aiSearchShort: 'Google AI',
+  aiSearchHint:
+    '点击“用 Google AI 搜索”后，输入的文字会发送到 Google 的 AI 模式，并在新标签页中打开。回答由 Google 的 AI 生成，可能有误。',
+  aiSearchPrompt: (catalogUrl, input) =>
+    `请从 Plugin Soko-kun（${catalogUrl}）收录的 OBS Studio 插件中，告诉我哪些符合以下输入。用户输入：${input}`,
+  aiSearchEmpty: '（空白。请问我想找什么）',
+  aiSearchRedirect: '正在前往 Google 的 AI 模式。如果没有跳转，请点击下面的链接。',
+  aiSearchOpen: '打开 Google 的 AI 模式',
   osAll: '全部',
   categoryLabel: '分类',
   categoryAll: '全部',
@@ -714,6 +753,15 @@ const zhHant: Dict = {
   searchHeading: '尋找 OBS Studio 外掛',
   searchPlaceholder: '關鍵字（例：pitch shift）',
   searchButton: '搜尋',
+  aiSearchButton: '用 Google AI 搜尋',
+  aiSearchShort: 'Google AI',
+  aiSearchHint:
+    '按下「用 Google AI 搜尋」後，輸入的文字會傳送到 Google 的 AI 模式，並在新分頁中開啟。回答由 Google 的 AI 產生，可能有誤。',
+  aiSearchPrompt: (catalogUrl, input) =>
+    `請從 Plugin Soko-kun（${catalogUrl}）收錄的 OBS Studio 外掛中，告訴我哪些符合以下輸入。使用者輸入：${input}`,
+  aiSearchEmpty: '（空白。請問我想找什麼）',
+  aiSearchRedirect: '正在前往 Google 的 AI 模式。如果沒有跳轉，請按下面的連結。',
+  aiSearchOpen: '開啟 Google 的 AI 模式',
   categoryLabel: '分類',
   latest: '最新與更新',
   resultsFor: (q, n) => `「${q}」的搜尋結果：${n} 個`,
@@ -878,6 +926,15 @@ const ko: Dict = {
   searchHeading: 'OBS Studio 플러그인 찾기',
   searchPlaceholder: '키워드 (예: pitch shift)',
   searchButton: '검색',
+  aiSearchButton: 'Google AI로 찾기',
+  aiSearchShort: 'Google AI',
+  aiSearchHint:
+    '“Google AI로 찾기”를 누르면 입력한 글을 Google AI 모드로 보내고 새 탭에서 엽니다. 답변은 Google AI가 작성하며 틀릴 수 있습니다.',
+  aiSearchPrompt: (catalogUrl, input) =>
+    `Plugin Soko-kun(${catalogUrl})에 등록된 OBS Studio 플러그인 중에서 다음 입력에 맞는 것을 알려 주세요. 사용자 입력: ${input}`,
+  aiSearchEmpty: '(비어 있음. 무엇을 찾는지 저에게 물어봐 주세요)',
+  aiSearchRedirect: 'Google AI 모드로 이동합니다. 이동하지 않으면 아래 링크를 누르세요.',
+  aiSearchOpen: 'Google AI 모드 열기',
   osAll: '전체',
   categoryLabel: '카테고리',
   categoryAll: '전체',
@@ -1048,6 +1105,15 @@ const ptBR: Dict = {
   searchHeading: 'Encontre plugins para o OBS Studio',
   searchPlaceholder: 'Palavra-chave (ex.: pitch shift)',
   searchButton: 'Buscar',
+  aiSearchButton: 'Buscar com a IA do Google',
+  aiSearchShort: 'Google AI',
+  aiSearchHint:
+    'Buscar com a IA do Google envia o que você digitou ao Modo IA do Google e o abre em uma nova aba. A resposta é escrita pela IA do Google e pode estar errada.',
+  aiSearchPrompt: (catalogUrl, input) =>
+    `Entre os plugins do OBS Studio listados no Plugin Soko-kun (${catalogUrl}), diga quais combinam com a entrada a seguir. Entrada do usuário: ${input}`,
+  aiSearchEmpty: '(vazio; pergunte o que estou procurando)',
+  aiSearchRedirect: 'Abrindo o Modo IA do Google. Se nada acontecer, selecione o link abaixo.',
+  aiSearchOpen: 'Abrir o Modo IA do Google',
   osAll: 'Todos',
   categoryLabel: 'Categoria',
   categoryAll: 'Todas',
@@ -1218,6 +1284,15 @@ const es419: Dict = {
   searchHeading: 'Encuentra plugins para OBS Studio',
   searchPlaceholder: 'Palabra clave (p. ej., pitch shift)',
   searchButton: 'Buscar',
+  aiSearchButton: 'Buscar con la IA de Google',
+  aiSearchShort: 'Google AI',
+  aiSearchHint:
+    'Buscar con la IA de Google envía lo que escribiste al Modo IA de Google y lo abre en una pestaña nueva. La respuesta la escribe la IA de Google y puede ser incorrecta.',
+  aiSearchPrompt: (catalogUrl, input) =>
+    `Entre los plugins de OBS Studio publicados en Plugin Soko-kun (${catalogUrl}), dime cuáles coinciden con la siguiente entrada. Entrada del usuario: ${input}`,
+  aiSearchEmpty: '(vacío; pregúntame qué estoy buscando)',
+  aiSearchRedirect: 'Abriendo el Modo IA de Google. Si no pasa nada, selecciona el enlace de abajo.',
+  aiSearchOpen: 'Abrir el Modo IA de Google',
   osAll: 'Todos',
   categoryLabel: 'Categoría',
   categoryAll: 'Todas',

@@ -405,6 +405,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'When you sign in to submit a plugin, the service stores your GitHub user ID and login name, and the GitHub access token needed to check your repository permissions, together with the refresh token used to renew it. The tokens are stored encrypted and are used only to check permissions on the repositories you submit.',
             'To limit abuse, the service stores a one-way hash of your IP address for a short time. Browsing the catalog does not require cookies, except one that remembers your language choice.',
+            'Text you send with the Search with Google AI button is not stored by the service. It is passed to Google AI Mode, where the Google Privacy Policy applies.',
           ],
         },
         {
@@ -799,6 +800,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'プラグインを登録するためにサインインすると、このプラットフォームは GitHub のユーザー ID とログイン名と、リポジトリの権限の確認に使う GitHub のアクセストークンと、その更新に使うリフレッシュトークンを保存します。このプラットフォームはトークンを暗号化して保存し、登録したリポジトリの権限の確認にだけ使います。',
             'このプラットフォームは乱用を防ぐため、IP アドレスを一方向のハッシュにして短期間保存します。カタログの閲覧では、選んだ言語を覚える cookie のほかは使いません。',
+            '「Google の AI で探す」のボタンで送った文は、このプラットフォームに保存せず、Google の AI モードへ渡します。Google での扱いには Google のプライバシーポリシーが適用されます。',
           ],
         },
         {
@@ -1180,6 +1182,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '为提交插件而登录时，本服务会保存您的 GitHub 用户 ID 和登录名，以及用于确认仓库权限的 GitHub 访问令牌和用于更新该令牌的刷新令牌。令牌加密保存，仅用于确认您所提交仓库的权限。',
             '为防止滥用，本服务会将 IP 地址进行单向哈希后短期保存。浏览目录时，除记住语言选择的 cookie 外不使用其他 cookie。',
+            '通过“用 Google AI 搜索”按钮发送的文字不会保存在本服务中，而是传给 Google 的 AI 模式，并适用 Google 的隐私政策。',
           ],
         },
         {
@@ -1555,6 +1558,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '為提交外掛而登入時，本服務會保存您的 GitHub 使用者 ID 與登入名稱，以及用於確認儲存庫權限的 GitHub 存取權杖與用於更新該權杖的重新整理權杖。權杖加密保存，僅用於確認您所提交儲存庫的權限。',
             '為防止濫用，本服務會將 IP 位址進行單向雜湊後短期保存。瀏覽目錄時，除記住語言選擇的 cookie 外不使用其他 cookie。',
+            '透過「用 Google AI 搜尋」按鈕送出的文字不會保存在本服務中，而是傳給 Google 的 AI 模式，並適用 Google 的隱私權政策。',
           ],
         },
         {
@@ -1940,6 +1944,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             '플러그인 등록을 위해 로그인하면 GitHub 사용자 ID와 로그인 이름, 저장소 권한 확인에 쓰는 GitHub 액세스 토큰과 그 갱신에 쓰는 리프레시 토큰을 저장합니다. 토큰은 암호화하여 저장하며, 등록한 저장소의 권한 확인에만 사용합니다.',
             '남용을 막기 위해 IP 주소를 단방향 해시로 바꾸어 짧은 기간 저장합니다. 카탈로그 열람에서는 선택한 언어를 기억하는 쿠키 외에는 사용하지 않습니다.',
+            '“Google AI로 찾기” 버튼으로 보낸 글은 이 서비스에 저장하지 않고 Google AI 모드로 전달하며, Google 개인정보처리방침이 적용됩니다.',
           ],
         },
         {
@@ -2336,6 +2341,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Ao entrar para enviar um plugin, o serviço armazena seu ID de usuário e nome de login do GitHub, além do token de acesso do GitHub necessário para verificar as permissões do repositório e do token de atualização usado para renová-lo. Os tokens são armazenados criptografados e usados apenas para verificar permissões nos repositórios que você envia.',
             'Para limitar abusos, o serviço armazena por pouco tempo um hash irreversível do seu endereço IP. Navegar pelo catálogo não usa cookies, exceto um que lembra o idioma escolhido.',
+            'O texto enviado pelo botão Buscar com a IA do Google não é armazenado pelo serviço. Ele é passado ao Modo IA do Google, onde vale a Política de Privacidade do Google.',
           ],
         },
         {
@@ -2735,6 +2741,7 @@ export const PAGES: Record<Lang, Record<PageKey, PageContent>> = {
           paragraphs: [
             'Al iniciar sesión para enviar un plugin, el servicio guarda tu ID de usuario y nombre de inicio de sesión de GitHub, y el token de acceso de GitHub necesario para revisar los permisos del repositorio, junto con el token de actualización usado para renovarlo. Los tokens se guardan cifrados y solo se usan para revisar permisos en los repositorios que envías.',
             'Para limitar abusos, el servicio guarda por poco tiempo un hash irreversible de tu dirección IP. Navegar por el catálogo no usa cookies, salvo una que recuerda el idioma elegido.',
+            'El texto que envías con el botón Buscar con la IA de Google no se guarda en el servicio. Se pasa al Modo IA de Google, donde aplica la Política de Privacidad de Google.',
           ],
         },
         {

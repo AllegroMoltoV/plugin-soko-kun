@@ -176,6 +176,10 @@ form.search .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center
 form.search .row:first-of-type { flex-wrap: nowrap; }
 form.search input[type=search] { flex: 1 1 auto; width: 0; min-width: 0; height: var(--control-height); padding: 0 4px; font-size: 13px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
 form.search button { height: var(--control-height); }
+/* 「Google の AI で探す」の説明。送り先と、回答が誤りうることを示す注記 */
+form.search .ai-search-hint { margin: 4px 0 0; font-size: 11px; }
+header.site .ai-search-long { display: none; }
+.ai-redirect { max-width: 860px; margin: 0 auto; padding: 16px; }
 form.search select { font-size: 12px; max-width: 100%; background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
 
 ol.cards { list-style: none; margin: 0; padding: 0; }
@@ -252,6 +256,11 @@ p.contact-address { font-family: "Courier New", monospace; font-size: 15px; font
   .brand { flex: 1 1 100%; }
   header.site search { flex: 1 1 0; }
   header.site input[type=search] { flex: 1 1 auto; width: 0; }
+  /* 「Google の AI で探す」のボタンを次の行に置き、検索欄の幅を保つ */
+  header.site form, form.search .row:first-of-type { flex-wrap: wrap; }
+  header.site .ai-search, form.search .ai-search { flex: 1 1 100%; }
+  header.site .ai-search-short { display: none; }
+  header.site .ai-search-long { display: inline; }
   details.lang[open] { flex: 1 1 100%; }
   details.lang ul { position: static; min-width: 0; margin-top: 4px; }
   table.info th { width: 6.5rem; }
