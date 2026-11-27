@@ -219,7 +219,7 @@ const en: Dict = {
   aiSearchHint:
     'Search with Google AI sends what you typed to Google AI Mode and opens it in a new tab. The answer is written by Google AI and can be wrong.',
   aiSearchPrompt: (catalogUrl, input) =>
-    `From the OBS Studio plugins listed on Plugin Soko-kun (${catalogUrl}), tell me which ones match the following input. User input: ${input}`,
+    `From the OBS Studio plugins listed on Plugin Soko-kun (${catalogUrl}), tell me which ones match the following input. Include each product's URL in the output. User input: ${input}`,
   aiSearchEmpty: '(empty; ask me what I am looking for)',
   aiSearchRedirect: 'Opening Google AI Mode. If nothing happens, select the link below.',
   aiSearchOpen: 'Open Google AI Mode',
@@ -398,7 +398,7 @@ const ja: Dict = {
   aiSearchHint:
     '「Google AI で検索」を押すと、入力した文を Google の AI モードに送り、別のタブで開きます。回答は Google の AI が作るもので、誤ることがあります。',
   aiSearchPrompt: (catalogUrl, input) =>
-    `配信プラグイン倉庫くん (${catalogUrl}) に掲載されている OBS Studio のプラグインから、次の入力に合うものを教えてください。利用者の入力: ${input}`,
+    `配信プラグイン倉庫くん (${catalogUrl}) に掲載されている OBS Studio のプラグインから、次の入力に合うものを教えてください。出力に製品の URL を含めてください。利用者の入力: ${input}`,
   aiSearchEmpty: '(空欄です。探したいものを私に尋ねてください)',
   aiSearchRedirect: 'Google の AI モードへ移動します。移動しないときは、次のリンクを押してください。',
   aiSearchOpen: 'Google の AI モードを開く',
@@ -577,8 +577,8 @@ const zhHans: Dict = {
   aiSearchHint:
     '点击“用 Google AI 搜索”后，输入的文字会发送到 Google 的 AI 模式，并在新标签页中打开。回答由 Google 的 AI 生成，可能有误。',
   aiSearchPrompt: (catalogUrl, input) =>
-    `请从 Plugin Soko-kun（${catalogUrl}）收录的 OBS Studio 插件中，告诉我哪些符合以下输入。用户输入：${input}`,
-  aiSearchEmpty: '（空白。请问我想找什么）',
+    `请从 Plugin Soko-kun（${catalogUrl}）收录的 OBS Studio 插件中，告诉我哪些符合以下输入。请在输出中包含产品的 URL。用户输入：${input}`,
+  aiSearchEmpty: '（未输入。请先问我想找什么）',
   aiSearchRedirect: '正在前往 Google 的 AI 模式。如果没有跳转，请点击下面的链接。',
   aiSearchOpen: '打开 Google 的 AI 模式',
   osAll: '全部',
@@ -753,8 +753,8 @@ const zhHant: Dict = {
   aiSearchHint:
     '按下「用 Google AI 搜尋」後，輸入的文字會傳送到 Google 的 AI 模式，並在新分頁中開啟。回答由 Google 的 AI 產生，可能有誤。',
   aiSearchPrompt: (catalogUrl, input) =>
-    `請從 Plugin Soko-kun（${catalogUrl}）收錄的 OBS Studio 外掛中，告訴我哪些符合以下輸入。使用者輸入：${input}`,
-  aiSearchEmpty: '（空白。請問我想找什麼）',
+    `請從 Plugin Soko-kun（${catalogUrl}）收錄的 OBS Studio 外掛中，告訴我哪些符合以下輸入。請在輸出中包含產品的 URL。使用者輸入：${input}`,
+  aiSearchEmpty: '（未輸入。請先問我想找什麼）',
   aiSearchRedirect: '正在前往 Google 的 AI 模式。如果沒有跳轉，請按下面的連結。',
   aiSearchOpen: '開啟 Google 的 AI 模式',
   categoryLabel: '分類',
@@ -925,7 +925,7 @@ const ko: Dict = {
   aiSearchHint:
     '“Google AI로 검색”을 누르면 입력한 글을 Google AI 모드로 보내고 새 탭에서 엽니다. 답변은 Google AI가 작성하며 틀릴 수 있습니다.',
   aiSearchPrompt: (catalogUrl, input) =>
-    `Plugin Soko-kun(${catalogUrl})에 등록된 OBS Studio 플러그인 중에서 다음 입력에 맞는 것을 알려 주세요. 사용자 입력: ${input}`,
+    `Plugin Soko-kun(${catalogUrl})에 등록된 OBS Studio 플러그인 중에서 다음 입력에 맞는 것을 알려 주세요. 출력에 제품 URL을 포함해 주세요. 사용자 입력: ${input}`,
   aiSearchEmpty: '(비어 있음. 무엇을 찾는지 저에게 물어봐 주세요)',
   aiSearchRedirect: 'Google AI 모드로 이동합니다. 이동하지 않으면 아래 링크를 누르세요.',
   aiSearchOpen: 'Google AI 모드 열기',
@@ -1103,7 +1103,7 @@ const ptBR: Dict = {
   aiSearchHint:
     'Buscar com a IA do Google envia o que você digitou ao Modo IA do Google e o abre em uma nova aba. A resposta é escrita pela IA do Google e pode estar errada.',
   aiSearchPrompt: (catalogUrl, input) =>
-    `Entre os plugins do OBS Studio listados no Plugin Soko-kun (${catalogUrl}), diga quais combinam com a entrada a seguir. Entrada do usuário: ${input}`,
+    `Entre os plugins do OBS Studio listados no Plugin Soko-kun (${catalogUrl}), diga quais combinam com a entrada a seguir. Inclua a URL de cada produto na resposta. Entrada do usuário: ${input}`,
   aiSearchEmpty: '(vazio; pergunte o que estou procurando)',
   aiSearchRedirect: 'Abrindo o Modo IA do Google. Se nada acontecer, selecione o link abaixo.',
   aiSearchOpen: 'Abrir o Modo IA do Google',
@@ -1281,7 +1281,7 @@ const es419: Dict = {
   aiSearchHint:
     'Buscar con la IA de Google envía lo que escribiste al Modo IA de Google y lo abre en una pestaña nueva. La respuesta la escribe la IA de Google y puede ser incorrecta.',
   aiSearchPrompt: (catalogUrl, input) =>
-    `Entre los plugins de OBS Studio publicados en Plugin Soko-kun (${catalogUrl}), dime cuáles coinciden con la siguiente entrada. Entrada del usuario: ${input}`,
+    `Entre los plugins de OBS Studio publicados en Plugin Soko-kun (${catalogUrl}), dime cuáles coinciden con la siguiente entrada. Incluye la URL de cada producto en la respuesta. Entrada del usuario: ${input}`,
   aiSearchEmpty: '(vacío; pregúntame qué estoy buscando)',
   aiSearchRedirect: 'Abriendo el Modo IA de Google. Si no pasa nada, selecciona el enlace de abajo.',
   aiSearchOpen: 'Abrir el Modo IA de Google',

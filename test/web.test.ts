@@ -354,7 +354,12 @@ describe('Google AI で検索', () => {
       expect(refresh.href).toBe(link.href);
       expect(refresh.origin + refresh.pathname).toBe('https://www.google.com/search');
       expect(refresh.searchParams.get('udm')).toBe('50');
-      expect(refresh.searchParams.get('q')).toBe(t.aiSearchPrompt(`${ORIGIN}/?lang=${lang}`, '音量 balance'));
+      expect(refresh.searchParams.get('q')).toBe(t.aiSearchPrompt(`${ORIGIN}/`, '音量 balance'));
+      // カタログの URL にクエリを付けず、製品の URL を回答に含めるよう頼む (依頼者 2026-11-27)
+      expect(refresh.searchParams.get('q')).not.toContain('?lang=');
+      // 英語の文の ' は %27 に符号化し、meta refresh の URL に引用符を残さない
+      expect(html).not.toContain('&#39;');
+      expect(t.aiSearchPrompt('CATALOG', 'INPUT')).toMatch(/URL.*INPUT$/s);
       expect(html).toContain(escapeHtml(t.aiSearchRedirect));
     }
   });
@@ -363,17 +368,17 @@ describe('Google AI で検索', () => {
   it('Cookie が無いときも、フォームの lang の言語で質問の文を組み立てる', async () => {
     const response = await postAiSearch({ lang: 'ko', q: 'mosaic' }, { headers: { 'Accept-Language': 'en' } });
     const { refresh } = targetsOf(await response.text());
-    expect(refresh.searchParams.get('q')).toBe(DICTS.ko.aiSearchPrompt(`${ORIGIN}/?lang=ko`, 'mosaic'));
+    expect(refresh.searchParams.get('q')).toBe(DICTS.ko.aiSearchPrompt(`${ORIGIN}/`, 'mosaic'));
   });
 
   it('入力は 100 文字で切り、空のときは探したいものを尋ねるよう伝える', async () => {
     const long = await postAiSearch({ lang: 'ja', q: 'あ'.repeat(150) });
     expect(targetsOf(await long.text()).refresh.searchParams.get('q')).toBe(
-      DICTS.ja.aiSearchPrompt(`${ORIGIN}/?lang=ja`, 'あ'.repeat(100)),
+      DICTS.ja.aiSearchPrompt(`${ORIGIN}/`, 'あ'.repeat(100)),
     );
     const empty = await postAiSearch({ lang: 'ja', q: '   ' });
     expect(targetsOf(await empty.text()).refresh.searchParams.get('q')).toBe(
-      DICTS.ja.aiSearchPrompt(`${ORIGIN}/?lang=ja`, DICTS.ja.aiSearchEmpty),
+      DICTS.ja.aiSearchPrompt(`${ORIGIN}/`, DICTS.ja.aiSearchEmpty),
     );
   });
 
@@ -382,7 +387,7 @@ describe('Google AI で検索', () => {
     const response = await postAiSearch({ lang: 'en', q: `${'a'.repeat(99)}😀` });
     expect(response.status).toBe(200);
     expect(targetsOf(await response.text()).refresh.searchParams.get('q')).toBe(
-      DICTS.en.aiSearchPrompt(`${ORIGIN}/?lang=en`, 'a'.repeat(99)),
+      DICTS.en.aiSearchPrompt(`${ORIGIN}/`, 'a'.repeat(99)),
     );
   });
 
