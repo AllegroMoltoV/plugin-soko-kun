@@ -58,9 +58,8 @@ export interface Dict {
   searchHeading: string;
   searchPlaceholder: string;
   searchButton: string;
-  // 検索欄の文を Google の AI モードに渡すボタン。上部の帯では幅が狭いため短い文言を使う
+  // 検索欄の文を Google の AI モードに渡すボタン
   aiSearchButton: string;
-  aiSearchShort: string;
   // ボタンを押すと何が起きるか。送り先と、回答が誤りうることを利用者に示す
   aiSearchHint: string;
   // AI モードに渡す質問の文。入力は用途とは限らないため、利用者の入力としてそのまま渡す
@@ -217,7 +216,6 @@ const en: Dict = {
   searchPlaceholder: 'Keyword (e.g. pitch shift)',
   searchButton: 'Search',
   aiSearchButton: 'Search with Google AI',
-  aiSearchShort: 'Google AI',
   aiSearchHint:
     'Search with Google AI sends what you typed to Google AI Mode and opens it in a new tab. The answer is written by Google AI and can be wrong.',
   aiSearchPrompt: (catalogUrl, input) =>
@@ -395,11 +393,10 @@ const ja: Dict = {
   noticeShort: 'このプラットフォームは非公式で、各プラグインの安全性を保証しないので、注意して利用してください。',
   searchHeading: 'OBS Studio 向けのプラグインを探す',
   searchPlaceholder: 'キーワード (例: pitch shift)',
-  searchButton: '探す',
-  aiSearchButton: 'Google の AI で探す',
-  aiSearchShort: 'Google の AI',
+  searchButton: '検索',
+  aiSearchButton: 'Google AI で検索',
   aiSearchHint:
-    '「Google の AI で探す」を押すと、入力した文を Google の AI モードに送り、別のタブで開きます。回答は Google の AI が作るもので、誤ることがあります。',
+    '「Google AI で検索」を押すと、入力した文を Google の AI モードに送り、別のタブで開きます。回答は Google の AI が作るもので、誤ることがあります。',
   aiSearchPrompt: (catalogUrl, input) =>
     `配信プラグイン倉庫くん (${catalogUrl}) に掲載されている OBS Studio のプラグインから、次の入力に合うものを教えてください。利用者の入力: ${input}`,
   aiSearchEmpty: '(空欄です。探したいものを私に尋ねてください)',
@@ -577,7 +574,6 @@ const zhHans: Dict = {
   searchPlaceholder: '关键词（例：pitch shift）',
   searchButton: '搜索',
   aiSearchButton: '用 Google AI 搜索',
-  aiSearchShort: 'Google AI',
   aiSearchHint:
     '点击“用 Google AI 搜索”后，输入的文字会发送到 Google 的 AI 模式，并在新标签页中打开。回答由 Google 的 AI 生成，可能有误。',
   aiSearchPrompt: (catalogUrl, input) =>
@@ -754,7 +750,6 @@ const zhHant: Dict = {
   searchPlaceholder: '關鍵字（例：pitch shift）',
   searchButton: '搜尋',
   aiSearchButton: '用 Google AI 搜尋',
-  aiSearchShort: 'Google AI',
   aiSearchHint:
     '按下「用 Google AI 搜尋」後，輸入的文字會傳送到 Google 的 AI 模式，並在新分頁中開啟。回答由 Google 的 AI 產生，可能有誤。',
   aiSearchPrompt: (catalogUrl, input) =>
@@ -926,10 +921,9 @@ const ko: Dict = {
   searchHeading: 'OBS Studio 플러그인 찾기',
   searchPlaceholder: '키워드 (예: pitch shift)',
   searchButton: '검색',
-  aiSearchButton: 'Google AI로 찾기',
-  aiSearchShort: 'Google AI',
+  aiSearchButton: 'Google AI로 검색',
   aiSearchHint:
-    '“Google AI로 찾기”를 누르면 입력한 글을 Google AI 모드로 보내고 새 탭에서 엽니다. 답변은 Google AI가 작성하며 틀릴 수 있습니다.',
+    '“Google AI로 검색”을 누르면 입력한 글을 Google AI 모드로 보내고 새 탭에서 엽니다. 답변은 Google AI가 작성하며 틀릴 수 있습니다.',
   aiSearchPrompt: (catalogUrl, input) =>
     `Plugin Soko-kun(${catalogUrl})에 등록된 OBS Studio 플러그인 중에서 다음 입력에 맞는 것을 알려 주세요. 사용자 입력: ${input}`,
   aiSearchEmpty: '(비어 있음. 무엇을 찾는지 저에게 물어봐 주세요)',
@@ -1106,7 +1100,6 @@ const ptBR: Dict = {
   searchPlaceholder: 'Palavra-chave (ex.: pitch shift)',
   searchButton: 'Buscar',
   aiSearchButton: 'Buscar com a IA do Google',
-  aiSearchShort: 'IA do Google',
   aiSearchHint:
     'Buscar com a IA do Google envia o que você digitou ao Modo IA do Google e o abre em uma nova aba. A resposta é escrita pela IA do Google e pode estar errada.',
   aiSearchPrompt: (catalogUrl, input) =>
@@ -1285,7 +1278,6 @@ const es419: Dict = {
   searchPlaceholder: 'Palabra clave (p. ej., pitch shift)',
   searchButton: 'Buscar',
   aiSearchButton: 'Buscar con la IA de Google',
-  aiSearchShort: 'IA de Google',
   aiSearchHint:
     'Buscar con la IA de Google envía lo que escribiste al Modo IA de Google y lo abre en una pestaña nueva. La respuesta la escribe la IA de Google y puede ser incorrecta.',
   aiSearchPrompt: (catalogUrl, input) =>
